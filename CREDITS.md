@@ -155,6 +155,12 @@ bosque encantado del "entorno vivo" (`assets/env/atlas.png`) salen de estas hoja
 - El susto del espejo usa un fotograma de la escena del Mundo Distorsión de
   *Pokémon Platino* (Nintendo / Creatures Inc. / GAME FREAK), aportado por
   DexterDamg; la silueta del espejo y del final está recortada de ese fotograma.
+- Helechos, helecho común, juncos, piedras con musgo, hojarasca, rama caída,
+  hiedra, anémonas, campanillas, santuario de piedra, piedra rúnica, mojón,
+  cresta rocosa, lianas y quemaduras del suelo del Bosque Umbrío: dibujados
+  para PokéSurvivor+ con la paleta de las hojas del bosque. El suelo, el agua,
+  el barro y la orilla del Bosque Umbrío se pintan en el propio juego
+  (`js/ai/34-forest.js`).
   *(Falta indicar aquí el autor original de cada una de estas hojas.)*
 
 Los sonidos de ambiente (pájaros, grillos, lluvia, viento, truenos, caja de

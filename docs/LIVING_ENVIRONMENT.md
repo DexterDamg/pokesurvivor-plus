@@ -89,8 +89,9 @@ dwellers instead of random picks:
 ## Weather with consequences (`36-sky.js`, `39-decor.js`, `62-envbeh.js`)
 
 The sky drifts between patterns (clear, fair, cloudy, drizzle, rain, storm, mist, fog, dense fog,
-breezy, gale) through gradual transitions. The sky drives the game's own weather events (rain,
-storm, fog, wind, snow), so the gameplay effects and the look always agree.
+breezy, gale) through gradual transitions. The living sky is purely atmospheric: the game's own
+weather and terrain events (type boosts such as Misty Terrain, their banners and the HUD pill) are
+switched off (setting `gameWeather` turns them back on).
 
 - **Weather lasts.** Each pattern settles in for minutes: clear 6–12 min, cloudy 5–10, drizzle
   4–8, heavy rain 3–7, fog 5–9, storm 4–8 (setting `weatherDuration` scales them all). It changes
@@ -165,7 +166,8 @@ height (stature) and weight (bulk):
 - Individuals vary a little (about ±6%), bosses and Legendaries are a touch larger (×1.12), and
   your partner is scaled more gently (visual only).
 - Collision grows moderately with size (between ×0.8 and ×1.35), so combat stays fair.
-  Shadows, bubbles, health bars and name tags follow the scaled body.
+  Shadows, bubbles and name tags follow the scaled body (wild Pokémon no longer show health
+  bars; see [SHADY_FOREST.md](SHADY_FOREST.md)).
 - Setting: `speciesScale`.
 
 ## Encounters you earn (`91-progress.js`)

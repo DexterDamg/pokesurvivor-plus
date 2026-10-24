@@ -280,7 +280,11 @@
     const ch = CH();
     for (let cy = Math.floor(y0 / ch); cy <= Math.floor(y1 / ch); cy++)
       for (let cx = Math.floor(x0 / ch); cx <= Math.floor(x1 / ch); cx++)
+      {
         for (const it of chunk(cx, cy)) if (it.x >= x0 && it.x <= x1 && it.y >= y0 && it.y <= y1) out.push(it);
+        const fx = fixed.get(cx + ',' + cy);
+        if (fx) for (const it of fx) if (it.x >= x0 && it.x <= x1 && it.y >= y0 && it.y <= y1) out.push(it);
+      }
     if (trail) for (const it of trail.items) if (it.x >= x0 && it.x <= x1 && it.y >= y0 && it.y <= y1) out.push(it);
     if (cave && cave.x >= x0 && cave.x <= x1 && cave.y >= y0 && cave.y <= y1) out.push(cave);
     for (const it of dyn) if (it.x >= x0 && it.x <= x1 && it.y >= y0 && it.y <= y1) out.push(it);
@@ -310,7 +314,8 @@
         break;
       }
       case 'stump': sh = { r: 11 * s }; break;
-      case 'stone': sh = { r: 8 * s }; break;
+      case 'stone': sh = { r: (it.r || 8) * s }; break;
+      case 'ridge': { const w = AI.Art && AI.Art.ready ? AI.Art.size(it.n)[0] * s : 200; sh = { rect: [it.x - w * 0.45, it.y - 30, it.x + w * 0.45, it.y + 2] }; break; }
       case 'grave': case 'gargoyle': case 'gpillar': sh = it.r ? { r: Math.max(7, it.r) } : null; break;
       case 'cave': sh = { r: 30 }; break;
       case 'lamp': case 'sign': sh = { r: 6 }; break;
@@ -417,6 +422,9 @@
   function nibble(it) { nibbled.add(it.id); }
   function isNibbled(it) { return nibbled.has(it.id); }
   function addDyn(o) { const it = item(o); dyn.push(it); if (dyn.length > 60) dyn.shift(); return it; }
+  // permanent additions for this run (the forest's mysteries dress their sites with these)
+  const fixed = new Map();
+  function addFixed(o) { const it = item(o); const ch = CH(), k = Math.floor(it.x / ch) + ',' + Math.floor(it.y / ch); (fixed.get(k) || fixed.set(k, []).get(k)).push(it); return it; }
   function removeDyn(it) { const i = dyn.indexOf(it); if (i >= 0) dyn.splice(i, 1); }
 
   // ---------------------------------------------------------------- lanterns & upkeep
@@ -475,7 +483,7 @@
 
   function reset(s) {
     seed = (s | 0) || ((Math.random() * 1e9) | 0);
-    chunks.clear(); dyn.length = 0; prints.length = 0; mud.clear(); ripples.length = 0;
+    chunks.clear(); dyn.length = 0; fixed.clear(); prints.length = 0; mud.clear(); ripples.length = 0;
     nibbled.clear(); shake.clear(); visitedPatches.clear();
     nextId = 1;
     trail = null; cave = null;
@@ -486,7 +494,7 @@
 
   AI.define('Decor', {
     reset, ensure, tick, chunk, inRect, near, lights, trailZone, footprint, mudAt, trample, puddleAmt, puddlesIn, puddleAt,
-    ripple, ripples, prints, rustle, shakeOf, shakeProp, nibble, isNibbled, addDyn, removeDyn, flame, checkPatch,
+    ripple, ripples, prints, rustle, shakeOf, shakeProp, nibble, isNibbled, addDyn, addFixed, removeDyn, flame, checkPatch,
     mansionGeom, solidOf, solidsIn, collide, blocked, get trail() { return trail; }, get cave() { return cave; }, get seed() { return seed; },
   });
 })();

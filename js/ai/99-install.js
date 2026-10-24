@@ -216,7 +216,7 @@
     const oSay = R.Spawner.say;
     let quiet = 0;
     R.Spawner.say = function () { if (AI.enabled && AI.cfg.announce !== true && quiet > 0 && !AI.sayOK) return; return oSay.apply(this, arguments); };
-    AI.say = function (text, dur, prio) { AI.sayOK = true; try { return oSay.call(R.Spawner, text, dur, prio); } finally { AI.sayOK = false; } };
+    AI.say = function (text, dur, prio) { AI.sayOK = true; try { return R.Spawner.say.call(R.Spawner, text, dur, prio); } finally { AI.sayOK = false; } };
     for (const [obj, k] of [[R.Events, 'update'], [R.Spawner, 'update'], [R.Spawner, 'burst'], [R.EnemyMgr, 'update'], [R.Crystal, 'update']]) {
       const o = obj && obj[k];
       if (typeof o !== 'function') continue;
@@ -265,6 +265,7 @@
     R.HUD.draw = function (ctx, w, h) {
       const r = oHud.apply(this, arguments);
       if (AI.enabled) try { AI.Player.drawHud(ctx); AI.Light.drawClock(ctx); AI.Render.drawDebugHud(ctx, w, h); } catch (e) { AI.warn('hud', e); }
+      if (AI.enabled) try { AI.Mysteries.drawScreen(ctx, w, h); } catch (e) { AI.warn('myst-hud', e); }
       if (AI.enabled) try { AI.Haunt.drawScreen(ctx, w, h); AI.Mansion.drawScreen(ctx, w, h); AI.Story.drawScreen(ctx, w, h); } catch (e) { AI.warn('mansion-hud', e); }
       return r;
     };
@@ -357,6 +358,7 @@
         AI.Sky.tick(dt);
         AI.Decor.tick(dt);
         AI.Forest.tick(dt);
+        AI.Mysteries.tick(dt);
         AI.Areas.tick(dt);
         AI.EnvBeh.tick(dt);
         AI.Lore.tick(dt);
@@ -388,7 +390,7 @@
     // ------------------------------------------------------------ new run → fresh world
     const oWR = R.World.reset;
     R.World.reset = function (seed) {
-      try { resetWorld(); AI.Decor.reset(seed); AI.Forest.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); AI.Player.lanternToggle = null; } catch (e) { AI.warn('reset', e); }
+      try { resetWorld(); AI.Decor.reset(seed); AI.Forest.reset(); AI.Mysteries.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); AI.Player.lanternToggle = null; } catch (e) { AI.warn('reset', e); }
       return oWR.apply(this, arguments);
     };
     function resetWorld() {

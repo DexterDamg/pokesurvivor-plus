@@ -333,5 +333,23 @@
     } else tuneI = 0;
   }
 
-  AI.define('Ambience', { start, tick, chirp, hoot, thunder, rumble, rustle, splash, squelch, snore, cry, flutter, creak, branch, musicBox, mansion, get ctx() { return ctx; } });
+  // water lapping at a shore
+  function lap(x, y) { if (!ok()) return; const [pan, v] = where(x, y); if (v > 0.2) { burst('lowpass', 700, 0.9, 0.5, 0.025 * v, pan, false, 0, 0.12); burst('bandpass', 1800, 1.5, 0.25, 0.01 * v, pan, false, 0.2, 0.05); } }
+  // the forest's mysteries
+  function myst(name, x, y) {
+    if (!ok()) return;
+    const [pan, v0] = x != null ? where(x, y) : [0, 1];
+    const v = Math.max(0.3, v0);
+    switch (name) {
+      case 'chime': [1568, 1976, 2349, 2637].forEach((f, i) => tone('sine', f, f * 1.003, 1.4, 0.022 * v, pan, true, i * 0.12)); break;
+      case 'roar': burst('lowpass', 260, 2, 1.6, 0.16 * v, pan, true, 0, 0.12); tone('sawtooth', 110, 60, 1.4, 0.05 * v, pan, true); break;
+      case 'gallop': for (let i = 0; i < 10; i++) burst('lowpass', 300, 1.5, 0.08, 0.05 * v * (1 - i / 12), pan, true, i * 0.16 + (i % 2) * 0.06, 0.003); break;
+      case 'drone': tone('sine', 55, 52, 3.5, 0.06 * v, pan, true); tone('sine', 82, 79, 3.5, 0.03 * v, pan, true, 0.4); break;
+      case 'shimmer': [880, 1320, 1760].forEach((f, i) => tone('triangle', f, f * 1.01, 1.8, 0.012 * v, pan, true, i * 0.2)); break;
+      case 'leaves': for (let i = 0; i < 5; i++) burst('bandpass', 2800, 0.7, 0.2, 0.05 * v, pan, false, i * 0.09); break;
+      case 'call': tone('square', 330, 520, 0.25, 0.02 * v, pan, true); tone('square', 520, 300, 0.3, 0.02 * v, pan, true, 0.3); break;
+      case 'note': tone('sine', 660, 880, 0.5, 0.025 * v, pan, true); break;
+    }
+  }
+  AI.define('Ambience', { start, tick, chirp, hoot, thunder, rumble, rustle, splash, squelch, snore, cry, flutter, creak, branch, musicBox, mansion, lap, myst, get ctx() { return ctx; } });
 })();

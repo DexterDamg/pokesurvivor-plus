@@ -31,6 +31,7 @@
       };
       const e = new R.Enemy(def, (o.x != null ? o.x : p.x + (o.dx != null ? o.dx : 160)), (o.y != null ? o.y : p.y + (o.dy || 0)), { hp: 1, spd: 1, dmg: 1 });
       if (o.temp) e.psxForceTemp = o.temp;
+      e.psxPlaced = !o.natural; // (placed by hand: not moved out of water it couldn't be in)
       R.EnemyMgr.add(e);
       AI.Brain.init(e);
       const s = e.psx;

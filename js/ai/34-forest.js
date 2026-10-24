@@ -210,13 +210,14 @@
     for (const o of p.ponds) wet = Math.max(wet, U.clamp(1 - (Math.hypot(x - o.x, y - o.y) - o.R) / 220, 0, 1) * 0.9);
     R0.wet = wet;
     let cl = 0;
-    for (const c of p.clearings) { const d = Math.hypot(x - c.x, y - c.y); if (d < c.r) cl = Math.max(cl, sm(c.r, c.r * 0.55, d)); }
+    // (clearings have ragged edges, not neat circles)
+    for (const c of p.clearings) { let d = Math.hypot(x - c.x, y - c.y); if (d < c.r * 1.5) { d *= 1 + (vn(x / 70, y / 70, s + 29) - 0.5) * 0.7; if (d < c.r) cl = Math.max(cl, sm(c.r, c.r * 0.45, d)); } }
     R0.clear = cl;
     R0.site = null; R0.siteK = 0;
     for (const id in p.sites) {
       const st = p.sites[id];
-      const d = Math.hypot(x - st.x, y - st.y);
-      if (d < st.r * 1.25) { const k = sm(st.r * 1.25, st.r * 0.8, d); if (k > R0.siteK) { R0.siteK = k; R0.site = id; } }
+      let d = Math.hypot(x - st.x, y - st.y);
+      if (d < st.r * 1.6) { d *= 1 + (vn(x / 80, y / 80, s + 37) - 0.5) * 0.5; if (d < st.r * 1.25) { const k = sm(st.r * 1.25, st.r * 0.8, d); if (k > R0.siteK) { R0.siteK = k; R0.site = id; } } }
     }
     return R0;
   }
@@ -237,11 +238,13 @@
     if (pathDist(x, y) < 18) return -1;
     const r = region(x, y);
     if (r.siteK > 0.2 || r.clear > 0.35) return -1;
-    const c = r.grove > 0.5 || r.deep > 0.5 ? 4 : r.wet > 0.6 ? 6 : 5;
+    // one grid for the whole forest (so neighbouring regions never crowd each other); the region
+    // decides how many of its cells grow a tree
+    const c = 4;
     const cx = Math.floor(tx / c), cy = Math.floor(ty / c);
     const ox = Math.floor(U.hash(cx, cy, p.seed + 81) * (c - 1)), oy = Math.floor(U.hash(cx, cy, p.seed + 82) * (c - 1));
     if (((tx % c) + c) % c !== ox || ((ty % c) + c) % c !== oy) return -1;
-    const dens = (0.62 + r.grove * 0.25 + r.deep * 0.3 - r.wet * 0.25 - r.clear * 0.6 + (vn(x / 400, y / 400, p.seed + 84) - 0.5) * 0.5) * (AI.cfg.treeDensity == null ? 1 : AI.cfg.treeDensity);
+    const dens = (0.4 + r.grove * 0.38 + r.deep * 0.42 - r.wet * 0.2 - r.clear * 0.6 + (vn(x / 400, y / 400, p.seed + 84) - 0.5) * 0.4) * (AI.cfg.treeDensity == null ? 1 : AI.cfg.treeDensity);
     return U.hash(cx, cy, p.seed + 83) < dens ? 2 : -1;
   }
   // the game's tall-grass props: only where they belong
@@ -320,9 +323,15 @@
     const SITE = { celebi: PAL.gold, darkrai: PAL.ash, cresselia: PAL.silver, shaymin: PAL.clear, virizion: PAL.clear, zarude: PAL.jungle, raikou: PAL.grove, spectrier: PAL.violet, suicune: PAL.wet };
     const mask = new Uint8Array(N * N);
     let anyWater = false;
-    for (let ty = 0; ty < N; ty++) for (let tx = 0; tx < N; tx++) {
+    const rowT = [];
+    for (let ty = 0; ty < N; ty++) {
+      // (only the trees whose shade reaches this row)
+      rowT.length = 0;
+      const wyr = y0 + ty * TEX;
+      for (const tr of trunks) if (Math.abs(wyr - tr.y + 6) * 1.7 < 65) rowT.push(tr);
+      for (let tx = 0; tx < N; tx++) {
       const gx = (tx * TEX) / G, gy = (ty * TEX) / G;
-      const wx = x0 + tx * TEX, wy = y0 + ty * TEX;
+      const wx = x0 + tx * TEX, wy = wyr;
       const i = ty * N + tx;
       const hsh = U.hash(wx >> 1, wy >> 1, s + 61);
       // a clumpy threshold: blends between surfaces break up into natural tufts, not a dot pattern
@@ -374,7 +383,7 @@
         if (shore < 4) col = lerp3(PAL.mud[0], [16, 24, 26], 0.4);
       }
       // under the canopy: darker, with fallen leaves
-      for (const tr of trunks) {
+      for (const tr of rowT) {
         const dx = wx - tr.x, dy = (wy - tr.y + 6) * 1.7;
         const d2 = dx * dx + dy * dy;
         if (d2 < 4200) {
@@ -385,6 +394,7 @@
       }
       if (hsh < 0.025) col = lerp3(col, [110, 150, 80], 0.22);
       put(i, col);
+      }
     }
     g.putImageData(img, 0, 0);
     // a water mask (for reflections) at the same resolution
@@ -408,7 +418,7 @@
     c = buildChunk(cx, cy);
     c.used = AI.frame;
     chunks.set(k, c);
-    if (chunks.size > 48) {
+    if (chunks.size > 64) {
       let old = null, ou = Infinity;
       for (const [kk, v] of chunks) if (v.used < ou) { ou = v.used; old = kk; }
       if (old) chunks.delete(old);
@@ -430,7 +440,7 @@
     ctx.imageSmoothingEnabled = false;
     for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) {
       let c = getChunk(cx, cy, false);
-      if (!c && (builds < 3 || !AI.installedFrame)) { c = getChunk(cx, cy, true); builds++; }
+      if (!c) { c = getChunk(cx, cy, true); builds++; }
       if (c) {
         // one world pixel of overlap: no hairline seams between chunks at any zoom
         ctx.drawImage(c.cv, cx * CH, cy * CH, CH + 1, CH + 1);
@@ -438,6 +448,10 @@
       } else { ctx.fillStyle = '#2a4c2e'; ctx.fillRect(cx * CH, cy * CH, CH + 1, CH + 1); }
     }
     ctx.restore();
+    // paint one chunk just outside the view ahead of time, so walking never waits for one
+    if (!builds && AI.frame % 6 === 0) {
+      outer: for (let cy = r0 - 1; cy <= r1 + 1; cy++) for (let cx = c0 - 1; cx <= c1 + 1; cx++) if (!chunks.has(chunkKey(cx, cy))) { getChunk(cx, cy, true); break outer; }
+    }
     if (vis.some((v) => v[2].water)) drawWater(ctx, vis, x0, y0, x1, y1);
   }
   // the living water: reflections, a shimmer, moonlight, mist
@@ -559,9 +573,9 @@
     const k = (x >> 7) + ',' + (y >> 7);
     let v = shadeCache.get(k);
     if (v != null) return v;
-    const r = region(x, y);
     let n = 0;
     try { for (const pr of AI.R.World.propsInCircle(x, y, 120)) if (pr.type === 'tree') n++; } catch (e) { /* ignore */ }
+    const r = region(x, y);
     v = U.clamp(0.15 + n * 0.08 + r.grove * 0.25 + r.deep * 0.35 - r.clear * 0.6 - (water(x, y).e > 0 ? 0.4 : 0), 0, 0.85);
     if (r.site === 'celebi') v *= 1 - r.siteK; // the sanctuary: open to the sky
     if (r.site === 'darkrai') v = Math.max(v, 0.6 + 0.35 * r.siteK);
@@ -693,7 +707,7 @@
   // a wild Pokémon may not appear in water it couldn't be in: it's moved to the nearest place that
   // suits it (the shore for walkers, the water for fish), or doesn't appear at all
   function spawnOk(e) {
-    if (!on() || !e || e.dex == null) return true;
+    if (!on() || !e || e.dex == null || e.psxPlaced) return true;
     const l = locomotion(e.dex);
     const fits = (x, y) => { const d = depthClass(x, y); return l === 'swim' ? d > 0 : l === 'walk' ? d < 2 : true; };
     if (fits(e.x, e.y)) return true;
@@ -728,11 +742,14 @@
     const list = r.deep > 0.55 ? KIND.deep : r.grove > 0.55 ? KIND.grove : r.wet > 0.6 ? KIND.wet : KIND.outer;
     const d = dmin == null ? 999 : dmin;
     // ancient landmark trees: mostly in the old groves, very rarely anywhere else
-    if (sizes && d > 150 && (r.grove > 0.6 ? h < 0.07 : h < 0.012)) return { n: pickL(KIND.giant, 4244), s: 1.5, stage: 'ancient' };
+    if (sizes && d > 175 && (r.grove > 0.6 ? h < 0.07 : h < 0.012)) return { n: pickL(KIND.giant, 4244), s: 1.5, stage: 'ancient' };
     if (sizes && h < 0.2 && d > 110) { const big = list.filter((n) => hOf(n) >= 48); return { n: pickL(big.length ? big : list, 4245), s: 1.5, stage: 'large' }; }
-    if (!sizes || d > 64) return { n: pickL(list, 4246), s: 1, stage: 'mature' };
-    if (d > 38) { const yg = list.filter((n) => hOf(n) < 52); return { n: pickL(yg.length ? yg : KIND.young, 4247), s: 1, stage: 'young' }; }
-    return { n: pickL(KIND.young, 4248), s: 1, stage: 'sapling' };
+    // the spacing is even, so younger trees come by chance: a share of saplings and young trees
+    // growing up between the mature ones
+    const young = list.filter((n) => hOf(n) < 52);
+    if (sizes && (d <= 38 || h > 0.9)) return { n: pickL(KIND.young, 4248), s: 1, stage: 'sapling' };
+    if (sizes && (d <= 64 || h > 0.76)) return { n: pickL(young.length ? young : KIND.young, 4247), s: 1, stage: 'young' };
+    return { n: pickL(list, 4246), s: 1, stage: 'mature' };
   }
   // the game's undergrowth props, in woodland greens
   const UNDER = ['tuft_1', 'tuft_5', 'tuftlow_1', 'w_fern_a', 'w_fern_b', 'w_bracken', 'fern', 'bushtiny_10', 'bushtiny_11', 'bushball_10', 'bushball_11', 'tuft_1', 'w_fern_c'];
@@ -753,7 +770,8 @@
     const N = 46;
     for (let n = 0; n < N; n++) {
       const x = x0 + ((n % 7) + R()) * (ch / 7), y = y0 + (((n / 7) | 0) + R()) * (ch / 7);
-      const w = water(x, y);
+      // (copies: checking free space below can generate terrain, which reuses these scratch objects)
+      const w = Object.assign({}, water(x, y));
       const r1 = R(), r2 = R(), f = R() < 0.5;
       if (w.e > 0) {
         // lily pads float in the calm shallows
@@ -763,7 +781,7 @@
         continue;
       }
       if (pathDist(x, y) < 10) { if (r1 < 0.25) push({ k: 'litter', n: r2 < 0.5 ? 'w_litter_a' : 'w_litter_b', x, y, s: 0.8, f, flat: true }); continue; }
-      const r = region(x, y);
+      const r = Object.assign({}, region(x, y));
       if (r.siteK > 0.3) continue; // the mysteries' sites dress themselves
       const shore = -w.e;
       if (shore < 46) {
@@ -791,7 +809,7 @@
         else if (k < 0.57) push({ k: 'stone', n: r2 < 0.5 ? 'w_moss_stone_a' : 'w_moss_stone_b', x, y, s: 0.8 + R() * 0.3, f, r: 9 });
         else if (k < 0.67) push({ k: 'mush', n: ['mushroom_mid', 'mushroom_small', 'mushroom_big'][(r2 * 3) | 0], x, y, s: 0.8, f, hab: 'mush', r: 8 });
         else if (k < 0.77) push({ k: 'litter', n: r2 < 0.5 ? 'w_branch' : 'w_ivy', x, y, f, flat: true });
-        else if (k < 0.87) push({ k: 'plant', n: 'w_reeds', x, y, s: 0.6 + R() * 0.15, f, hab: 'grass', r: 6 });
+        else if (k < 0.87) push(w.e > -70 ? { k: 'plant', n: 'w_reeds', x, y, s: 0.6 + R() * 0.15, f, hab: 'grass', r: 6 } : { k: 'tuft', n: 'tuft_1', x, y, flat: true, f });
         else push({ k: 'bush', n: ['bushball_10', 'bushball_12', 'bushtiny_12'][(r2 * 3) | 0], x, y, f, hab: 'bush', r: 12 });
       } else if (shade > 0.5) {
         // under the old trees: ferns, moss stones, ivy, roots, fungi, fallen branches, saplings
@@ -818,7 +836,18 @@
   }
 
   // ---------------------------------------------------------------- per frame
-  function tick(dt) { tickFlies(dt); }
+  let lapT = 0;
+  function tick(dt) {
+    tickFlies(dt);
+    // water laps at the shore when you're near it
+    lapT -= dt;
+    const p = on() && AI.R.Game.player;
+    if (p && lapT <= 0) {
+      lapT = U.rand(1.6, 3.4);
+      const w = water(p.x, p.y);
+      if (w.e > -120 && AI.Ambience && AI.Ambience.lap) AI.Ambience.lap(p.x + U.rand(-80, 80), p.y - 40);
+    }
+  }
   function reset() { P = null; chunks.clear(); shadeCache.clear(); flies.length = 0; chunkSeed = null; }
 
   AI.define('Forest', {

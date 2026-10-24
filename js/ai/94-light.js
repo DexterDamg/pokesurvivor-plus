@@ -70,6 +70,7 @@
       }
     }
     if (AI.Forest) AI.Forest.lights(L);
+    if (AI.Mysteries) AI.Mysteries.lights(L);
     // lightning lights up everything around where it strikes
     for (const s of AI.Sky.st.strikes) L.push({ x: s.x, y: s.y - 40, r: 520, c: [220, 230, 255], i: Math.max(0, 1 - s.t / 0.5) * s.power * 1.4 });
     const p = R.Game.player;
