@@ -141,9 +141,16 @@
 
     const oHDraw = R.Hazards.draw;
     R.Hazards.draw = function (ctx) {
+      if (AI.enabled) try { AI.Ground.drawGround(ctx); } catch (e) { AI.warn('env-ground', e); }
       if (AI.enabled) try { AI.Render.drawGround(ctx); } catch (e) { AI.warn('ground', e); }
       return oHDraw.apply(this, arguments);
     };
+
+    // ------------------------------------------------------------ living environment: art, light, weather
+    R.World.drawProp = AI.Ground.wrapDrawProp(R.World.drawProp);
+    R.World.visibleProps = AI.Ground.wrapVisibleProps(R.World.visibleProps);
+    R.Weather.draw = AI.Light.wrapWeatherDraw(R.Weather.draw);
+    AI.Light.patchVignette(R.Weather);
 
     // ------------------------------------------------------------ combat resolution
     const tracked = new Map(); // NPC shot → { move, target } for hit/miss learning
@@ -179,14 +186,16 @@
     const oHud = R.HUD.draw;
     R.HUD.draw = function (ctx, w, h) {
       const r = oHud.apply(this, arguments);
-      if (AI.enabled) try { AI.Player.drawHud(ctx); AI.Render.drawDebugHud(ctx, w, h); } catch (e) { AI.warn('hud', e); }
+      if (AI.enabled) try { AI.Player.drawHud(ctx); AI.Light.drawClock(ctx); AI.Render.drawDebugHud(ctx, w, h); } catch (e) { AI.warn('hud', e); }
       return r;
     };
 
     const oAir = R.Training.drawAir;
     R.Training.drawAir = function (ctx) {
       const r = oAir.apply(this, arguments);
+      if (AI.enabled) try { AI.Light.drawAir(ctx); } catch (e) { AI.warn('env-air', e); }
       if (AI.enabled) try { AI.Render.drawAir(ctx); } catch (e) { AI.warn('air', e); }
+      if (AI.enabled) try { AI.Lore.drawSpeech(ctx); } catch (e) { AI.warn('speech', e); }
       return r;
     };
 
@@ -216,8 +225,35 @@
 
     const oBag = R.Enemies.bagAt;
     R.Enemies.bagAt = function () {
+      if (AI.enabled) try { AI.Areas.rewriteCast(); } catch (e) { AI.warn('areas', e); }
       const b = oBag.apply(this, arguments);
-      return AI.enabled && b && b.length ? AI.Population.weightBag(b) : b;
+      if (!AI.enabled || !b || !b.length) return b;
+      // events (Jigglypuff, egg…) bring their own bags: leave those alone
+      const ev = R.Events && R.Events.bag && R.Events.bag();
+      if (!ev) { const w = AI.Areas.weightBag(b); if (w) return w; }
+      return AI.Population.weightBag(b);
+    };
+    const oRoll = R.Enemies.rollRun;
+    R.Enemies.rollRun = function () {
+      const r = oRoll.apply(this, arguments);
+      if (AI.enabled) try { AI.Areas.reset(); AI.Areas.rewriteCast(); } catch (e) { AI.warn('areas', e); }
+      return r;
+    };
+    const oHorde = R.Enemies.hordeDefs;
+    R.Enemies.hordeDefs = function (type, t) {
+      const defs = oHorde.apply(this, arguments);
+      const ro = AI.enabled && AI.Areas.roster();
+      if (!ro || !defs || !defs.length) return defs;
+      try {
+        // hordes in an area are made of that area's Pokémon
+        AI.Areas.rewriteCast();
+        const tiers = R.Enemies.cast.filter((c) => t >= c.from);
+        const pool = (tiers.length ? tiers[tiers.length - 1].list : []).filter((d) => ((R.DEX_BY[d.dex] || {}).types || []).includes(type) && !['healer', 'shielder', 'summoner', 'bomber'].includes(d.behavior));
+        const all = tiers.length ? tiers[tiers.length - 1].list.filter((d) => !['healer', 'shielder', 'summoner', 'bomber'].includes(d.behavior)) : [];
+        const src = pool.length >= 2 ? pool : all;
+        if (!src.length) return defs;
+        return defs.map((d) => { const n = src[(Math.random() * src.length) | 0]; return Object.assign({}, d, { dex: n.dex, name: n.name, behavior: n.behavior }); });
+      } catch (e) { AI.warn('areas-horde', e); return defs; }
     };
 
     const oSK = R.Stats.kill;
@@ -235,6 +271,12 @@
       AI.vanillaMs = 0;
       try {
         AI.refreshPlayers();
+        AI.Sky.tick(dt);
+        AI.Decor.tick(dt);
+        AI.Areas.tick(dt);
+        AI.EnvBeh.tick(dt);
+        AI.Lore.tick(dt);
+        AI.Ambience.tick(dt);
         AI.Player.frame();
         AI.Legend.tick(dt);
         AI.Social.tick(dt);
@@ -257,8 +299,8 @@
 
     // ------------------------------------------------------------ new run → fresh world
     const oWR = R.World.reset;
-    R.World.reset = function () {
-      try { resetWorld(); } catch (e) { AI.warn('reset', e); }
+    R.World.reset = function (seed) {
+      try { resetWorld(); AI.Decor.reset(seed); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Player.lanternToggle = null; } catch (e) { AI.warn('reset', e); }
       return oWR.apply(this, arguments);
     };
     function resetWorld() {

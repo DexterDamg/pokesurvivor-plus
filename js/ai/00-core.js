@@ -32,6 +32,18 @@
     autoAim: 'hostile', // 'hostile' (auto-attacks lock onto hostile Pokémon or your focus target) | 'prefer' (hostile first) | 'any' (vanilla)
     friendlyFire: true,
     debug: false,
+    // living environment
+    atmosphere: true, // day/night, lighting, living weather
+    dayLength: 600, // seconds for a full day
+    startHour: 6.5, // runs begin in the early morning
+    season: 'auto', // 'auto' (from the calendar) | 'spring' | 'summer' | 'autumn' | 'winter'
+    weatherFreq: 1, // how often the weather turns
+    lightQuality: 'auto', // 'low' | 'medium' | 'high' | 'auto'
+    newArt: true, // detailed trees, plants and forest decor
+    areaSpawns: true, // each area has its own Pokémon (curated rosters, habitats)
+    speech: true, // Pokémon speech bubbles (rumours, warnings)
+    lantern: 'auto', // player lantern: 'auto' (on at night) | 'on' | 'off'
+    ambientVol: 0.7, // ambient sound volume (relative to the game's sound effects volume)
   };
   const CFG_KEY = 'psx.ai.cfg';
   AI.DEFAULTS = DEFAULTS;

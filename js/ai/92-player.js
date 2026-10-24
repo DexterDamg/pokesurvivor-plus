@@ -109,7 +109,9 @@
   // Player.update wrapper: prefer hostile targets over friendly/neutral Pokémon
   function wrapPlayerUpdate(orig) {
     return function (dt) {
+      const x0 = this.x, y0 = this.y;
       const r = orig.call(this, dt);
+      if (AI.enabled && !this.remote) try { envStep(this, dt, x0, y0); } catch (e) { AI.warn('player-env', e); }
       if (!AI.enabled || AI.cfg.autoAim === 'any' || this.remote || this.manualAim) return r;
       const t = this.target;
       if (!t || !t.psx || t.dead || autoTargetable(this, t)) return r;
@@ -127,6 +129,57 @@
       } else if (AI.cfg.autoAim === 'hostile') this.target = null;
       return r;
     };
+  }
+
+  // the player and the ground: velocity (for prediction & noise), footprints, mud, puddles,
+  // rustling undergrowth, slippery footing, hidden berry patches
+  function envStep(p, dt, x0, y0) {
+    if (!dt || dt <= 0) return;
+    const D = AI.Decor;
+    let dx = p.x - x0, dy = p.y - y0;
+    const jump = Math.hypot(dx, dy) > 200; // teleport / respawn
+    if (jump) { p._vx = p._vy = 0; p._psxLastPrint = null; return; }
+    const S = AI.Sky;
+    // slippery: deep mud, wet paving, packed snow → you keep sliding a little
+    let traction = 1, slow = 1;
+    if (D && S) {
+      const mud = D.mudAt(p.x, p.y);
+      if (mud > 0.35) { traction = 0.35; slow = 0.84; }
+      if (S.wet > 0.5 && D.near(p.x, p.y, 16, (o) => o.k === 'path')) traction = Math.min(traction, 0.3);
+      if (S.snowCover > 0.6) traction = Math.min(traction, 0.55);
+    }
+    // climbing over a storm-felled tree
+    if (D && D.near(p.x, p.y, 46, (o) => o.felled)) {
+      const nx = x0 + dx * 0.55, ny = y0 + dy * 0.55;
+      p.x = nx; p.y = ny; dx = nx - x0; dy = ny - y0;
+    }
+    if (traction < 1 && !p.dash && !p.dashT) {
+      const vx = U.lerp(p._vx || 0, (dx / dt) * slow, traction), vy = U.lerp(p._vy || 0, (dy / dt) * slow, traction);
+      const nx = x0 + vx * dt, ny = y0 + vy * dt;
+      if (AI.R.World.isFree(nx, ny, Math.max(8, (p.r || 14) * 0.8))) { p.x = nx; p.y = ny; dx = nx - x0; dy = ny - y0; }
+    }
+    const k = Math.min(1, dt * 10);
+    p._vx = U.lerp(p._vx || 0, dx / dt, k);
+    p._vy = U.lerp(p._vy || 0, dy / dt, k);
+    if (!D || AI.cfg.atmosphere === false) return;
+    const last = p._psxLastPrint;
+    if (!last || Math.hypot(p.x - last[0], p.y - last[1]) > 20) {
+      const ang = Math.atan2(dy, dx);
+      p._psxLastPrint = [p.x, p.y];
+      D.footprint(p.x, p.y, ang, 0, 1);
+      D.trample(p.x, p.y, 0.07);
+      const pd = D.puddleAt(p.x, p.y);
+      if (pd) {
+        D.ripple(p.x, p.y, 18);
+        AI.R.FX.burst(p.x, p.y - 2, '#c8e2ff', 5, 70);
+        if (AI.Ambience) AI.Ambience.splash(p.x, p.y);
+      } else if (D.mudAt(p.x, p.y) > 0.4 && AI.Ambience) AI.Ambience.squelch(p.x, p.y);
+      const bush = D.rustle(p.x, p.y, 24);
+      const g = AI.Env.nearestProp(p.x, p.y, 26, 'grass');
+      if (g) D.shakeProp(g);
+      if ((bush || g) && AI.Ambience) AI.Ambience.rustle(p.x, p.y, 0.5);
+      D.checkPatch(p);
+    }
   }
 
   // HUD: remember where each slot is drawn (MoveTip.zone is called with the exact rect). Like the
@@ -187,8 +240,25 @@
     ctx.closePath();
   }
 
+  // L: lantern on/off (by default it lights itself at night and in deep fog)
+  function installKeys() {
+    addEventListener('keydown', (ev) => {
+      const R = AI.R;
+      if (ev.code !== 'KeyL' || ev.repeat || !R || !AI.enabled || R.Game.state !== 'playing') return;
+      const el = document.activeElement;
+      if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+      const P = AI.Player;
+      const now = AI.Light ? AI.Light.lanternOn() : false;
+      P.lanternToggle = !now;
+      const p = R.Game.player;
+      try { if (p) R.FX.dmgText(p.x, p.y - (p.bodyH || 40) - 24, P.lanternToggle ? '🏮 ON' : '🏮 OFF', P.lanternToggle ? '#ffd27a' : '#9aa6c0', true); } catch (e) { /* ignore */ }
+      if (P.lanternToggle) AI.Bus.emit({ type: 'lantern', x: p ? p.x : 0, y: p ? p.y : 0, loud: 40 });
+    });
+  }
+
   // click / tap on a HUD slot toggles it as well (mobile has no number keys)
   function installPointer() {
+    installKeys();
     addEventListener('click', (ev) => {
       const R = AI.R;
       if (!R || !AI.enabled || R.Game.state !== 'playing' || rectsFrame < AI.frame - 2) return;
@@ -239,5 +309,5 @@
     ctx.restore();
   }
 
-  AI.define('Player', { isOff, toggleSlot, frame, wrapTick, wrapPlayerUpdate, wrapZone, drawHud, installPointer, rects, autoTargetable, setFocus, drawFocus });
+  AI.define('Player', { lanternToggle: null, envStep, isOff, toggleSlot, frame, wrapTick, wrapPlayerUpdate, wrapZone, drawHud, installPointer, rects, autoTargetable, setFocus, drawFocus });
 })();

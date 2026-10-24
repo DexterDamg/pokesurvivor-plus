@@ -129,6 +129,20 @@ uso **no comercial** y con atribución a sus artistas.
 Stats base y nombres en español: [PokeAPI](https://pokeapi.co/),
 descargados una vez y guardados en `js/data/pokedex.js`.
 
+## Árboles, plantas y decorado del bosque
+
+Los árboles, arbustos, flores, hierbas, troncos, setas, farolas y el decorado del
+bosque encantado del "entorno vivo" (`assets/env/atlas.png`) salen de estas hojas:
+
+- **"Cementerio"** (#Tilember2019) de **KioRaka**, público con créditos:
+  farol colgante, velas, lápidas y cruz.
+- Hojas de árboles y vegetación por colores, bosque claro, bosque oscuro con
+  pueblo y bosque encantado: material aportado por DexterDamg para PokéSurvivor+.
+  *(Falta indicar aquí el autor original de cada una de estas hojas.)*
+
+Los sonidos de ambiente (pájaros, grillos, lluvia, viento, truenos, caja de
+música…) se sintetizan en el propio juego; no usan archivos de audio.
+
 ## Fuente
 
 [Pixelify Sans](https://github.com/eifetx/Pixelify-Sans) (SIL Open Font License 1.1,

@@ -28,6 +28,28 @@
     focusHint: { es: 'Toca o haz clic en un Pokémon para marcarlo como objetivo.', en: 'Click or tap a Pokémon to mark it as your target.', fr: 'Clique ou touche un Pokémon pour le marquer comme cible.', zh: '點擊寶可夢即可將其標記為目標。' },
     enabled: { es: 'IA del mundo vivo activa', en: 'Living world AI on', fr: 'IA du monde vivant active', zh: '啟用生態 AI' },
     debug: { es: 'Depuración (F8)', en: 'Debug overlay (F8)', fr: 'Débogage (F8)', zh: '除錯顯示 (F8)' },
+    envTitle: { es: 'Entorno', en: 'Environment', fr: 'Environnement', zh: '環境' },
+    atmosphere: { es: 'Día/noche, luz y clima vivo', en: 'Day/night, lighting & living weather', fr: 'Jour/nuit, lumière et météo vivante', zh: '晝夜、光影與動態天氣' },
+    newArt: { es: 'Árboles, plantas y decorado nuevos', en: 'New trees, plants & forest decor', fr: 'Nouveaux arbres, plantes et décor', zh: '全新樹木、植物與森林裝飾' },
+    areaSpawns: { es: 'Pokémon propios de cada zona', en: 'Each area has its own Pokémon', fr: 'Chaque zone a ses propres Pokémon', zh: '各區域有專屬寶可夢' },
+    speech: { es: 'Los Pokémon hablan (rumores, avisos)', en: 'Pokémon speech (rumours, warnings)', fr: 'Les Pokémon parlent (rumeurs, alertes)', zh: '寶可夢對話（傳聞、警告）' },
+    dayLength: { es: 'Duración del día (s)', en: 'Day length (s)', fr: 'Durée du jour (s)', zh: '一天長度（秒）' },
+    startHour: { es: 'Hora al empezar', en: 'Starting hour', fr: 'Heure de départ', zh: '開始時刻' },
+    weatherFreq: { es: 'Cambios de clima', en: 'Weather changes', fr: 'Changements de météo', zh: '天氣變化頻率' },
+    ambientVol: { es: 'Sonido ambiente', en: 'Ambient sound', fr: 'Son d\'ambiance', zh: '環境音量' },
+    season: { es: 'Estación', en: 'Season', fr: 'Saison', zh: '季節' },
+    auto: { es: 'Automática', en: 'Automatic', fr: 'Automatique', zh: '自動' },
+    spring: { es: 'Primavera', en: 'Spring', fr: 'Printemps', zh: '春' },
+    summer: { es: 'Verano', en: 'Summer', fr: 'Été', zh: '夏' },
+    autumn: { es: 'Otoño', en: 'Autumn', fr: 'Automne', zh: '秋' },
+    winter: { es: 'Invierno', en: 'Winter', fr: 'Hiver', zh: '冬' },
+    lightQuality: { es: 'Calidad de luz', en: 'Light quality', fr: 'Qualité de la lumière', zh: '光影品質' },
+    low: { es: 'Baja', en: 'Low', fr: 'Basse', zh: '低' },
+    medium: { es: 'Media', en: 'Medium', fr: 'Moyenne', zh: '中' },
+    high: { es: 'Alta', en: 'High', fr: 'Haute', zh: '高' },
+    lantern: { es: 'Farol (L)', en: 'Lantern (L)', fr: 'Lanterne (L)', zh: '燈籠（L）' },
+    on: { es: 'Encendido', en: 'On', fr: 'Allumée', zh: '開' },
+    off: { es: 'Apagado', en: 'Off', fr: 'Éteinte', zh: '關' },
     reset: { es: 'Restablecer', en: 'Reset', fr: 'Réinitialiser', zh: '重設' },
     close: { es: 'Cerrar', en: 'Close', fr: 'Fermer', zh: '關閉' },
   };
@@ -42,6 +64,9 @@
     ['maxCombatAI', 2, 40, 1], ['maxSocial', 0, 16, 1], ['maxBubbles', 0, 30, 1], ['bubbleScale', 0.6, 2, 0.1], ['evoRate', 0, 4, 0.1],
   ];
   const TOGGLES = ['evolution', 'friendlyFire', 'debug'];
+  const ENV_TOGGLES = ['atmosphere', 'newArt', 'areaSpawns', 'speech'];
+  const ENV_SLIDERS = [['dayLength', 60, 1800, 30], ['startHour', 0, 23.5, 0.5], ['weatherFreq', 0, 3, 0.1], ['ambientVol', 0, 1, 0.05]];
+  const ENV_SELECTS = [['season', ['auto', 'spring', 'summer', 'autumn', 'winter']], ['lightQuality', ['auto', 'low', 'medium', 'high']], ['lantern', ['auto', 'on', 'off']]];
   let el = null;
 
   function build() {
@@ -64,6 +89,12 @@
     h += row(AI.tr('autoAim') + ' <select data-k="autoAim">' + ['any', 'prefer', 'hostile'].map((o) => '<option value="' + o + '"' + (c.autoAim === o ? ' selected' : '') + '>' + AI.tr(o) + '</option>').join('') + '</select>');
     h += '<div style="opacity:.7;font-size:11px;margin-top:-4px">' + AI.tr('focusHint') + '</div>';
     for (const k of TOGGLES) h += row('<label><input type="checkbox" data-k="' + k + '"' + (c[k] ? ' checked' : '') + '> ' + AI.tr(k) + '</label>');
+    h += '<h4 style="margin:14px 0 6px;color:#9fe0c0">' + AI.tr('envTitle') + '</h4>';
+    for (const k of ENV_TOGGLES) h += row('<label><input type="checkbox" data-k="' + k + '"' + (c[k] ? ' checked' : '') + '> ' + AI.tr(k) + '</label>');
+    for (const [k, min, max, step] of ENV_SLIDERS) {
+      h += row('<div style="display:flex;justify-content:space-between"><span>' + AI.tr(k) + '</span><b data-v="' + k + '">' + c[k] + '</b></div><input type="range" style="width:100%" min="' + min + '" max="' + max + '" step="' + step + '" value="' + c[k] + '" data-k="' + k + '">');
+    }
+    for (const [k, opts] of ENV_SELECTS) h += row(AI.tr(k) + ' <select data-k="' + k + '">' + opts.map((o) => '<option value="' + o + '"' + (c[k] === o ? ' selected' : '') + '>' + AI.tr(o) + '</option>').join('') + '</select>');
     h += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn" data-a="reset">' + AI.tr('reset') + '</button><button class="btn gold" data-a="close">' + AI.tr('close') + '</button></div>';
     box.innerHTML = h;
     box.querySelectorAll('input,select').forEach((inp) => inp.addEventListener('input', onInput));
