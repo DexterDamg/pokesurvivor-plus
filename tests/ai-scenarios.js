@@ -884,18 +884,27 @@ async function sample(h, ms, every, fn, arg) {
     return { pass: a > b && b >= a * 0.8 && c < b * 0.9 && c > d && d < a * 0.45 && r[0.9].cap < r[0].cap && r.off > d * 1.5, detail: r };
   });
 
-  await scenario(h, 'weather settles in for minutes and changes step by step', async () => {
+  await scenario(h, 'weather holds 2–3 minutes and only ever steps to a neighbouring, logical state', async () => {
     const r = await h.R(() => {
       const S = PSXAI.Sky, out = {};
-      for (const k of ['clear', 'cloudy', 'drizzle', 'rain', 'fog', 'storm']) { const v = []; for (let i = 0; i < 200; i++) v.push(S.holdFor(k) / 60); out[k] = [+Math.min(...v).toFixed(1), +Math.max(...v).toFixed(1)]; }
-      const keep = S.st.pattern, from = {};
-      for (const k of ['clear', 'fair', 'storm']) { S.st.pattern = k; const c = {}; for (let i = 0; i < 300; i++) { const n = S.pickPattern(); c[n] = (c[n] || 0) + 1; } from[k] = c; }
-      S.st.pattern = keep;
-      return { minutes: out, next: from };
+      for (const k of Object.keys(S.PATTERNS)) { const v = []; for (let i = 0; i < 200; i++) v.push(S.holdFor(k) / 60); out[k] = [+Math.min(...v).toFixed(2), +Math.max(...v).toFixed(2)]; }
+      const keep = S.st.pattern, keepT = S.st.trend, keepH = S.st.hour, from = {};
+      for (const k of Object.keys(S.PATTERNS)) { for (const hour of [6, 13, 23]) { S.st.hour = hour; for (const tr of [-1, 0, 1]) { for (let i = 0; i < 60; i++) { S.st.pattern = k; S.st.trend = tr; const n = S.pickPattern(); (from[k] = from[k] || {})[n] = 1; } } } }
+      // a long simulated run: how often does the weather flip-flop between two states?
+      S.st.pattern = 'fair'; S.st.trend = 0; S.st.hour = 12; S.st.prev = null;
+      const seq = ['fair'];
+      for (let i = 0; i < 400; i++) { const n = S.pickPattern(); if (n !== S.st.pattern) S.st.prev = S.st.pattern; S.st.pattern = n; seq.push(n); }
+      // (peaking at the end of a chain and turning back is natural: clear, storm, dense fog, gale)
+      let flips = 0; for (let i = 2; i < seq.length; i++) if (seq[i] === seq[i - 2] && seq[i] !== seq[i - 1] && !['clear', 'storm', 'deepfog', 'gale'].includes(seq[i - 1])) flips++;
+      S.st.pattern = keep; S.st.trend = keepT; S.st.hour = keepH;
+      return { minutes: out, next: Object.fromEntries(Object.entries(from).map(([k, v]) => [k, Object.keys(v)])), flipRate: +(flips / seq.length).toFixed(2), sample: seq.slice(0, 24).join(' → ') };
     });
-    const m = r.minutes, within = (k, lo, hi) => m[k][0] >= lo - 0.05 && m[k][1] <= hi + 0.05;
-    const stepwise = !r.next.clear.storm && !r.next.clear.rain && !r.next.fair.storm && !r.next.storm.storm && !r.next.storm.clear;
-    return { pass: within('clear', 6, 12) && within('cloudy', 5, 10) && within('drizzle', 4, 8) && within('rain', 3, 7) && within('fog', 5, 9) && within('storm', 4, 8) && stepwise, detail: r };
+    const allowed = { clear: ['fair'], fair: ['clear', 'cloudy', 'breezy', 'mist'], cloudy: ['fair', 'drizzle', 'mist'], drizzle: ['cloudy', 'rain', 'mist'], rain: ['drizzle', 'storm'], storm: ['rain'],
+      mist: ['fog', 'fair', 'cloudy'], fog: ['mist', 'deepfog'], deepfog: ['fog'], breezy: ['fair', 'gale'], gale: ['breezy'] };
+    const bad = [];
+    for (const [k, list] of Object.entries(r.next)) for (const n of list) if (!allowed[k].includes(n)) bad.push(k + '→' + n);
+    const holds = Object.values(r.minutes).every(([lo, hi]) => lo >= 1.99 && hi <= 3.01);
+    return { pass: holds && bad.length === 0 && r.flipRate < 0.05, detail: { bad, flipRate: r.flipRate, sample: r.sample, minutes: r.minutes.clear } };
   });
 
   await scenario(h, 'Pokémon are sized by species: tiny ones stay visible, giants stay playable', async () => {

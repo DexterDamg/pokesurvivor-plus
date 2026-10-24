@@ -93,10 +93,17 @@ breezy, gale) through gradual transitions. The living sky is purely atmospheric:
 weather and terrain events (type boosts such as Misty Terrain, their banners and the HUD pill) are
 switched off (setting `gameWeather` turns them back on).
 
-- **Weather lasts.** Each pattern settles in for minutes: clear 6–12 min, cloudy 5–10, drizzle
-  4–8, heavy rain 3–7, fog 5–9, storm 4–8 (setting `weatherDuration` scales them all). It changes
-  step by step: clear → fair/cloudy → drizzle → rain → storm → rain → … A storm never comes out of
-  a clear sky, and storms don't follow storms.
+- **Weather is consistent and logical.** Each spell lasts 2–3 minutes (setting `weatherDuration`
+  scales them all), and every change blends in slowly: clouds gather over about a minute, fog
+  creeps in over two. The weather only ever takes one step at a time along one of three chains:
+  - dry ↔ wet: clear – fair – cloudy – drizzle – rain – storm
+  - calm ↔ fog: fair / cloudy / drizzle – mist – fog – dense fog (needs calm, damp air: dawn, night
+    or after rain; the daytime sun burns it off)
+  - calm ↔ wind: fair – breezy – gale
+
+  A front has momentum: once clouds start to gather they keep building toward rain or a storm and
+  then clear the same way, and the weather doesn't turn straight back into what it just was. So
+  fog never jumps to sunshine or wind, and a storm never comes out of a clear sky.
 
 - **Rain.** The ground darkens, puddles form in low spots and reflect the sky, rain ripples the
   puddles, and walking through them splashes. Walk in circles on wet ground and it turns to mud

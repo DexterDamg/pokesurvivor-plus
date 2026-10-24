@@ -50,7 +50,7 @@
     hour: 6.5, day: 0, // clock
     cur: { cloud: 0.2, rain: 0, fog: 0.2, wind: 0.15, storm: 0, snow: 0 },
     tgt: { cloud: 0.2, rain: 0, fog: 0.2, wind: 0.15, storm: 0, snow: 0 },
-    pattern: 'fair', patternT: 50,
+    pattern: 'fair', patternT: 50, trend: 0,
     windAng: 0.3, gust: 0, gustT: 4, gustPow: 0,
     wet: 0, snowCover: 0,
     flash: 0, boltT: 8, thunders: [], pulses: [], strikes: [], next: null,
@@ -152,47 +152,78 @@
 
   // ---------------------------------------------------------------- weather simulation
   function weatherKind() { try { const w = AI.R.Weather.current; return w ? w.kind : null; } catch (e) { return null; } }
-  // how long each kind of weather settles in (seconds), and what it usually turns into next
+  // how long each kind of weather settles in (seconds), and what it can turn into next
+  /* Weather only ever takes one step at a time along one of three chains, and every change is a
+   * slow blend of its channels (clouds gather over about a minute, fog creeps in over two):
+   *   dry ↔ wet:   clear – fair – cloudy – drizzle – rain – storm
+   *   calm ↔ fog:  fair / cloudy / drizzle – mist – fog – dense fog   (calm air, dawn, night, after rain)
+   *   calm ↔ wind: fair – breezy – gale
+   * A front has momentum: once clouds start to gather they tend to keep building to rain (or a
+   * storm) and then clear away the same way, instead of flip-flopping. Fog never turns straight into
+   * sunshine or wind, and a storm never comes out of a clear sky. Each spell lasts 2–3 minutes. */
   const HOLD = {
-    clear: [360, 720], fair: [300, 600], cloudy: [300, 600], drizzle: [240, 480], rain: [180, 420], storm: [240, 480],
-    mist: [180, 360], fog: [300, 540], deepfog: [180, 360], breezy: [240, 480], gale: [120, 240],
+    clear: [120, 180], fair: [120, 180], cloudy: [120, 180], drizzle: [120, 180], rain: [120, 180], storm: [120, 180],
+    mist: [120, 180], fog: [120, 180], deepfog: [120, 180], breezy: [120, 180], gale: [120, 180],
   };
   const NEXT = {
-    clear: { fair: 3, cloudy: 1, breezy: 1, mist: 0.5 },
-    fair: { clear: 2, cloudy: 2.5, breezy: 1, mist: 0.6 },
-    cloudy: { drizzle: 2.5, fair: 2, fog: 1, breezy: 0.8, clear: 0.5 },
-    drizzle: { rain: 2, cloudy: 2, mist: 0.6 },
-    rain: { storm: 1.2, drizzle: 2.4 },
+    clear: { fair: 1 },
+    fair: { clear: 1, cloudy: 1, breezy: 0.5, mist: 0.35 },
+    cloudy: { fair: 1, drizzle: 1, mist: 0.35 },
+    drizzle: { cloudy: 1, rain: 1, mist: 0.5 },
+    rain: { drizzle: 1, storm: 0.6 },
     storm: { rain: 1 },
-    mist: { fair: 2, fog: 1.5, clear: 1 },
-    fog: { deepfog: 1, mist: 2, cloudy: 1 },
+    mist: { fog: 1, fair: 0.8, cloudy: 0.8 },
+    fog: { mist: 1, deepfog: 0.6 },
     deepfog: { fog: 1 },
-    breezy: { gale: 0.8, fair: 2, cloudy: 1.5 },
-    gale: { breezy: 1, cloudy: 0.5 },
+    breezy: { fair: 1, gale: 0.5 },
+    gale: { breezy: 1 },
   };
+  // where each pattern sits on its chain(s): the trend remembers which way the weather is heading
+  const CHAIN = [
+    ['clear', 'fair', 'cloudy', 'drizzle', 'rain', 'storm'],
+    ['fair', 'mist', 'fog', 'deepfog'], ['cloudy', 'mist', 'fog', 'deepfog'], ['drizzle', 'mist', 'fog', 'deepfog'],
+    ['fair', 'breezy', 'gale'],
+  ];
+  function step(from, to) {
+    for (const c of CHAIN) { const a = c.indexOf(from), b = c.indexOf(to); if (a >= 0 && b >= 0) return Math.sign(b - a); }
+    return 0;
+  }
   function holdFor(name) {
-    const h = HOLD[name] || [240, 480];
+    const h = HOLD[name] || [120, 180];
     return U.rand(h[0], h[1]) * Math.max(0.1, AI.cfg.weatherDuration == null ? 1 : AI.cfg.weatherDuration);
   }
   function pickPattern() {
     const b = AI.Env.biome();
-    const w = Object.assign({}, SEASON_W[season()]);
-    // weather grows out of the weather before it: clear → cloudy → drizzle → rain → storm → …
-    const chain = NEXT[st.pattern];
-    if (chain) for (const k in w) w[k] *= (chain[k] || 0);
-    if (DRY_BIOMES.has(b)) { w.drizzle = 0.1; w.rain = 0.1; w.storm = 0.05; w.mist = 0.1; w.fog = 0.1; w.deepfog = 0; w.clear += 3; }
-    if (b === 8) { w.breezy += 1; w.gale += 0.6; } // glacier
-    if (b === 16 || b === 20) { w.mist += 1.5; w.fog += 1.5; w.deepfog += 0.8; } // graveyard, enchanted forest
-    if (st.hour >= 4.5 && st.hour < 8) { w.mist += 3; w.fog += 1; } // morning mist
-    if (isNight()) { w.fog += 0.6; w.deepfog += 0.25; }
-    // stay a while in calm weather, storms don't follow storms
-    if (st.pattern === 'storm') w.storm = 0;
-    w.clear *= 1; w.fair *= 1;
+    const sw = SEASON_W[season()];
+    const chain = NEXT[st.pattern] || NEXT.fair;
+    const w = {};
+    for (const k in chain) {
+      let v = chain[k] * Math.sqrt(sw[k] || 1);
+      // momentum: keep going the way the weather is already heading (a front builds, then clears)
+      const dir = step(st.pattern, k);
+      if (st.trend && dir) v *= dir === st.trend ? 2.2 : 0.45;
+      w[k] = v;
+    }
+    if (DRY_BIOMES.has(b)) { for (const k of ['drizzle', 'rain', 'storm', 'mist', 'fog', 'deepfog']) if (w[k]) w[k] *= 0.05; }
+    if (b === 8) { if (w.breezy) w.breezy *= 2; if (w.gale) w.gale *= 2; } // glacier
+    if (b === 16 || b === 20) { for (const k of ['mist', 'fog', 'deepfog']) if (w[k]) w[k] *= 2.5; } // graveyard, enchanted forest
+    // fog needs calm, damp air: dawn, night, or just after rain; daytime sun burns it off
+    const damp = st.hour >= 4.5 && st.hour < 8.5 ? 3 : isNight() ? 1.6 : 0.5;
+    for (const k of ['mist', 'fog', 'deepfog']) if (w[k] && step(st.pattern, k) > 0) w[k] *= damp;
+    if ((st.pattern === 'mist' || st.pattern === 'fog') && st.hour > 9 && st.hour < 17) { if (w.fair) w.fair *= 2; if (w.mist) w.mist *= 2; }
+    // and it doesn't turn straight back into what it just was (rain → storm → rain → storm…)
+    if (st.prev && w[st.prev] && Object.keys(w).filter((k) => w[k] > 0).length > 1) w[st.prev] *= 0.04;
     const f = Math.max(0, AI.cfg.weatherFreq == null ? 1 : AI.cfg.weatherFreq);
-    for (const k in w) if (!['clear', 'fair'].includes(k)) w[k] *= f;
-    return U.wpick(w) || 'fair';
+    // (weatherFreq: how eager the weather is to turn wetter, foggier or windier)
+    for (const k in w) if (step(st.pattern, k) > 0 && k !== 'fair') w[k] *= f;
+    const next = U.wpick(w) || 'fair';
+    const d = step(st.pattern, next);
+    // at the end of a chain the trend turns around; a calm spell resets it
+    st.trend = next === 'storm' || next === 'deepfog' || next === 'gale' ? -1 : next === 'clear' ? 0 : d || st.trend || 0;
+    return next;
   }
   function setPattern(name, hold) {
+    if (name !== st.pattern) st.prev = st.pattern;
     st.pattern = name;
     st.patternT = hold || holdFor(name);
     Object.assign(st.tgt, PATTERNS[name]);
@@ -377,6 +408,7 @@
     st.flash = 0; st.thunders.length = 0; st.pulses.length = 0; st.strikes.length = 0; st.next = null;
     st.forced = null;
     st.frozen = false;
+    st.trend = 0; st.prev = null;
     setPattern(st.hour < 8 ? 'mist' : 'fair');
     Object.assign(st.cur, st.tgt);
   }
