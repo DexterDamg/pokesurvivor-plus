@@ -30,6 +30,11 @@
   function stay(it) { it.stay = true; }
   function walkable(e, x, y) {
     const E = Env();
+    // the Shady Forest's water: walkers keep out of the deep, fish keep to the water (34-forest.js)
+    if (AI.Forest && AI.Forest.on() && e.dex != null) {
+      const d = AI.Forest.depthClass(x, y), l = AI.Forest.locomotion(e.dex);
+      if (l === 'swim' ? d === 0 : l === 'walk' && d === 2) return false;
+    }
     if (e.flying) return true;
     if (!E.free(x, y, Math.max(8, e.r * 0.7))) return false;
     if (E.isLiquid(x, y) && (E.hurtsIn(e.types) || (e.psx && e.psx.p.hatesWater))) return false;

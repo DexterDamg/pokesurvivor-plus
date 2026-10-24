@@ -175,7 +175,7 @@
     W.collide = function (ent) {
       if (ent && insideAt(ent.x, ent.y)) return AI.Mansion.collide(ent);
       const r = oCollide.apply(this, arguments);
-      if (AI.enabled && ent) try { AI.Mansion.collideExterior(ent); AI.Decor.collide(ent); } catch (e) { AI.warn('mansion-collide', e); }
+      if (AI.enabled && ent) try { AI.Mansion.collideExterior(ent); AI.Decor.collide(ent); AI.Forest.collideWater(ent); } catch (e) { AI.warn('mansion-collide', e); }
       return r;
     };
     const oFree = W.isFree;
@@ -198,10 +198,12 @@
     const oDG = W.drawGround;
     W.drawGround = function (ctx) {
       if (AI.enabled && AI.Mansion.inside) { try { AI.Mansion.drawInterior(ctx); } catch (e) { AI.warn('mansion-draw', e); } return; }
+      // the Shady Forest's ground is one continuous painted surface, not a grid of tiles
+      if (AI.Forest.on()) { try { AI.Forest.drawGround(ctx); return; } catch (e) { AI.warn('forest-ground', e); } }
       return oDG.apply(this, arguments);
     };
     const oDL = W.drawLiquid;
-    W.drawLiquid = function () { if (AI.enabled && AI.Mansion.inside) return; return oDL.apply(this, arguments); };
+    W.drawLiquid = function () { if (AI.enabled && (AI.Mansion.inside || AI.Forest.on())) return; return oDL.apply(this, arguments); };
     const oVP = W.visibleProps;
     W.visibleProps = function (cam) { if (AI.enabled && AI.Mansion.inside && cam === R.Camera) return AI.Mansion.visibleProps(cam); return oVP.apply(this, arguments); };
     const oDP = W.drawProp;
@@ -270,6 +272,7 @@
     const oAir = R.Training.drawAir;
     R.Training.drawAir = function (ctx) {
       const r = oAir.apply(this, arguments);
+      if (AI.enabled) try { AI.Forest.drawMist(ctx); AI.Forest.drawFlies(ctx); } catch (e) { AI.warn('forest-air', e); }
       if (AI.enabled) try { AI.Light.drawAir(ctx); } catch (e) { AI.warn('env-air', e); }
       if (AI.enabled) try { AI.Mansion.drawAir(ctx); } catch (e) { AI.warn('mansion-air', e); }
       if (AI.enabled) try { AI.Render.drawAir(ctx); } catch (e) { AI.warn('air', e); }
@@ -353,6 +356,7 @@
         AI.refreshPlayers();
         AI.Sky.tick(dt);
         AI.Decor.tick(dt);
+        AI.Forest.tick(dt);
         AI.Areas.tick(dt);
         AI.EnvBeh.tick(dt);
         AI.Lore.tick(dt);
@@ -384,7 +388,7 @@
     // ------------------------------------------------------------ new run → fresh world
     const oWR = R.World.reset;
     R.World.reset = function (seed) {
-      try { resetWorld(); AI.Decor.reset(seed); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); AI.Player.lanternToggle = null; } catch (e) { AI.warn('reset', e); }
+      try { resetWorld(); AI.Decor.reset(seed); AI.Forest.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); AI.Player.lanternToggle = null; } catch (e) { AI.warn('reset', e); }
       return oWR.apply(this, arguments);
     };
     function resetWorld() {

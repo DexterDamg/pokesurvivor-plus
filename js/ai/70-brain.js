@@ -356,6 +356,11 @@
     }
     const moved = Math.hypot(e.x - x0, e.y - y0);
     s.moving = moved > 0.4;
+    // held back by water it can't enter: after a moment, go somewhere else instead of pushing at the shore
+    if (s.waterBlockT === AI.time) {
+      s.waterStuck = (s.waterStuck || 0) + dt;
+      if (s.waterStuck > 0.8 && !s.lock && s.beh && s.beh.tier >= 5) { s.waterStuck = 0; switchTo(e, s, AI.Behaviors.BY.wander); s.thinkT = 0; }
+    } else if (s.waterStuck) s.waterStuck = Math.max(0, s.waterStuck - dt);
     // facing & animation overrides
     if (it.face != null && !(e.anim.busy() && e.anim.cur !== 'Walk')) e.anim.dir = R.Sprites.dirFromAngle(it.face);
     else if (!s.moving && !it.realTarget) e.anim.dir = prevDir;

@@ -165,7 +165,7 @@
         }
         break;
       }
-      case 'log': case 'stump': case 'grave':
+      case 'log': case 'stump': case 'grave': case 'stone':
         AI.Art.draw(ctx, it.n, it.x, it.y, { flip: it.f, scale: it.s });
         break;
       case 'candle':

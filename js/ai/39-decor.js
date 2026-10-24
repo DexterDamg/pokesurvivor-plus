@@ -63,6 +63,18 @@
       return null;
     };
     const push = (o) => out.push(item(o));
+    // the Shady Forest grows its undergrowth by habitat (34-forest.js)
+    if (AI.Env.biome() === 0 && AI.Forest && AI.cfg.forestWorld !== false) {
+      // (nothing grows into anything else placed in this chunk)
+      const roomy = (x, y, r) => ok(x, y, r) && !out.some((o) => !o.flat && (o.r || o.k === 'log') && Math.abs(o.x - x) < 70 && Math.abs(o.y - y) < 40 && (o.k === 'log' ? Math.abs(o.x - x) < 44 + r && Math.abs(o.y - y) < 16 + r : Math.hypot(o.x - x, o.y - y) < (o.r || 8) + r));
+      const spot2 = (r) => { for (let k = 0; k < 6; k++) { const x = x0 + 30 + R() * (ch - 60), y = y0 + 30 + R() * (ch - 60); if (roomy(x, y, r) && AI.Forest.water(x, y).e < -30) return [x, y]; } return null; };
+      if (R() < 0.45) { const c = spot2(30); if (c) push({ k: 'log', n: LOGS[(R() * LOGS.length) | 0], x: c[0], y: c[1], f: R() < 0.5, hab: 'log', r: 22 }); }
+      if (R() < 0.5) { const c = spot2(16); if (c) push({ k: 'stump', n: R() < 0.6 ? 'stump_small' : R() < 0.5 ? 'stump_dark' : 'stump_big', x: c[0], y: c[1], f: R() < 0.5, hab: 'log', r: 14 }); }
+      if (R() < 0.4) { const c = spot2(14); if (c) push({ k: 'bush', n: BERRY.summer, x: c[0], y: c[1], f: R() < 0.5, hab: 'berry', r: 12, berries: 3 }); }
+      if (R() < 0.45) { const c = spot2(14); if (c) push({ k: 'burrow', x: c[0], y: c[1], hab: 'burrow', r: 12, flat: true }); }
+      AI.Forest.decor(cx, cy, ch, R, push, roomy);
+      return out;
+    }
     if (th === 'forest' || th === 'jungle') {
       // wildflower clusters
       const cols = FLOWER_COLS[sea];
@@ -126,11 +138,17 @@
     return out;
   }
 
+  // (generation checks free space, which looks at decor: while a chunk is being generated, that
+  // look only sees chunks that already exist, so generating never sets off more generating)
+  let generating = 0;
+  const NONE = [];
   function chunk(cx, cy) {
     const key = cx + ',' + cy;
     let c = chunks.get(key);
     if (!c) {
-      c = genChunk(cx, cy);
+      if (generating) return NONE;
+      generating++;
+      try { c = genChunk(cx, cy); } finally { generating--; }
       if (chunks.size > 260) chunks.delete(chunks.keys().next().value);
       chunks.set(key, c);
     }
@@ -292,6 +310,7 @@
         break;
       }
       case 'stump': sh = { r: 11 * s }; break;
+      case 'stone': sh = { r: 8 * s }; break;
       case 'grave': case 'gargoyle': case 'gpillar': sh = it.r ? { r: Math.max(7, it.r) } : null; break;
       case 'cave': sh = { r: 30 }; break;
       case 'lamp': case 'sign': sh = { r: 6 }; break;
