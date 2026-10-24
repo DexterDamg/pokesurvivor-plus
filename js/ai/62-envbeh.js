@@ -33,7 +33,9 @@
   function shelterFor(e, s, maxR) {
     const hab = AI.Areas.habitat(e.dex);
     const kinds = flyer(s) || hab[0] === 'tree' ? ['tree', 'bush'] : s.p.types.includes('bug') ? ['bush', 'tree'] : ['tree', 'log', 'bush', 'burrow'];
-    const list = AI.Areas.anchors(e.x, e.y, maxR || 300, kinds);
+    let list = AI.Areas.anchors(e.x, e.y, maxR || 300, kinds);
+    // birds and tree-dwellers go for a tree whenever one is in reach
+    if (kinds[0] === 'tree' && kinds[1] === 'bush') { const trees = list.filter((a) => a.kind === 'tree'); if (trees.length) list = trees; }
     let best = null, bd = Infinity;
     for (const a of list) {
       const d = U.dist2(e.x, e.y, a.x, a.y) * (a.kind === kinds[0] ? 1 : 4);

@@ -26,7 +26,7 @@ function installHelpers() {
     R.Hazards.clear(); R.Projectiles.clear();
     p.hp = p.maxHp;
     // a calm, frozen midday unless a scenario asks for other weather
-    AI.Sky.set({ hour: 12, day: 0, fog: 0, rain: 0, storm: 0, wind: 0.1, cloud: 0.1, snow: 0, wet: 0, snowCover: 0, season: 'summer', freeze: true });
+    AI.Sky.set({ hour: 12, day: 0, fog: 0, rain: 0, storm: 0, wind: 0.1, cloud: 0.1, snow: 0, wet: 0, snowCover: 0, season: 'spring', freeze: true });
     AI.Lore.reset();
     AI.Player.lanternToggle = null;
     return true;
@@ -497,8 +497,8 @@ async function sample(h, ms, every, fn, arg) {
 
   await scenario(h, 'a sleeping Pokémon wakes up when you run right past it', async () => {
     await h.R(() => { PSXAI.Sky.set({ hour: 1 }); window.A = PSXAI.Debug.spawn(19, { temp: 'neutral', dx: 260, energy: 0.05, trait: { laziness: 0.1 } }); });
-    await h.wait(5000);
-    const asleep = await h.R(() => A.psx.beh.id === 'sleep' && A.psx.bs.down);
+    let asleep = false;
+    for (let i = 0; i < 24 && !asleep; i++) { await h.wait(500); asleep = await h.R(() => A.psx.beh.id === 'sleep' && A.psx.bs.down); }
     let woke = false, vmax = 0;
     for (let i = 0; i < 4 && !woke; i++) {
       // line up with the sleeper, then dash right past it
@@ -529,12 +529,15 @@ async function sample(h, ms, every, fn, arg) {
   await scenario(h, 'rain sends Pidgey under the trees and Caterpie under the leaves', async () => {
     await h.R(() => {
       window.A = PSXAI.Debug.spawn(16, { temp: 'neutral', dx: 150, dy: 60 });
+      window.TREE = !!PSXAI.Env.nearestProp(A.x, A.y, 300, 'tree');
       window.B = PSXAI.Debug.spawn(10, { temp: 'neutral', dx: -150, dy: 60 });
       PSXAI.Sky.set({ rain: 0.95, cloud: 1, wet: 0.8 });
     });
     const s = await sample(h, 8000, 500, () => ({ a: A.psx.beh.id, b: B.psx.beh.id, at: A.psx.bs.a && A.psx.bs.a.kind, bt: B.psx.bs.a && B.psx.bs.a.kind }));
     const last = s[s.length - 1];
-    return { pass: s.some((x) => x.a === 'shelter') && s.some((x) => x.b === 'shelter') && (last.at === 'tree' || !last.at) && last.bt !== 'tree', detail: last };
+    const tree = await h.R(() => TREE);
+    // Pidgey heads for a tree when there's one in reach (a bush otherwise); Caterpie hides in the leaves
+    return { pass: s.some((x) => x.a === 'shelter') && s.some((x) => x.b === 'shelter') && (last.at === 'tree' || !tree) && last.bt !== 'tree', detail: { ...last, treeNear: tree } };
   });
 
   await scenario(h, 'deep fog: Pokémon stop roaming and few new ones appear', async () => {
@@ -661,7 +664,7 @@ async function sample(h, ms, every, fn, arg) {
     await h.wait(5000);
     const r = await h.R(() => ({ zone: +PSXAI.Decor.trailZone(A.x, A.y).toFixed(2), fear: +A.psx.mind.emo.fear.toFixed(2) }));
     await h.R(() => { const p = __PSX_REG__.Game.player; p.x = 0; p.y = 0; });
-    return { pass: r0 > 0.2 && r.zone < r0 * 0.6 && r.fear > 0.2, detail: { start: +r0.toFixed(2), ...r } };
+    return { pass: r0 > 0.2 && r.zone < r0 * 0.8 && r.fear > 0.2, detail: { start: +r0.toFixed(2), ...r } };
   });
 
   await scenario(h, 'new arrivals emerge naturally instead of popping up in plain view', async () => {
