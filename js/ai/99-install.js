@@ -402,6 +402,7 @@
         AI.Story.tick(dt);
         AI.Talk.tick(dt);
         AI.Companions.tick(dt);
+        AI.Exp.tick(dt);
         AI.Player.frame();
         AI.Legend.tick(dt);
         AI.Social.tick(dt);
@@ -412,6 +413,13 @@
       try { AI.Population.afterUpdate(); lodStats(); } catch (e) { AI.warn('post', e); }
       const ms = performance.now() - t0 - (AI.vanillaMs || 0);
       AI.stats.aiMs += (ms - AI.stats.aiMs) * 0.05;
+      return r;
+    };
+    // chests pay EXP once (91-exp.js)
+    const oBreak = R.World.breakProp;
+    if (oBreak) R.World.breakProp = function (prop) {
+      const r = oBreak.apply(this, arguments);
+      if (AI.enabled) try { AI.Exp.onBreak(prop); } catch (e) { AI.warn('chest-exp', e); }
       return r;
     };
     // the Pseudo Players are drawn with everyone else (sorted into the scene by the game)
@@ -432,7 +440,7 @@
     // ------------------------------------------------------------ new run → fresh world
     const oWR = R.World.reset;
     R.World.reset = function (seed) {
-      try { resetWorld(); AI.Decor.reset(seed); AI.Journey.reset(AI.Decor.seed); AI.Wildlife.reset(); AI.Light.reset(); AI.Talk.reset(); AI.Companions.reset(AI.Decor.seed); AI.Forest.reset(); AI.Mysteries.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); } catch (e) { AI.warn('reset', e); }
+      try { resetWorld(); AI.Decor.reset(seed); AI.Journey.reset(AI.Decor.seed); AI.Wildlife.reset(); AI.Light.reset(); AI.Talk.reset(); AI.Companions.reset(AI.Decor.seed); AI.Exp.reset(); AI.Forest.reset(); AI.Mysteries.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); } catch (e) { AI.warn('reset', e); }
       return oWR.apply(this, arguments);
     };
     function resetWorld() {

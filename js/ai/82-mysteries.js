@@ -166,6 +166,7 @@
     if (st) e.where = whereText(st);
     save();
     if (news) {
+      AI.Bus.emit({ type: 'myst', what: news, id, i, loud: 0 });
       page = ORDER.filter((k) => J.m[k] && J.m[k].r).indexOf(id); // (J opens it here)
       toast('📖 Something new is written in the journal  (J)');
     }

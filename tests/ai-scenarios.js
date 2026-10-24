@@ -948,6 +948,56 @@ async function sample(h, ms, every, fn, arg) {
     return { pass: r.first[0] === 'Sprigatito' && r.lines.length >= 2 && r.held, detail: r };
   });
 
+  await scenario(h, 'EXP for exploring: new ground on foot pays, standing still or walking in circles does not, a chest pays once', async () => {
+    const r = await h.R(async () => {
+      const X = PSXAI.Exp, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      X.reset(); PSXAI.Debug.freeze(false);
+      const xp = () => X.st.total;
+      // standing still (after whatever the starting spot itself is worth)
+      await wait(1500);
+      const s0 = xp();
+      await wait(2500);
+      const still = xp() - s0;
+      // walking in a small circle (the same few cells over and over)
+      for (let i = 0; i < 60; i++) { p.x += Math.cos(i * 0.3) * 30; p.y += Math.sin(i * 0.3) * 30; await wait(50); }
+      const circle = xp() - s0 - still;
+      // a long walk over new ground
+      const a0 = xp();
+      for (let i = 0; i < 90; i++) { p.x += 40; await wait(60); }
+      const walk = xp() - a0;
+      // a teleport across the map: no credit for the ground skipped
+      const b0 = xp(); p.x += 5000; await wait(400); const tele = xp() - b0;
+      // a chest pays once, a big one more
+      const c0 = xp();
+      X.onBreak({ type: 'chest', x: 123, y: 456 }); const chest = xp() - c0;
+      X.onBreak({ type: 'chest', x: 123, y: 456 }); const again = xp() - c0 - chest;
+      const d0 = xp(); X.onBreak({ type: 'bigchest', x: 999, y: 456 }); const big = xp() - d0;
+      PSXAI.Debug.freeze(true);
+      return { still, circle, walk, tele, chest, again, big, unit: Math.round(X.unit()) };
+    });
+    return { pass: r.still === 0 && r.circle <= r.unit && r.walk > r.unit && r.tele <= r.unit * 0.5 && r.chest > 0 && r.again === 0 && r.big > r.chest * 2, detail: r };
+  });
+
+  await scenario(h, 'EXP for kindness, curiosity and teamwork, with a limit so none of it can be farmed', async () => {
+    const r = await h.R(() => {
+      const X = PSXAI.Exp, B = PSXAI.Bus;
+      X.reset();
+      const t = () => X.st.total;
+      B.emit({ type: 'befriend', key: 77, loud: 0 }); const friend = t();
+      B.emit({ type: 'befriend', key: 77, loud: 0 }); const sameFriend = t() - friend;
+      const a = t(); B.emit({ type: 'party-support', byYou: true, loud: 0 }); const revive = t() - a;
+      const b = t(); B.emit({ type: 'myst', what: 'clue', id: 'darkrai', i: 0, loud: 0 }); const clue = t() - b;
+      // a flood of the same small thing: capped, then a trickle
+      const c = t();
+      for (let i = 0; i < 40; i++) X.give(3, 'test');
+      const flood = t() - c;
+      const fullRate = Math.round(X.unit() * 3) * 40;
+      return { friend, sameFriend, revive, clue, flood, fullRate };
+    });
+    return { pass: r.friend > 0 && r.sameFriend === 0 && r.revive > r.friend && r.clue > 0 && r.flood < r.fullRate * 0.5, detail: r };
+  });
+
   await scenario(h, 'trees and undergrowth use the new varied art', async () => {
     await h.wait(400);
     const r = await h.R(() => {

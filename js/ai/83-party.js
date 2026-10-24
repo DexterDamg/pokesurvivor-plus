@@ -220,6 +220,7 @@
     c.pp.shaken = AI.time + 25; // shaken for a while after
     M().feel(c.psx, 'fear', 0.25, 'down');
     const k = keyOf(by);
+    if (k) AI.Bus.emit({ type: 'party-support', what: 'revive', byYou: k === 'P', x: c.x, y: c.y, loud: 0 });
     if (k) {
       bump(c.pp.key, k, { trust: 0.15, friend: 0.1, loyal: 0.12, resp: 0.08, shared: 1 });
       if (k === 'P') { st.mem.protected++; remember('revivedByYou', { key: c.pp.key }); }
@@ -479,13 +480,20 @@
     BH.add({
       id: 'party-notice', tier: 6, party: true, emotion: 'excitement', minCommit: 2,
       score(e, s) { return s.companion && e.pp.notice && !foesNear(e.x, e.y, 300) ? 0.9 : 0; },
-      start(e, s) { const n = e.pp.notice; M().say(s, 'surprise', 1.4, 2); setTimeout(() => announce(e, n), 500); },
+      start(e, s) { const n = e.pp.notice; if (n && n.kind !== 'open') { M().say(s, 'surprise', 1.4, 2); setTimeout(() => announce(e, n), 500); } },
       update(e, s, dt, it) {
         const n = e.pp.notice;
         if (!n) return false;
         n.t += dt;
         const p = lead();
         const d = Math.hypot(n.x - e.x, n.y - e.y);
+        if (n.kind === 'open') {
+          // helping open a big chest: stand by it until it pops
+          if (!(n.prop && n.prop.open > 0) || n.t > 8) { e.pp.notice = null; return false; }
+          if (d > 50) { B().go(it, n.x + (e.pp.slot - 1) * 34, n.y + 30, 1); return true; }
+          B().stay(it); it.face = Math.atan2(n.y - e.y, n.x - e.x);
+          return true;
+        }
         if (d > 38 && n.t < 8) { B().go(it, n.x, n.y + 22, 0.85); return true; }
         B().stay(it);
         it.face = Math.atan2(n.y - e.y, n.x - e.x);
@@ -614,6 +622,7 @@
         if (w === lead()) { try { w.heal ? w.heal(amt) : (w.hp = Math.min(w.maxHp, w.hp + amt)); } catch (err) { w.hp = Math.min(w.maxHp, w.hp + amt); } } else w.hp = Math.min(w.maxHp, w.hp + amt);
         try { AI.R.FX.dmgText(w.x, w.y - (w.bodyH || 40) - 10, '+' + amt, '#7ee08a', true); AI.R.FX.ring(w.x, w.y, 6, 26, '#7ee08a', 0.4, 2); } catch (err) { /* ignore */ }
         e.pp.berryT = AI.time + 75;
+        AI.Bus.emit({ type: 'party-support', what: 'berry', byYou: false, x: w.x, y: w.y, loud: 0 });
         const k = keyOf(w);
         if (k && k !== 'P') bump(k, e.pp.key, { trust: 0.06, friend: 0.06, shared: 1 });
         if (k === 'P') bump('P', e.pp.key, { shared: 1 });
@@ -671,6 +680,7 @@
       regen(c, dt);
     }
     st.statT = (st.statT == null || st.statT <= 0) ? 1 : st.statT - dt;
+    helpOpen(dt);
     shots();
     tickTalk(dt);
     watch(dt);
@@ -721,6 +731,22 @@
       e.touchCd = 0.8;
       const prev = AI.curAttacker; AI.curAttacker = e;
       try { c.hurt(e.dmg || e._dmg || 8, '#ff6a6a', c.x - e.x, c.y - e.y, 40); } finally { AI.curAttacker = prev; }
+    }
+  }
+  // a big chest opens faster with friends around it, as it does with other players
+  function helpOpen(dt) {
+    const R = AI.R, p = lead();
+    st.chestT = (st.chestT || 0) - dt;
+    if (st.chestT <= 0) {
+      st.chestT = 0.5;
+      try { st.chests = (R.World.specialsNear ? R.World.specialsNear(p.x, p.y, 220) : []).filter((q) => q.type === 'bigchest'); } catch (e) { st.chests = []; }
+    }
+    for (const pr of st.chests || []) {
+      if (!(pr.open > 0)) continue;
+      const near = alive().filter((c) => Math.hypot(c.x - pr.x, c.y - pr.y) < 80).length;
+      if (near) pr.open += dt * 0.2 * near;
+      // the others come over to help
+      for (const c of alive()) if (!c.pp.notice && !c.psx.inCombat && Math.hypot(c.x - pr.x, c.y - pr.y) > 80) c.pp.notice = { id: 'open', x: pr.x, y: pr.y, kind: 'open', prop: pr, t: 0, by: c };
     }
   }
   function regen(c, dt) {
@@ -799,7 +825,11 @@
     if (ev.type === 'death' && ev.killer === lead()) {
       // you saved a companion from whatever was attacking it
       const t = ev.victim && ev.victim.psx && ev.victim.psx.combat && ev.victim.psx.combat.target;
-      if (t && t.pp) { st.mem.protected++; bump(t.pp.key, 'P', { trust: 0.07, loyal: 0.05, resp: 0.04, shared: 1 }); if (Math.random() < 0.5) say(t, 'thanks', { by: lead() }); }
+      if (t && t.pp) {
+        st.mem.protected++; bump(t.pp.key, 'P', { trust: 0.07, loyal: 0.05, resp: 0.04, shared: 1 });
+        if (t.hp < t.maxHp * 0.35) AI.Bus.emit({ type: 'party-support', what: 'saved', byYou: true, x: t.x, y: t.y, loud: 0 });
+        if (Math.random() < 0.5) say(t, 'thanks', { by: lead() });
+      }
       if (ev.victim && (ev.victim.boss || ev.victim.legend)) { st.mem.brave++; react('brave'); }
     }
     if (ev.type === 'death' && ev.killer && ev.killer.pp && (ev.victim.boss || ev.victim.elite)) say(ev.killer, 'bigWin');
