@@ -631,6 +631,7 @@ async function sample(h, ms, every, fn, arg) {
 
   await scenario(h, 'the old path: clues, a lantern that flickers without wind, and a frightened Hoothoot', async () => {
     const info = await h.R(() => {
+      PSXAI.Journey.establishNow(); // (the path only exists once 20 minutes of forest have passed)
       const t = PSXAI.Decor.trail;
       if (!t) return null;
       const kinds = [...new Set(t.items.map((i) => i.k))];
@@ -656,6 +657,7 @@ async function sample(h, ms, every, fn, arg) {
 
   await scenario(h, 'in thick fog, Pokémon refuse to go near the old trail', async () => {
     const r0 = await h.R(() => {
+      PSXAI.Journey.establishNow();
       const t = PSXAI.Decor.trail;
       const p = __PSX_REG__.Game.player;
       p.x = t.pts[5][0] + 300; p.y = t.pts[5][1];
@@ -702,9 +704,11 @@ async function sample(h, ms, every, fn, arg) {
   // =========================================================== overhaul: world, encounters, storms, sizes
   await scenario(h, 'lamps stand only along the old path to the mansion, nowhere at random', async () => {
     const r = await h.R(() => {
-      const D = PSXAI.Decor, p = __PSX_REG__.Game.player;
+      const D = PSXAI.Decor;
       D.ensure();
-      const items = D.inRect(p.x - 3500, p.y - 3500, p.x + 3500, p.y + 3500, []);
+      PSXAI.Journey.establishNow();
+      const g = D.trail.mansion, cx = (g.S[0] + g.D[0]) / 2, cy = (g.S[1] + g.D[1]) / 2;
+      const items = D.inRect(cx - 3500, cy - 3500, cx + 3500, cy + 3500, []);
       const lamps = items.filter((it) => it.k === 'lamp');
       const path = D.trail ? D.trail.mansion.dense : [];
       const fromPath = lamps.map((l) => Math.round(Math.min(...path.map((q) => Math.hypot(l.x - q[0], l.y - q[1])))));
@@ -999,6 +1003,8 @@ async function sample(h, ms, every, fn, arg) {
     async finish(maxSteps = 200) { for (let i = 0; i < maxSteps; i++) { const b = await h.R(() => { PSXAI.Story.advance(); return PSXAI.Story.busy(); }); if (!b) return true; await h.wait(60); } return false; },
     goto: (room, tx, ty) => h.R(([room, tx, ty]) => { const I = PSXAI.Mansion.interior(), p = __PSX_REG__.Game.player; if (room) { const r = I.room(room); p.x = r.x + r.w / 2; p.y = r.y + r.h / 2; } else { p.x = I.wx(tx); p.y = I.wy(ty); } PSXAI.Mansion.snapCamera(p); return true; }, [room, tx, ty]),
   };
+  // (the mansion is the end of the Shady Forest: these scenarios start once the journey has placed it)
+  await h.R(() => { window.T || 0; PSXAI.Journey.establishNow(); });
   async function enterMansion() {
     await h.R(() => { const p = __PSX_REG__.Game.player, g = PSXAI.Mansion.geom(); p.x = g.D[0]; p.y = g.D[1] + 30; PSXAI.Mansion.snapCamera(p); });
     await h.page.keyboard.down('KeyW'); await h.wait(500); await h.page.keyboard.up('KeyW');
@@ -1230,6 +1236,124 @@ async function sample(h, ms, every, fn, arg) {
   // =========================================================== the Shady Forest, rebuilt
   h = await boot({ partner: 377 });
   const tp = (x, y) => h.R(([x, y]) => { const p = __PSX_REG__.Game.player; p.x = x; p.y = y; PSXAI.Mansion.snapCamera(p); }, [x, y]);
+
+  await scenario(h, 'the journey: no mansion and no path during the first 20 minutes of forest, and the finale waits', async () => {
+    const r = await h.R(async () => {
+      const J = PSXAI.Journey, D = PSXAI.Decor, M = PSXAI.Mansion, p = __PSX_REG__.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const out = { start: { phase: J.phase, trail: !!D.trail, geom: !!M.geom() } };
+      // wander in every direction for a while, then sit just under the 20 minutes
+      for (let i = 0; i < 24; i++) { p.x += Math.cos(i * 0.9) * 140; p.y += Math.sin(i * 0.9) * 140; await wait(25); }
+      J.debugElapse(J.threshold() - 15 - J.elapsed);
+      await wait(1500);
+      let cleared = 0;
+      for (let y = -4000; y <= 4000; y += 250) for (let x = -4000; x <= 4000; x += 250) if (M.clearAt(x, y)) cleared++;
+      out.at1185 = { phase: J.phase, trail: !!D.trail, cleared, elapsed: Math.round(J.elapsed), finaleBlocked: J.blocksFinale() };
+      return out;
+    });
+    return { pass: r.start.phase === 'forest' && !r.start.trail && !r.start.geom && r.at1185.phase === 'forest' && !r.at1185.trail && r.at1185.cleared === 0 && r.at1185.finaleBlocked, detail: r };
+  });
+
+  await scenario(h, 'after 20 minutes the mansion is placed once: ahead, out of sight, on unseen ground, with a clear path', async () => {
+    const r = await h.R(async () => {
+      const J = PSXAI.Journey, M = PSXAI.Mansion, W = __PSX_REG__.World, p = __PSX_REG__.Game.player, C = __PSX_REG__.Camera;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      // head east for a moment so the party has a direction
+      for (let i = 0; i < 40; i++) { p.x += 30; await wait(20); }
+      const fresh0 = new Set(J.gen);
+      J.debugElapse(Math.max(5, J.threshold() - J.elapsed + 5));
+      for (let i = 0; i < 30 && !M.geom(); i++) await wait(100);
+      const g = M.geom();
+      if (!g) return { placed: false };
+      const corridor = g.dense.map((q) => Math.floor(q[0] / 512) * 65536 + Math.floor(q[1] / 512));
+      const seenBefore = corridor.filter((k) => fresh0.has(k)).length;
+      let blocked = 0, trees = 0;
+      for (const q of g.dense) { if (!W.isFree(q[0], q[1], 10)) blocked++; for (const pr of W.propsInCircle(q[0], q[1], 30)) if (pr.type === 'tree' || pr.solid) trees++; }
+      const ahead = Math.cos(Math.atan2(g.S[1] - p.y, g.S[0] - p.x)); // east = 1
+      const outOfSight = !C.sees(g.S[0], g.S[1], 60) && !C.sees(g.D[0], g.D[1], 200);
+      // it's placed once: trying again changes nothing, and it stays put
+      const D0 = g.D.slice();
+      J.establish();
+      await wait(800);
+      const g2 = M.geom();
+      return { placed: true, phase: J.phase, seenBefore, blocked, trees, ahead: +ahead.toFixed(2), outOfSight, same: g2.D[0] === D0[0] && g2.D[1] === D0[1], doorFromParty: Math.round(Math.hypot(g.D[0] - p.x, g.D[1] - p.y)) };
+    });
+    return { pass: r.placed && r.phase === 'route' && r.seenBefore === 0 && r.blocked === 0 && r.trees === 0 && r.ahead > 0.3 && r.outOfSight && r.same && r.doorFromParty > 1700, detail: r };
+  });
+
+  await scenario(h, 'wherever the party wanders, the forest points the way: old lanterns, fences and signs ahead, toward the path', async () => {
+    const r = await h.R(async () => {
+      const J = PSXAI.Journey, p = __PSX_REG__.Game.player, g = (PSXAI.Journey.establishNow(), PSXAI.Mansion.geom());
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      // go far the other way
+      const a = Math.atan2(g.S[1] - g.D[1], g.S[0] - g.D[0]);
+      p.x = g.S[0] + Math.cos(a) * 3000; p.y = g.S[1] + Math.sin(a) * 3000; PSXAI.Mansion.snapCamera(p);
+      const n0 = J.st.crumbs.length;
+      for (let i = 0; i < 4; i++) { J.st.crumbT = 0; await wait(300); }
+      const placed = J.st.crumbs.slice(n0);
+      const toward = placed.map((c) => { const d0 = Math.hypot(p.x - g.S[0], p.y - g.S[1]), d1 = Math.hypot(c.x - g.S[0], c.y - g.S[1]); return d1 < d0; });
+      const visible = placed.filter((c) => __PSX_REG__.Camera.sees(c.x, c.y, 0)).length;
+      return { crumbs: placed.length, toward: toward.every(Boolean), visible, kinds: placed.map((c) => c.kind) };
+    });
+    return { pass: r.crumbs >= 1 && r.toward && r.visible === 0, detail: r };
+  });
+
+  await scenario(h, 'the final stretch grows stranger: fewer ordinary Pokémon, more Ghosts, twisted trees, fog, sounds, silhouettes', async () => {
+    const r = await h.R(async () => {
+      const J = PSXAI.Journey, A = PSXAI.Areas, R = __PSX_REG__, p = R.Game.player, g = (PSXAI.Journey.establishNow(), PSXAI.Mansion.geom());
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      p.x = g.S[0]; p.y = g.S[1] - 200; PSXAI.Mansion.snapCamera(p);
+      const rate0 = A.spawnRate();
+      p.x = g.G[0]; p.y = g.G[1] + 260; PSXAI.Mansion.snapCamera(p);
+      const k = J.partyK();
+      const rate1 = A.spawnRate();
+      const bag = R.Enemies.cast[0].list;
+      let ghosts = 0, total = 0;
+      for (let i = 0; i < 30; i++) { const b = A.weightBag(bag.slice()); for (const d of b) { total++; if ((R.DEX_BY[d.dex].types || []).includes('ghost')) ghosts++; } }
+      // trees grown on ground first seen after the mansion was placed
+      const TW = PSXAI.Forest.KIND.twisted;
+      let tw = 0, nt = 0;
+      for (let i = 0; i < 400; i++) { const tx = Math.round(g.G[0] / 32) + ((i % 20) - 10) * 3, ty = Math.round((g.G[1] + 300) / 32) + (((i / 20) | 0) - 10) * 3; const t = PSXAI.Forest.treeFor({ tx, ty }, 120, true); nt++; if (TW.includes(t.n)) tw++; }
+      J.st.soundT = 0; J.st.silT = 0;
+      await wait(2500);
+      return { k: +k.toFixed(2), rate0: +rate0.toFixed(2), rate1: +rate1.toFixed(2), ghostShare: +(ghosts / total).toFixed(2), twisted: +(tw / nt).toFixed(2), sounds: J.st.soundT > 0, silhouettes: J.st.sils.length > 0 || J.st.silT > 0 };
+    });
+    return { pass: r.k > 0.6 && r.rate1 < r.rate0 && r.ghostShare > 0.2 && r.twisted > 0.2 && r.sounds && r.silhouettes, detail: r };
+  });
+
+  await scenario(h, 'the journey is the host\'s for the whole party, survives a saved run, and the finale opens once the mansion is done', async () => {
+    const r = await h.R(async () => {
+      const J = PSXAI.Journey, R = __PSX_REG__, D = PSXAI.Decor;
+      const g = PSXAI.Mansion.geom(), seed = D.seed;
+      // a saved run resumes in the same world (same seed): the journey comes back with it
+      const saved = JSON.parse(localStorage.getItem('psx.journey.v1') || '{}');
+      const el = J.elapsed;
+      R.World.reset(seed);
+      D.ensure();
+      const g2 = PSXAI.Mansion.geom();
+      const resumed = { phase: J.phase, sameDoor: !!g2 && g2.D[0] === g.D[0] && g2.D[1] === g.D[1], elapsedKept: Math.abs(J.elapsed - el) < 10 };
+      // a co-op guest takes the host's journey (simulated host message)
+      const realCoop = R.Coop;
+      R.Coop = { active: true, isHost: false, puppets: () => [] };
+      R.World.reset(seed + 1); D.ensure();
+      const guestBefore = !!PSXAI.Mansion.geom();
+      J.tick(5); // a guest's own clock doesn't run
+      const guestClock = J.elapsed;
+      J.onNet('host', { k: 'psx', t: 'journey', e: 1300, geo: { S: [5000, 400], D: [6200, 200] }, ph: 'route', f: 0, d: 0 });
+      const gg = PSXAI.Mansion.geom();
+      R.Coop = realCoop;
+      const guest = { before: guestBefore, clock: guestClock, after: !!gg, door: gg ? gg.D : null, elapsed: J.elapsed };
+      // the game's finale waits for the mansion's story
+      const blocked = J.blocksFinale();
+      J.finish();
+      const open = !J.blocksFinale();
+      R.World.reset(seed); D.ensure();
+      return { saved: saved.seed === seed && !!saved.geo, resumed, guest, blocked, open };
+    });
+    const ok = r.saved && r.resumed.sameDoor && r.resumed.elapsedKept && r.resumed.phase !== 'forest' &&
+      !r.guest.before && r.guest.clock === 0 && r.guest.after && r.guest.door[0] === 6200 && r.guest.elapsed >= 1300 && r.blocked && r.open;
+    return { pass: ok, detail: r };
+  });
 
   await scenario(h, 'the forest floor is one continuous painted surface: no tile grid, no sparkles, no seams', async () => {
     const r = await h.R(async () => {

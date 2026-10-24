@@ -1,7 +1,7 @@
 /* PokéSurvivor+ — Living World AI · forest decor & environmental memory
  * Fills each area with deterministic, varied decor (fallen logs, stumps, bushes, berry bushes,
  * ferns, wildflowers, grass tufts, mushrooms, burrows, old lanterns) that doubles as Pokémon
- * habitat. In the starting woodland it also lays out the old dirt path, lined with lamp posts, that
+ * habitat. At the end of the Shady Forest it lays out the old dirt path, lined with lamp posts, that
  * leads to the gates of the haunted mansion. And the world remembers, for a while: footprints, mud where you keep walking
  * in the rain, puddles in the low spots, shaking bushes, nibbled leaves, freshly dug burrows.
  */
@@ -155,23 +155,33 @@
     return c;
   }
 
-  // ---------------------------------------------------------------- the old trail and the mansion (starting woodland)
-  /* A shady dirt path leaves the woodland about 1450 px from the start, lined with neat pairs of old
-   * lamp posts, and curves north to the iron gates of the haunted mansion. Behind the gates: a
-   * courtyard with a small family plot, gargoyles by the door, and the house itself. The layout
-   * depends only on the run's seed, so the forest can be cleared for it before it is ever seen. */
-  function mansionGeom(sd) {
-    const a = -0.5 - U.hash(sd, 7, 1) * (Math.PI - 1); // always somewhere to the north
-    const S = [Math.cos(a) * 1450, Math.sin(a) * 1450];
-    const D = [Math.round(Math.cos(a) * 2650), Math.round(Math.sin(a) * 2650)];
+  // ---------------------------------------------------------------- the old trail and the mansion (end of the Shady Forest)
+  /* The haunted mansion is the end of the Shady Forest. It doesn't exist when a run starts: once
+   * the party has spent long enough in the forest, the journey (84-journey.js) chooses where it
+   * stands, ahead of the party and out of sight, and hands its geometry here. A shady dirt path,
+   * lined with neat pairs of old lamp posts, runs from S to the iron gates; behind the gates: a
+   * courtyard with a small family plot, gargoyles by the door, and the house itself (door at D,
+   * always facing south). If the path starts behind the house it swings around the grounds' side. */
+  function mansionGeom(S, D) {
+    D = [Math.round(D[0]), Math.round(D[1])];
+    S = [S[0], S[1]];
     const G = [D[0], D[1] + 330];
     const C = [G[0], G[1] + 420];
-    // sample the curve S → C → G evenly
+    const SW = 290; // the grounds' half width
+    const way = [S];
+    if (S[1] < G[1] + 260) { const sd = S[0] < D[0] ? -1 : 1; way.push([D[0] + sd * (SW + 430), G[1] + 160]); }
+    way.push(C, G);
+    // a smooth curve through the waypoints (Catmull-Rom), then sampled evenly
+    const P = [way[0], ...way, way[way.length - 1]];
     const fine = [];
-    for (let i = 0; i <= 240; i++) {
-      const t = i / 240, u = 1 - t;
-      fine.push([u * u * S[0] + 2 * u * t * C[0] + t * t * G[0], u * u * S[1] + 2 * u * t * C[1] + t * t * G[1]]);
+    for (let i = 1; i < P.length - 2; i++) {
+      const [p0, p1, p2, p3] = [P[i - 1], P[i], P[i + 1], P[i + 2]];
+      for (let k = 0; k < 80; k++) {
+        const t = k / 80, t2 = t * t, t3 = t2 * t;
+        fine.push([0, 1].map((c) => 0.5 * (2 * p1[c] + (-p0[c] + p2[c]) * t + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * t2 + (-p0[c] + 3 * p1[c] - 3 * p2[c] + p3[c]) * t3)));
+      }
     }
+    fine.push(G.slice());
     const even = (step) => {
       const out = [fine[0]];
       let acc = 0;
@@ -182,13 +192,19 @@
       if (out[out.length - 1] !== fine[fine.length - 1]) out.push(fine[fine.length - 1]);
       return out;
     };
-    const SW = 290; // the grounds' half width
+    const a = Math.atan2(D[1] - S[1], D[0] - S[0]);
     return { a, S, D, G, C, SW, pts: even(110), dense: even(16), interior: [D[0], D[1] + 60000] };
   }
-  function buildTrail() {
-    trail = null; cave = null;
-    if (AI.Env.biome() !== 0 || !AI.cfg.newArt) return;
-    const g = mansionGeom(seed);
+  // the area the mansion and its path take up (for clearing, choosing a site and regenerating)
+  function mansionBox(g) {
+    const xs = g.dense.map((q) => q[0]), ys = g.dense.map((q) => q[1]);
+    return [Math.min(...xs, g.D[0] - g.SW) - 120, Math.min(...ys, g.D[1] - 340) - 120, Math.max(...xs, g.D[0] + g.SW) + 120, Math.max(...ys, g.G[1]) + 120];
+  }
+  // the journey hands over the mansion once it has chosen where it stands
+  function setTrail(g) { trail = null; if (g) buildTrail(g); }
+  function buildTrail(g) {
+    trail = null;
+    if (AI.Env.biome() !== 0 || !AI.cfg.newArt || !g) return;
     const { pts, dense, D, G, SW } = g;
     const items = [];
     const side = (p, q, d) => { const dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1; return [p[0] - dy / l * d, p[1] + dx / l * d]; };
@@ -257,8 +273,12 @@
     for (const [dx, dy, c] of [[-68, 96, [190, 120, 255]], [112, 32, [190, 120, 255]], [190, 94, [190, 120, 255]], [52, 96, [255, 200, 120]], [0, 200, [255, 200, 120]]])
       items.push(item({ k: 'mwin', x: D[0] + dx, y: D[1] - dy + 12, r: 0, flat: true, light: { r: 70, c, kind: 'glow' } }));
     trail = { pts, items, start: pts[0], end: G.slice(), dir: -Math.PI / 2, mansion: g };
-    // a cave sealed by boulders, for later
-    const ca = g.a + Math.PI * (0.7 + U.hash(seed, 3, 3) * 0.6);
+  }
+  // a cave sealed by boulders, for later
+  function buildCave() {
+    cave = null;
+    if (AI.Env.biome() !== 0 || !AI.cfg.newArt) return;
+    const ca = U.hash(seed, 3, 3) * Math.PI * 2;
     cave = item({ k: 'cave', x: Math.cos(ca) * 1900, y: Math.sin(ca) * 1900, r: 30 });
   }
   // how deep inside the trail's haunted stretch a point is (0 outside … 1 at the end)
@@ -375,6 +395,11 @@
     if (prints.length >= MAX_PRINTS) prints.shift();
     prints.push({ x, y, a: ang, t: AI.time, k: kind, w: size || 1, s: strength, side: (prints.length & 1) ? 1 : -1, mud: m > 0.3 });
   }
+  // a footprint regardless of the ground (strange prints that lead somewhere, then stop)
+  function printAt(x, y, ang, kind, size, strength) {
+    if (prints.length >= MAX_PRINTS) prints.shift();
+    prints.push({ x, y, a: ang, t: AI.time, k: kind, w: size || 1, s: strength || 0.7, side: (prints.length & 1) ? 1 : -1, mud: false });
+  }
   const mud = new Map();
   const MUD_CELL = 22;
   function mudKey(x, y) { return Math.floor(x / MUD_CELL) + ',' + Math.floor(y / MUD_CELL); }
@@ -490,11 +515,18 @@
     built = false;
   }
   let built = false;
-  function ensure() { if (!built && AI.R && AI.R.World) { built = true; buildTrail(); } }
+  function ensure() { if (!built && AI.R && AI.R.World) { built = true; buildCave(); if (AI.Journey) { AI.Journey.restoreTrail(); AI.Journey.restoreCrumbs(); } } }
+  // which decor chunks exist (the journey only places the mansion where nothing has been seen yet)
+  function hasChunk(cx, cy) { return chunks.has(cx + ',' + cy); }
+  // forget the decor generated in an area, so it is generated again (around a newly placed mansion)
+  function invalidate(x0, y0, x1, y1) {
+    const ch = CH();
+    for (let cy = Math.floor(y0 / ch); cy <= Math.floor(y1 / ch); cy++) for (let cx = Math.floor(x0 / ch); cx <= Math.floor(x1 / ch); cx++) chunks.delete(cx + ',' + cy);
+  }
 
   AI.define('Decor', {
     reset, ensure, tick, chunk, inRect, near, lights, trailZone, footprint, mudAt, trample, puddleAmt, puddlesIn, puddleAt,
-    ripple, ripples, prints, rustle, shakeOf, shakeProp, nibble, isNibbled, addDyn, addFixed, removeDyn, flame, checkPatch,
-    mansionGeom, solidOf, solidsIn, collide, blocked, get trail() { return trail; }, get cave() { return cave; }, get seed() { return seed; },
+    ripple, ripples, prints, printAt, rustle, shakeOf, shakeProp, nibble, isNibbled, addDyn, addFixed, removeDyn, flame, checkPatch,
+    mansionGeom, mansionBox, setTrail, hasChunk, invalidate, solidOf, solidsIn, collide, blocked, get trail() { return trail; }, get cave() { return cave; }, get seed() { return seed; },
   });
 })();

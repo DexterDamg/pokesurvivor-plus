@@ -223,6 +223,17 @@
       obj[k] = function () { quiet++; try { return o.apply(this, arguments); } finally { quiet--; } };
     }
 
+    // the game's own finale (Judgment, at 20 minutes) waits until the haunted mansion's story is done:
+    // the mansion is the only way to complete the Shady Forest (84-journey.js)
+    if (R.Judgment && R.Judgment.update) {
+      const oJU = R.Judgment.update;
+      const AT = R.Judgment.AT || 1200;
+      R.Judgment.update = function (dt, p, time) {
+        if (AI.enabled && AI.Journey.blocksFinale() && time >= AT - 1) return oJU.call(this, dt, p, AT - 1);
+        return oJU.apply(this, arguments);
+      };
+    }
+
     // story scenes can point the camera elsewhere
     const oFollow = R.Camera.follow;
     R.Camera.follow = function (x, y, dt) { const c = AI.enabled && AI.Story && AI.Story.cam; return c ? oFollow.call(this, c[0], c[1], dt * 0.35) : oFollow.apply(this, arguments); };
@@ -273,7 +284,7 @@
     const oAir = R.Training.drawAir;
     R.Training.drawAir = function (ctx) {
       const r = oAir.apply(this, arguments);
-      if (AI.enabled) try { AI.Forest.drawMist(ctx); AI.Forest.drawFlies(ctx); } catch (e) { AI.warn('forest-air', e); }
+      if (AI.enabled) try { AI.Forest.drawMist(ctx); AI.Journey.drawFog(ctx); AI.Journey.drawSils(ctx); AI.Forest.drawFlies(ctx); } catch (e) { AI.warn('forest-air', e); }
       if (AI.enabled) try { AI.Light.drawAir(ctx); } catch (e) { AI.warn('env-air', e); }
       if (AI.enabled) try { AI.Mansion.drawAir(ctx); } catch (e) { AI.warn('mansion-air', e); }
       if (AI.enabled) try { AI.Render.drawAir(ctx); } catch (e) { AI.warn('air', e); }
@@ -358,6 +369,7 @@
         AI.Sky.tick(dt);
         AI.Decor.tick(dt);
         AI.Forest.tick(dt);
+        AI.Journey.tick(dt);
         AI.Mysteries.tick(dt);
         AI.Areas.tick(dt);
         AI.EnvBeh.tick(dt);
@@ -390,7 +402,7 @@
     // ------------------------------------------------------------ new run → fresh world
     const oWR = R.World.reset;
     R.World.reset = function (seed) {
-      try { resetWorld(); AI.Decor.reset(seed); AI.Forest.reset(); AI.Mysteries.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); AI.Player.lanternToggle = null; } catch (e) { AI.warn('reset', e); }
+      try { resetWorld(); AI.Decor.reset(seed); AI.Journey.reset(AI.Decor.seed); AI.Forest.reset(); AI.Mysteries.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); AI.Player.lanternToggle = null; } catch (e) { AI.warn('reset', e); }
       return oWR.apply(this, arguments);
     };
     function resetWorld() {

@@ -166,9 +166,21 @@
   }
 
   // weigh the spawn bag by time of day, season, weather and rarity
+  // near the haunted mansion the ordinary Pokémon thin out and Ghost types gather (84-journey.js)
+  const GHOSTS = [92, 355, 200, 353, 607, 708];
   function weightBag(bag) {
     if (!roster() || !bag || !bag.length) return null;
     const Sky = AI.Sky;
+    const jk = AI.Journey ? AI.Journey.partyK() : 0;
+    if (jk > 0.15) {
+      const R = AI.R, T = R.Enemies.TIERS;
+      const t = R.Game.time || 0, ti = [0, 70, 160, 260, 380, 500].filter((s) => t >= s).length - 1;
+      for (const g of GHOSTS) {
+        if (!R.DEX_BY[g] || !R.SPRITE_META[g] || bag.some((d) => d.dex === g)) continue;
+        const n = Math.round(jk * 2.5);
+        for (let i = 0; i < n; i++) bag = bag.concat([defFor(R.DEX_BY[g], T[Math.max(0, Math.min(ti, T.length - 1))], ti)]);
+      }
+    }
     const se = Sky ? Sky.season() : 'summer';
     const out = [];
     for (const d of bag) {
@@ -178,6 +190,7 @@
       if (Sky && types.includes('bug') && Sky.midday() && Sky.cloud < 0.5) w *= 1.4;
       if (Sky && Sky.rain > 0.4 && (types.includes('bug') || types.includes('fire'))) w *= 0.5;
       if (Sky && Sky.fog > 0.5 && (types.includes('ghost') || types.includes('dark'))) w *= 2.2;
+      if (jk > 0.15) w *= types.includes('ghost') ? 1 + jk * 4 : 1 - jk * 0.75;
       const n = Math.floor(w) + (Math.random() < w - Math.floor(w) ? 1 : 0);
       for (let i = 0; i < n; i++) out.push(d);
     }
@@ -210,6 +223,7 @@
     r *= fogFactor(1);
     r *= 1 - Sky.storm * 0.4 - Math.max(0, Sky.rain - 0.5) * 0.4;
     if (Sky.windNow() > 0.85) r *= 0.7;
+    if (AI.Journey) r *= 1 - AI.Journey.partyK() * 0.5; // the forest goes quiet near the mansion
     return U.clamp(r, 0.12, 1);
   }
 
