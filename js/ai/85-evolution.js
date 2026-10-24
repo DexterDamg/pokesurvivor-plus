@@ -171,6 +171,7 @@
     e.anim.dir = dir;
     e.r = R.Sprites.bodyRadius(to, e.scale);
     e.bodyH = R.Sprites.bodyHeight(to, e.scale);
+    if (AI.Scale) { e._psxR0 = null; e._psxKOn = false; AI.Scale.apply(e); } // the new body's size
     e.flying = R.Sprites.hovers(to);
     e.maxHp = Math.round(e.maxHp * k);
     e.hp = Math.min(e.maxHp, e.maxHp * Math.min(1, hpf + 0.25));

@@ -160,7 +160,7 @@
   }
 
   AI.define('Art', {
-    PX, img, IDX, has, size, draw, silhouette, theme, treeFor, underFor, stages, GIANTS, TREES, UNDER, EVERGREEN, BROADLEAF,
+    PX, img, IDX, has, size, draw, silhouette, theme, treeFor, underFor, stages, GIANTS, GREEN, TREES, UNDER, EVERGREEN, BROADLEAF,
     get ready() { return ready; },
   });
 })();

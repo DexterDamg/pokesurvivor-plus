@@ -498,5 +498,5 @@
     }
   }
 
-  AI.define('Ground', { drawHazards, drawGround, wrapDrawProp, wrapVisibleProps, drawItem, swayAt, parting });
+  AI.define('Ground', { drawHazards, drawGround, wrapDrawProp, wrapVisibleProps, drawItem, swayAt, parting, artFor, roomOf });
 })();

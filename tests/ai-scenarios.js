@@ -216,9 +216,9 @@ async function sample(h, ms, every, fn, arg) {
     await h.wait(400);
     await h.R(() => B.hurt(B.maxHp * 0.1, '#fff', 1, 0, 0));
     const s = await sample(h, 4000, 400, () => [A, B, C].map((e) => [e.psx.beh.id, (PSXAI.Mind.bubbleFor(e.psx) || {}).icon]));
-    const want = { sleep: 'zzz', flee: 'scared', hide: 'scared', freeze: 'scared', fight: 'anger' };
+    const want = { sleep: ['zzz', 'dots'], flee: 'scared', hide: 'scared', freeze: 'scared', fight: 'anger' };
     const pairs = s.flat().filter(([b]) => want[b]);
-    const ok = pairs.filter(([b, i]) => i === want[b] || i === 'surprise').length;
+    const ok = pairs.filter(([b, i]) => [].concat(want[b]).includes(i) || i === 'surprise').length;
     return { pass: pairs.length >= 6 && ok / pairs.length > 0.8, detail: { checked: pairs.length, matching: ok, seen: [...new Set(pairs.map((p) => p.join('→')))] } };
   });
 
@@ -568,7 +568,7 @@ async function sample(h, ms, every, fn, arg) {
 
   await scenario(h, 'thunder: the flash comes first, the rumble later, and Pokémon are frightened', async () => {
     await h.R(() => {
-      window.A = PSXAI.Debug.spawn(19, { temp: 'timid', dx: 140 });
+      window.TH = [19, 10, 161].map((d, i) => PSXAI.Debug.spawn(d, { temp: 'timid', dx: 140, dy: -60 + i * 60 }));
       window.EV = [];
       PSXAI.Bus.on('lightning', (e) => EV.push(['flash', PSXAI.time]));
       PSXAI.Bus.on('boom', (e) => { if (e.thunder) EV.push(['thunder', PSXAI.time]); });
@@ -576,7 +576,7 @@ async function sample(h, ms, every, fn, arg) {
     await h.wait(400);
     await h.R(() => { window.F0 = PSXAI.Sky.flash; PSXAI.Sky.bolt(1.2); window.F1 = PSXAI.Sky.flash; });
     await h.wait(4800);
-    const r = await h.R(() => ({ ev: EV.slice(-2), flash: +F1.toFixed(2), fear: +A.psx.mind.emo.fear.toFixed(2) }));
+    const r = await h.R(() => ({ ev: EV.slice(-2), flash: +F1.toFixed(2), fear: +Math.max(...TH.map((e) => e.psx.mind.emo.fear)).toFixed(2) }));
     const f = r.ev.find((x) => x[0] === 'flash'), t = r.ev.find((x) => x[0] === 'thunder');
     const delay = f && t ? +(t[1] - f[1]).toFixed(1) : null;
     return { pass: r.flash > 0.4 && delay != null && delay > 2 && r.fear > 0.2, detail: { flash: r.flash, delay, fear: r.fear } };
@@ -695,6 +695,254 @@ async function sample(h, ms, every, fn, arg) {
     });
     if (!r) return { pass: false, detail: 'no habitat nearby' };
     return { pass: !r.before && r.after && r.stillListed === 0, detail: r };
+  });
+
+  // =========================================================== overhaul: world, encounters, storms, sizes
+  await scenario(h, 'lamps stand only at the old trail, nowhere at random', async () => {
+    const r = await h.R(() => {
+      const D = PSXAI.Decor, p = __PSX_REG__.Game.player;
+      D.ensure();
+      const items = D.inRect(p.x - 3000, p.y - 3000, p.x + 3000, p.y + 3000, []);
+      const lamps = items.filter((it) => it.k === 'lamp');
+      const st = D.trail && D.trail.start;
+      return { lamps: lamps.length, fromTrail: lamps.map((l) => (st ? Math.round(Math.hypot(l.x - st[0], l.y - st[1])) : -1)) };
+    });
+    return { pass: r.lamps <= 1 && r.fromTrail.every((d) => d >= 0 && d < 140), detail: r };
+  });
+
+  await scenario(h, 'attack warnings are soft glows instead of blinking red dashed outlines', async () => {
+    const red = () => h.R(() => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(() => {
+      const cv = document.getElementById('game'), g = cv.getContext('2d');
+      const d = g.getImageData(cv.width / 2 - 150, cv.height / 2 - 150, 300, 300).data;
+      let n = 0;
+      for (let i = 0; i < d.length; i += 4) if (d[i] > 170 && d[i + 1] < 90 && d[i + 2] < 90) n++;
+      res(n);
+    }))));
+    const add = () => h.R(() => { const p = __PSX_REG__.Game.player; __PSX_REG__.Hazards.clear(); __PSX_REG__.Hazards.add({ kind: 'zone', x: p.x + 60, y: p.y + 40, r: 80, delay: 3, dmg: 0, type: 'fire', color: '#f00' }); __PSX_REG__.Hazards.add({ kind: 'line', x: p.x - 120, y: p.y - 60, angle: 0.3, len: 220, w: 26, delay: 3, dmg: 0, type: 'fire', color: '#f00' }); });
+    await add(); await h.wait(1500);
+    const soft = await red();
+    await h.R(() => PSXAI.setCfg('softTelegraphs', false)); await add(); await h.wait(1500);
+    const old = await red();
+    await h.R(() => { __PSX_REG__.Hazards.clear(); PSXAI.setCfg('softTelegraphs', true); });
+    return { pass: old > 200 && soft < old * 0.25, detail: { harshRedPixels: { soft, original: old } } };
+  });
+
+  await scenario(h, 'no timed hordes: the surge timer stays off (and comes back if you ask for it)', async () => {
+    await h.wait(400);
+    const off = await h.R(() => __PSX_REG__.Spawner.snap().surgeT);
+    await h.R(() => PSXAI.setCfg('hordes', true)); await h.wait(400);
+    const on = await h.R(() => __PSX_REG__.Spawner.snap().surgeT);
+    await h.R(() => PSXAI.setCfg('hordes', false)); await h.wait(400);
+    const back = await h.R(() => __PSX_REG__.Spawner.snap().surgeT);
+    return { pass: off > 1e8 && on < 100 && back > 1e8, detail: { off: off > 1e8 ? 'off' : off, withHordes: Math.round(on), afterwards: back > 1e8 ? 'off' : back } };
+  });
+
+  await scenario(h, 'a boss only comes after enough Pokémon are defeated, with a notice first', async () => {
+    await h.R(() => {
+      const R = __PSX_REG__, P = PSXAI.Progress;
+      PSXAI.setCfg('eventCooldown', 1);
+      P.st.lastEvent = -999; P.st.bossPending = null;
+      R.Game.player.kills = 0; R.Game.debugTime(900); // a long run, but nothing defeated yet
+      window.SAID = []; window.oSay = window.oSay || R.Spawner.say; R.Spawner.say = function (m) { SAID.push(String(m)); return oSay.apply(this, arguments); };
+    });
+    await h.wait(3000);
+    const before = await h.R(() => ({ boss: __PSX_REG__.EnemyMgr.bossAlive(), idx: __PSX_REG__.Spawner.snap().bossIdx }));
+    await h.R(() => { __PSX_REG__.Game.player.kills = PSXAI.cfg.bossKills[0] + 1; });
+    let boss = false, noticeFirst = false;
+    for (let i = 0; i < 20 && !boss; i++) {
+      await h.wait(500);
+      const r = await h.R(() => ({ boss: __PSX_REG__.EnemyMgr.bossAlive(), said: SAID.length }));
+      if (r.said && !r.boss) noticeFirst = true;
+      boss = r.boss;
+    }
+    // while the boss is out, a rift milestone doesn't open a rift on top of it
+    await h.R(() => { __PSX_REG__.Game.player.kills = PSXAI.cfg.riftKills[0] + 5; PSXAI.Progress.st.lastEvent = -999; });
+    await h.wait(1500);
+    const overlap = await h.R(() => !!__PSX_REG__.Rift.rift);
+    const said = await h.R(() => SAID.slice());
+    await h.R(() => { __PSX_REG__.Spawner.say = oSay; PSXAI.Debug.clear(true); });
+    return { pass: !before.boss && boss && noticeFirst && !overlap, detail: { bossBeforeMilestone: before.boss, bossAfter: boss, noticeFirst, riftDuringBoss: overlap, said } };
+  });
+
+  await scenario(h, 'rifts open at defeat milestones, away from you; golden rifts are far rarer', async () => {
+    await h.R(() => {
+      const R = __PSX_REG__, P = PSXAI.Progress;
+      PSXAI.Debug.clear(true);
+      if (R.Rift.rift) R.Rift.onEvent(['riftx']);
+      PSXAI.setCfg('eventCooldown', 1); PSXAI.setCfg('bossKills', [1e9]); // only rifts in this one
+      P.st.lastEvent = -999; P.st.rift = 0; P.st.gold = 0; P.st.bossPending = null;
+      R.Game.player.kills = PSXAI.cfg.riftKills[0] - 5;
+    });
+    await h.wait(1500);
+    const early = await h.R(() => !!__PSX_REG__.Rift.rift);
+    await h.R(() => { __PSX_REG__.Game.player.kills = PSXAI.cfg.riftKills[0] + 1; });
+    await h.wait(1500);
+    const r1 = await h.R(() => { const R = __PSX_REG__, rf = R.Rift.rift, p = R.Game.player; return rf && { gold: rf.gold, d: Math.round(Math.hypot(rf.x - p.x, rf.y - p.y)), floor: R.World.kindAt(rf.x, rf.y) === 'floor' }; });
+    // the game's own timed rifts are cancelled
+    await h.R(() => { const R = __PSX_REG__; R.Rift.onEvent(['riftx']); PSXAI.Progress.st.lastEvent = 1e9; R.Rift.debugOpen && R.Rift.debugOpen(); });
+    await h.wait(800);
+    const foreign = await h.R(() => !!__PSX_REG__.Rift.rift);
+    const gaps = await h.R(() => { const P = PSXAI.Progress, c = PSXAI.cfg; return { normal: [0, 1, 2, 3, 4, 5].map((n) => P.milestone(c.riftKills, n)), golden: [0, 1, 2].map((n) => P.milestone(c.goldenRiftKills, n)) }; });
+    await h.R(() => { PSXAI.Progress.st.lastEvent = -999; __PSX_REG__.Game.player.kills = 0; PSXAI.resetCfg(); });
+    const rarer = gaps.golden[0] > gaps.normal[2] && gaps.golden[1] - gaps.golden[0] > gaps.normal[1] - gaps.normal[0];
+    return { pass: !early && r1 && !r1.gold && r1.d >= 650 && r1.floor && !foreign && rarer, detail: { riftBeforeMilestone: early, rift: r1, timedRiftCancelled: !foreign, milestones: gaps } };
+  });
+
+  await scenario(h, 'a sleeping Pokémon stays put through wind, rain and gusts', async () => {
+    await h.R(() => { PSXAI.Sky.set({ hour: 1 }); window.A = PSXAI.Debug.spawn(16, { temp: 'neutral', dx: 240, energy: 0.05, trait: { laziness: 0.1 } }); });
+    let asleep = false;
+    for (let i = 0; i < 24 && !asleep; i++) { await h.wait(500); asleep = await h.R(() => A.psx.beh.id === 'sleep' && A.psx.bs.down); }
+    await h.R(() => { window.P0 = [A.x, A.y]; PSXAI.Sky.set({ wind: 1, rain: 1, cloud: 1, wet: 1 }); for (let k = 0; k < 3; k++) PSXAI.Bus.emit({ type: 'gust', x: 0, y: 0, loud: 0, power: 1.4 }); });
+    const s = await sample(h, 6000, 500, () => ({ d: Math.hypot(A.x - P0[0], A.y - P0[1]), beh: A.psx.lock ? 'LOCK' : A.psx.beh.id }));
+    const moved = Math.max(...s.map((x) => x.d));
+    return { pass: asleep && moved < 3 && s.every((x) => x.beh === 'sleep'), detail: { asleep, moved: +moved.toFixed(1), behs: [...new Set(s.map((x) => x.beh))] } };
+  });
+
+  await scenario(h, 'thunderstorms darken the sky, lightning lights it up, and the flash setting tames it', async () => {
+    const lum = () => h.R(() => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(() => {
+      const cv = document.getElementById('game'), g = cv.getContext('2d');
+      const d = g.getImageData(20, 120, cv.width - 40, 300).data;
+      let s = 0;
+      for (let i = 0; i < d.length; i += 16) s += d[i] + d[i + 1] + d[i + 2];
+      res(Math.round(s / (d.length / 16) / 3));
+    }))));
+    await h.R(() => PSXAI.setCfg('lightningRate', 0));
+    await h.wait(600);
+    const clear = await lum();
+    await h.R(() => PSXAI.Sky.set({ rain: 0.95, storm: 0.9, cloud: 1, wind: 0.5, wet: 1 }));
+    await h.wait(900);
+    const storm = await lum();
+    await h.R(() => PSXAI.Sky.bolt(1));
+    const flash = await lum();
+    await h.wait(1500);
+    await h.R(() => { PSXAI.setCfg('flashIntensity', 0); PSXAI.Sky.bolt(1); });
+    const tamed = await lum();
+    await h.R(() => { PSXAI.Sky.st.strikes.length = 0; PSXAI.Sky.bolt(0.3); });
+    const strike = await h.R(() => PSXAI.Sky.st.strikes.length);
+    await h.R(() => PSXAI.resetCfg());
+    return { pass: storm < clear * 0.75 && flash > storm * 1.4 && tamed < storm * 1.15 && strike > 0, detail: { clear, storm, flash, flashSettingOff: tamed, nearStrikesDrawn: strike } };
+  });
+
+  await scenario(h, 'storms strike on their own at irregular intervals; heavy rain only now and then', async () => {
+    await h.R(() => { window.STRIKES = []; PSXAI.Bus.on('lightning', (e) => STRIKES.push([PSXAI.time, e.dist])); PSXAI.setCfg('lightningRate', 3); PSXAI.Sky.set({ rain: 0.95, storm: 0.95, cloud: 1, wet: 1 }); });
+    await h.wait(16000);
+    const r = await h.R(() => {
+      const t = STRIKES.map((e) => e[0]), gaps = t.slice(1).map((x, i) => +(x - t[i]).toFixed(1));
+      PSXAI.Sky.st.next = null;
+      PSXAI.Sky.set({ storm: 0, rain: 0.9 });
+      return { n: STRIKES.length, gaps, dists: STRIKES.map((e) => +e[1].toFixed(1)) };
+    });
+    await h.wait(400);
+    const rain = await h.R(() => { const nx = PSXAI.Sky.st.next; const out = nx ? { storm: nx.storm, inSec: Math.round(nx.at - PSXAI.time) } : null; PSXAI.Sky.set({ rain: 0.4 }); return out; });
+    await h.wait(400);
+    const drizzle = await h.R(() => PSXAI.Sky.st.next);
+    await h.R(() => PSXAI.resetCfg());
+    const irregular = r.gaps.length > 1 && Math.max(...r.gaps) - Math.min(...r.gaps) > 0.8;
+    return { pass: r.n >= 3 && irregular && rain && !rain.storm && rain.inSec >= 12 && !drizzle, detail: { strikes: r.n, gaps: r.gaps, distancesKm: r.dists, heavyRainNextStrikeIn: rain && rain.inSec, lightRainLightning: !!drizzle } };
+  });
+
+  await scenario(h, 'thunder: sleepers wake, timid Pokémon panic in different ways, electric types are unbothered', async () => {
+    await h.R(() => {
+      PSXAI.Sky.set({ hour: 1 });
+      window.Z = PSXAI.Debug.spawn(16, { temp: 'neutral', dx: 260, dy: 40, energy: 0.05, trait: { laziness: 0.1 } });
+    });
+    let asleep = false;
+    for (let i = 0; i < 32 && !asleep; i++) { await h.wait(500); asleep = await h.R(() => Z.psx.beh.id === 'sleep' && Z.psx.bs.down); }
+    await h.R(() => {
+      window.TM = [19, 10, 16, 161, 19, 10].map((d, i) => PSXAI.Debug.spawn(d, { temp: 'timid', dx: -200 + i * 70, dy: -80, trait: { bravery: 0.05 } }));
+      window.EL = PSXAI.Debug.spawn(25, { temp: 'neutral', dx: 0, dy: 110 });
+      PSXAI.Sky.set({ rain: 0.9, storm: 0.9, cloud: 1 });
+      PSXAI.setCfg('lightningRate', 0);
+    });
+    const seen = new Set();
+    let elFear = 0, timidFear = 0;
+    for (let k = 0; k < 6; k++) {
+      await h.R(() => PSXAI.Sky.bolt(0.2));
+      await h.wait(1300);
+      const r = await h.R(() => ({ kinds: TM.map((e) => e.psx.lock ? 'freeze' : e.psx.shelterUntil > PSXAI.time ? 'shelter' : e.psx.huddleUntil > PSXAI.time ? 'still' : null).filter(Boolean), el: EL.psx.mind.emo.fear, tf: Math.max(...TM.map((e) => e.psx.mind.emo.fear)) }));
+      r.kinds.forEach((x) => seen.add(x));
+      elFear = Math.max(elFear, r.el); timidFear = Math.max(timidFear, r.tf);
+    }
+    const woke = await h.R(() => !!Z.psx.wokeAt);
+    await h.R(() => PSXAI.resetCfg());
+    return { pass: asleep && woke && seen.size >= 2 && timidFear > 0.3 && elFear < 0.1, detail: { asleep, sleeperWoke: woke, reactions: [...seen], timidFear: +timidFear.toFixed(2), electricFear: +elFear.toFixed(2) } };
+  });
+
+  await scenario(h, 'fog thins out wild Pokémon in tiers (light, moderate, dense)', async () => {
+    const r = await h.R(async () => {
+      const out = {};
+      for (const f of [0, 0.3, 0.6, 0.9]) { PSXAI.Sky.set({ fog: f }); await new Promise((res) => setTimeout(res, 120)); out[f] = { rate: +PSXAI.Areas.spawnRate().toFixed(2), cap: +PSXAI.Areas.popScale().toFixed(2) }; }
+      PSXAI.setCfg('fogSpawns', 0); PSXAI.Sky.set({ fog: 0.9 }); await new Promise((res) => setTimeout(res, 120));
+      out.off = +PSXAI.Areas.spawnRate().toFixed(2);
+      PSXAI.resetCfg();
+      return out;
+    });
+    const a = r[0].rate, b = r[0.3].rate, c = r[0.6].rate, d = r[0.9].rate;
+    return { pass: a > b && b >= a * 0.8 && c < b * 0.9 && c > d && d < a * 0.45 && r[0.9].cap < r[0].cap && r.off > d * 1.5, detail: r };
+  });
+
+  await scenario(h, 'weather settles in for minutes and changes step by step', async () => {
+    const r = await h.R(() => {
+      const S = PSXAI.Sky, out = {};
+      for (const k of ['clear', 'cloudy', 'drizzle', 'rain', 'fog', 'storm']) { const v = []; for (let i = 0; i < 200; i++) v.push(S.holdFor(k) / 60); out[k] = [+Math.min(...v).toFixed(1), +Math.max(...v).toFixed(1)]; }
+      const keep = S.st.pattern, from = {};
+      for (const k of ['clear', 'fair', 'storm']) { S.st.pattern = k; const c = {}; for (let i = 0; i < 300; i++) { const n = S.pickPattern(); c[n] = (c[n] || 0) + 1; } from[k] = c; }
+      S.st.pattern = keep;
+      return { minutes: out, next: from };
+    });
+    const m = r.minutes, within = (k, lo, hi) => m[k][0] >= lo - 0.05 && m[k][1] <= hi + 0.05;
+    const stepwise = !r.next.clear.storm && !r.next.clear.rain && !r.next.fair.storm && !r.next.storm.storm && !r.next.storm.clear;
+    return { pass: within('clear', 6, 12) && within('cloudy', 5, 10) && within('drizzle', 4, 8) && within('rain', 3, 7) && within('fog', 5, 9) && within('storm', 4, 8) && stepwise, detail: r };
+  });
+
+  await scenario(h, 'Pokémon are sized by species: tiny ones stay visible, giants stay playable', async () => {
+    const r = await h.R(() => {
+      // on-screen body size: the sprite's own size × the species factor
+      const S = PSXAI.Scale, k = (d) => +(S.species(d) * __PSX_REG__.Sprites.bodyRadius(d, 1)).toFixed(1);
+      const line = { joltik: k(595), pikachu: k(25), eevee: k(133), charmander: k(4), charmeleon: k(5), charizard: k(6), lucario: k(448), snorlax: k(143), onix: k(95), wailord: k(321) };
+      const boss = +(S.of({ dex: 143, id: 7, boss: true }) / S.of({ dex: 143, id: 7 })).toFixed(2);
+      const flock = [0, 1, 2, 3, 4, 5].map((i) => PSXAI.Debug.spawn(16, { temp: 'neutral', dx: -200 + i * 60, dy: -120 }));
+      const ks = flock.map((e) => S.of(e));
+      const big = PSXAI.Debug.spawn(143, { temp: 'neutral', dx: 200 }), tiny = PSXAI.Debug.spawn(595, { temp: 'neutral', dx: -200 });
+      return { line, boss, spread: +((Math.max(...ks) - Math.min(...ks)) / ks[0]).toFixed(3), r: { snorlax: [big._psxR0, +big.r.toFixed(1)], joltik: [tiny._psxR0, +tiny.r.toFixed(1)] } };
+    });
+    const L = r.line, all = Object.values(L);
+    const ok = L.joltik >= 6 && L.joltik < L.pikachu && L.pikachu < L.lucario && L.charmander < L.charmeleon && L.charmeleon < L.charizard && L.snorlax > L.pikachu * 1.6 &&
+      Math.max(...all) <= L.joltik * 9 && r.boss > 1.08 && r.boss < 1.16 && r.spread > 0.01 && r.spread < 0.13 &&
+      r.r.snorlax[1] / r.r.snorlax[0] <= 1.36 && r.r.joltik[1] / r.r.joltik[0] >= 0.79;
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'forests have no wall blocks and grow trees of every size, across seeds', async () => {
+    const r = await h.R(async () => {
+      const R = __PSX_REG__, AI = PSXAI, out = [];
+      const keep = AI.Decor.seed;
+      for (const seed of [11, 404, 2024, 77777]) {
+        R.World.reset(seed);
+        R.World.setBiome && R.World.setBiome(0);
+        await new Promise((res) => setTimeout(res, 50));
+        let walls = 0, n = 0;
+        for (let y = -2400; y < 2400; y += 48) for (let x = -2400; x < 2400; x += 48) { n++; if (R.World.isWall(x, y)) walls++; }
+        const stages = {}, bad = [];
+        let giantsCrowded = 0, trees = 0;
+        for (let y = -1800; y <= 1800; y += 380) for (let x = -1800; x <= 1800; x += 380) {
+          for (const p of AI.Env.props(x, y, 190)) {
+            if (p.type !== 'tree' || p._psxSeen === seed) continue;
+            p._psxSeen = seed; trees++;
+            const art = AI.Ground.artFor(p);
+            stages[p._psxStage] = (stages[p._psxStage] || 0) + 1;
+            if (art && !AI.Art.GREEN.includes(art) && !AI.Art.GIANTS.includes(art)) bad.push(art);
+            if (p._psxStage === 'ancient' && AI.Ground.roomOf(p) < 170) giantsCrowded++;
+          }
+        }
+        out.push({ seed, walls, n, trees, stages, notGreen: bad.slice(0, 4), giantsCrowded });
+      }
+      R.World.reset(keep);
+      return out;
+    });
+    const ok = r.every((s) => s.walls === 0 && s.trees > 30 && s.notGreen.length === 0 && s.giantsCrowded === 0 && s.stages.sapling && s.stages.young && s.stages.mature && (s.stages.large || 0) < s.trees * 0.3 && (s.stages.ancient || 0) < s.trees * 0.05);
+    const total = r.reduce((m, s) => { for (const k in s.stages) m[k] = (m[k] || 0) + s.stages[k]; return m; }, {});
+    return { pass: ok && total.large > 0, detail: { perSeed: r.map((s) => ({ seed: s.seed, walls: s.walls, trees: s.trees, stages: s.stages })), total } };
   });
 
   await scenario(h, 'the full atmosphere (night storm, lights, fog) keeps the frame rate', async () => {

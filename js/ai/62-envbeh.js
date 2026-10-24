@@ -453,7 +453,7 @@
       const r = Math.random() * (1 - brave * 0.4);
       if (r < 0.3 && !s.lock) {
         // freezes on the spot for a heartbeat
-        M().feel(s, 'surprise', 0.7); M().say(s, 'surprise', 1.2, 3);
+        M().feel(s, 'surprise', 0.7); M().feel(s, 'fear', 0.25 + loud * 0.2, 'thunder'); M().say(s, 'surprise', 1.2, 3);
         const dur = U.rand(0.6, 1.3);
         s.lock = { t: 0, update(e2, s2, dt, it) { this.t += dt; it.stay = true; s2.vis.shake = this.t < 0.25 ? 1.5 : 0; return this.t < dur; } };
       } else if (r < 0.55) {

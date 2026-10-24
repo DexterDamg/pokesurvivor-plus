@@ -53,7 +53,7 @@
     hordes: false, // the game's timed "Pokémon surge" hordes
     bossKills: [35, 90, 160, 250, 360], // Pokémon defeated before each boss can appear
     riftKills: [50, 130, 230, 350, 480], // … before each normal rift opens
-    goldenRiftKills: [200, 450], // … before each golden rift opens (rare)
+    goldenRiftKills: [280, 650], // … before each golden rift opens (rare)
     eventCooldown: 75, // seconds between major encounters (boss, rift)
     // weather pacing & storms
     weatherDuration: 1, // multiplier on how long each kind of weather lasts

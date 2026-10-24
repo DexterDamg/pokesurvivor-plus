@@ -27,7 +27,9 @@
     let cur = 14;
     try { cur = R.Sprites.bodyRadius(dex, 1) || 14; } catch (e) { /* ignore */ }
     const want = 15 * metric(dex);
-    k = U.clamp(Math.pow(want / cur, 0.7), 0.62, 1.8);
+    k = Math.pow(want / cur, 0.7);
+    if (k < 0.8) k = 0.8 - (0.8 - k) * 0.6; // small ones shrink gently, so the tiniest stay visible
+    k = U.clamp(k, 0.6, 1.8);
     cache.set(dex, k);
     return k;
   }

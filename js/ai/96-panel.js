@@ -1,6 +1,7 @@
 /* PokéSurvivor+ — Living World AI · settings panel
  * F7 (or the "Wild life" button in the pause menu) opens a small panel to tune the AI:
- * population caps, spawn pacing, hostility, combat/social budgets, bubbles, evolution, auto-aim.
+ * population caps, spawn pacing, hostility, combat/social budgets, bubbles, evolution, auto-aim,
+ * the environment, and world settings (terrain, tree sizes, Pokémon sizes, encounters, storms).
  */
 (function () {
   'use strict';
@@ -52,6 +53,19 @@
     off: { es: 'Apagado', en: 'Off', fr: 'Éteinte', zh: '關' },
     reset: { es: 'Restablecer', en: 'Reset', fr: 'Réinitialiser', zh: '重設' },
     close: { es: 'Cerrar', en: 'Close', fr: 'Fermer', zh: '關閉' },
+    worldTitle: { es: 'Mundo y encuentros', en: 'World & encounters', fr: 'Monde et rencontres', zh: '世界與遭遇' },
+    naturalTerrain: { es: 'Bosques naturales (sin bloques)', en: 'Natural forests (no wall blocks)', fr: 'Forêts naturelles (sans blocs)', zh: '自然森林（無方塊牆）' },
+    treeSizes: { es: 'Árboles de varios tamaños', en: 'Trees of many sizes', fr: 'Arbres de toutes tailles', zh: '大小不一的樹木' },
+    treeDensity: { es: 'Densidad de árboles', en: 'Tree density', fr: 'Densité des arbres', zh: '樹木密度' },
+    speciesScale: { es: 'Tamaño según la especie', en: 'Size by species', fr: 'Taille selon l\'espèce', zh: '依物種調整體型' },
+    softTelegraphs: { es: 'Avisos de ataque suaves', en: 'Soft attack warnings', fr: 'Alertes d\'attaque discrètes', zh: '柔和的攻擊預警' },
+    earnedEvents: { es: 'Jefes y grietas por Pokémon derrotados', en: 'Bosses & rifts earned by defeats', fr: 'Boss et failles selon les victoires', zh: '擊敗數解鎖首領與裂縫' },
+    hordes: { es: 'Oleadas de Pokémon', en: 'Pokémon surges (hordes)', fr: 'Déferlantes de Pokémon', zh: '寶可夢大量湧現' },
+    eventCooldown: { es: 'Pausa entre encuentros (s)', en: 'Pause between encounters (s)', fr: 'Pause entre rencontres (s)', zh: '遭遇間隔（秒）' },
+    weatherDuration: { es: 'Duración del clima', en: 'Weather duration', fr: 'Durée de la météo', zh: '天氣持續時間' },
+    fogSpawns: { es: 'La niebla reduce apariciones', en: 'Fog reduces spawns', fr: 'Le brouillard réduit les apparitions', zh: '霧減少出現' },
+    lightningRate: { es: 'Frecuencia de rayos', en: 'Lightning frequency', fr: 'Fréquence des éclairs', zh: '閃電頻率' },
+    flashIntensity: { es: 'Destellos de rayos (accesibilidad)', en: 'Lightning flashes (accessibility)', fr: 'Flashs d\'éclairs (accessibilité)', zh: '閃電閃光（無障礙）' },
   };
   AI.lang = function () {
     const l = (AI.R && AI.R.I18n && AI.R.I18n.lang) || (navigator.language || 'es');
@@ -67,6 +81,8 @@
   const ENV_TOGGLES = ['atmosphere', 'newArt', 'areaSpawns', 'speech'];
   const ENV_SLIDERS = [['dayLength', 60, 1800, 30], ['startHour', 0, 23.5, 0.5], ['weatherFreq', 0, 3, 0.1], ['ambientVol', 0, 1, 0.05]];
   const ENV_SELECTS = [['season', ['auto', 'spring', 'summer', 'autumn', 'winter']], ['lightQuality', ['auto', 'low', 'medium', 'high']], ['lantern', ['auto', 'on', 'off']]];
+  const WORLD_TOGGLES = ['naturalTerrain', 'treeSizes', 'speciesScale', 'softTelegraphs', 'earnedEvents', 'hordes'];
+  const WORLD_SLIDERS = [['treeDensity', 0.3, 2, 0.1], ['eventCooldown', 20, 240, 5], ['weatherDuration', 0.3, 3, 0.1], ['fogSpawns', 0, 1.5, 0.05], ['lightningRate', 0, 3, 0.1], ['flashIntensity', 0, 1, 0.05]];
   let el = null;
 
   function build() {
@@ -95,6 +111,11 @@
       h += row('<div style="display:flex;justify-content:space-between"><span>' + AI.tr(k) + '</span><b data-v="' + k + '">' + c[k] + '</b></div><input type="range" style="width:100%" min="' + min + '" max="' + max + '" step="' + step + '" value="' + c[k] + '" data-k="' + k + '">');
     }
     for (const [k, opts] of ENV_SELECTS) h += row(AI.tr(k) + ' <select data-k="' + k + '">' + opts.map((o) => '<option value="' + o + '"' + (c[k] === o ? ' selected' : '') + '>' + AI.tr(o) + '</option>').join('') + '</select>');
+    h += '<h4 style="margin:14px 0 6px;color:#9fe0c0">' + AI.tr('worldTitle') + '</h4>';
+    for (const k of WORLD_TOGGLES) h += row('<label><input type="checkbox" data-k="' + k + '"' + (c[k] ? ' checked' : '') + '> ' + AI.tr(k) + '</label>');
+    for (const [k, min, max, step] of WORLD_SLIDERS) {
+      h += row('<div style="display:flex;justify-content:space-between"><span>' + AI.tr(k) + '</span><b data-v="' + k + '">' + c[k] + '</b></div><input type="range" style="width:100%" min="' + min + '" max="' + max + '" step="' + step + '" value="' + c[k] + '" data-k="' + k + '">');
+    }
     h += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn" data-a="reset">' + AI.tr('reset') + '</button><button class="btn gold" data-a="close">' + AI.tr('close') + '</button></div>';
     box.innerHTML = h;
     box.querySelectorAll('input,select').forEach((inp) => inp.addEventListener('input', onInput));

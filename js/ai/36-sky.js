@@ -398,7 +398,7 @@
   }
 
   AI.define('Sky', {
-    st, PATTERNS, tick, reset, set, bolt,
+    st, PATTERNS, HOLD, NEXT, holdFor, pickPattern, tick, reset, set, bolt,
     hour, phase: () => st.phase, phaseOf, darkness, isNight, midday, midnight, hot,
     sunElev, shadowDir, shadowLen, shadowStrength, moonPhase, moonLight, season, ambient, skyColor,
     windVec, windNow, visibility, weatherKind, indoor,
