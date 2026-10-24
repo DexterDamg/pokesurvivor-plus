@@ -474,10 +474,11 @@ async function sample(h, ms, every, fn, arg) {
   await scenario(h, 'night thins out the forest and brings out the nocturnal Pokémon', async () => {
     const r = await h.R(() => {
       const A = PSXAI.Areas, S = PSXAI.Sky, R = __PSX_REG__;
-      const noct = (bag) => bag.filter((d) => A.active(d.dex) === 'night').length / Math.max(1, bag.length);
-      const bag = R.Enemies.cast[0].list.flatMap((d) => Array(10).fill(d));
-      S.set({ hour: 12 }); const day = { rate: A.spawnRate(), noct: noct(A.weightBag(bag)) };
-      S.set({ hour: 0.5 }); const night = { rate: A.spawnRate(), noct: noct(A.weightBag(bag)) };
+      // weightBag rounds weights randomly, so average over many draws
+      const noct = (mk) => { let n = 0, t = 0; for (let i = 0; i < 40; i++) { const b = mk(); n += b.filter((d) => A.active(d.dex) === 'night').length; t += b.length; } return n / Math.max(1, t); };
+      const list = R.Enemies.cast[0].list.flatMap((d) => Array(10).fill(d));
+      S.set({ hour: 12 }); const day = { rate: A.spawnRate(), noct: noct(() => A.weightBag(list)) };
+      S.set({ hour: 0.5 }); const night = { rate: A.spawnRate(), noct: noct(() => A.weightBag(list)) };
       S.set({ hour: 12 });
       return { day, night };
     });
