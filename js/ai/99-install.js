@@ -386,6 +386,7 @@
         AI.Decor.tick(dt);
         AI.Forest.tick(dt);
         AI.Journey.tick(dt);
+        AI.Light.tick(dt);
         AI.Wildlife.tick(dt);
         AI.Mysteries.tick(dt);
         AI.Areas.tick(dt);
@@ -419,7 +420,7 @@
     // ------------------------------------------------------------ new run → fresh world
     const oWR = R.World.reset;
     R.World.reset = function (seed) {
-      try { resetWorld(); AI.Decor.reset(seed); AI.Journey.reset(AI.Decor.seed); AI.Wildlife.reset(); AI.Forest.reset(); AI.Mysteries.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); AI.Player.lanternToggle = null; } catch (e) { AI.warn('reset', e); }
+      try { resetWorld(); AI.Decor.reset(seed); AI.Journey.reset(AI.Decor.seed); AI.Wildlife.reset(); AI.Light.reset(); AI.Forest.reset(); AI.Mysteries.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); } catch (e) { AI.warn('reset', e); }
       return oWR.apply(this, arguments);
     };
     function resetWorld() {

@@ -463,6 +463,76 @@
     }
     if (vis.some((v) => v[2].water)) drawWater(ctx, vis, x0, y0, x1, y1);
   }
+  /* The moon's reflection. It sits on whichever water is in view nearest to where the moon's image
+   * would fall (up and to the left of the middle of the view), gliding with the camera like a real
+   * reflection does, and shows tonight's phase: a thin crescent, a half moon, gibbous, full; a new
+   * moon shows nothing but a faint grey disc. */
+  const moonRef = { x: 0, y: 0, t: -9, ok: false };
+  function moonSpot(cam) {
+    if (AI.time - moonRef.t < 0.4 && moonRef.ok) return moonRef;
+    moonRef.t = AI.time;
+    const ax = cam.x - cam.w * 0.16, ay = cam.y - cam.h * 0.14;
+    let best = null, bd = Infinity;
+    for (let y = cam.top() + 24; y < cam.top() + cam.h; y += 40)
+      for (let x = cam.left() + 24; x < cam.left() + cam.w; x += 40) {
+        if (water(x, y).e < 26) continue; // well away from the shore, so the whole disc lies on the water
+        const d = (x - ax) * (x - ax) + (y - ay) * (y - ay);
+        if (d < bd) { bd = d; best = [x, y]; }
+      }
+    if (!best) { moonRef.ok = false; return moonRef; }
+    if (!moonRef.ok || Math.hypot(best[0] - moonRef.x, best[1] - moonRef.y) > 160) { moonRef.x = best[0]; moonRef.y = best[1]; }
+    else { moonRef.x += (best[0] - moonRef.x) * 0.25; moonRef.y += (best[1] - moonRef.y) * 0.25; }
+    moonRef.ok = true;
+    return moonRef;
+  }
+  function moonShape(g, x, y, R, ph) {
+    // the lit part: the outer edge on the lit side, back along the terminator
+    const waxing = ph < 0.5, s = waxing ? 1 : -1, k = Math.cos(ph * Math.PI * 2);
+    g.beginPath();
+    for (let i = 0; i <= 16; i++) { const a = -Math.PI / 2 + (i / 16) * Math.PI; g.lineTo(x + s * R * Math.cos(a), y + R * Math.sin(a)); }
+    for (let i = 16; i >= 0; i--) { const a = -Math.PI / 2 + (i / 16) * Math.PI; g.lineTo(x + s * k * R * Math.cos(a), y + R * Math.sin(a)); }
+    g.closePath();
+  }
+  // how visible the moon's reflection is right now (night, and a clear enough sky)
+  function moonVis() {
+    const Sky = AI.Sky;
+    if (!on() || !Sky || (AI.Mansion && AI.Mansion.inside)) return 0;
+    return U.clamp((Sky.darkness() - 0.5) * 3, 0, 1) * U.clamp(1 - Sky.cloud / 0.6, 0, 1) * (1 - Sky.fog * 0.8) * (1 - Sky.rain);
+  }
+  // drawn after the night has darkened everything, so it shines on the dark water like the real thing:
+  // the disc broken into wavering strips by the ripples
+  let moonCv = null, moonG = null;
+  function drawMoonReflection(ctx, sx, sy, scale) {
+    const vis = moonVis();
+    if (vis <= 0.02) return;
+    const cam = AI.R.Camera;
+    const m = moonSpot(cam);
+    if (!m.ok) return;
+    const Sky = AI.Sky, ph = Sky.moonPhase(), lit = Sky.moonLight();
+    const R = 9, S = 32;
+    if (!moonCv) { moonCv = document.createElement('canvas'); moonCv.width = moonCv.height = S; moonG = moonCv.getContext('2d'); }
+    const g = moonG;
+    g.clearRect(0, 0, S, S);
+    g.fillStyle = 'rgba(120,130,170,0.35)'; // the unlit part, barely there (earthshine)
+    g.beginPath(); g.arc(S / 2, S / 2, R, 0, Math.PI * 2); g.fill();
+    if (lit > 0.02) { g.fillStyle = 'rgb(236,242,255)'; moonShape(g, S / 2, S / 2, R, ph); g.fill(); }
+    const x = sx(m.x), y = sy(m.y), k = scale;
+    const rough = 0.6 + Sky.windNow() * 2 + Sky.rain * 3;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.imageSmoothingEnabled = false;
+    // a faint glow on the water around it, as bright as the moon is full
+    const gr = ctx.createRadialGradient(x, y, 0, x, y, 44 * k);
+    gr.addColorStop(0, 'rgba(150,165,210,' + (0.22 * lit * vis).toFixed(3) + ')'); gr.addColorStop(1, 'rgba(150,165,210,0)');
+    ctx.fillStyle = gr; ctx.fillRect(x - 44 * k, y - 44 * k, 88 * k, 88 * k);
+    ctx.globalAlpha = 0.75 * vis;
+    for (let yy = 0; yy < S; yy += 2) {
+      const off = Math.sin(yy * 0.5 + AI.time * 2.4) * rough * 0.9;
+      ctx.drawImage(moonCv, 0, yy, S, 2, x + (off - S / 2) * k, y + (yy - S / 2) * k, S * k, 2 * k);
+    }
+    ctx.restore();
+  }
+
   // the living water: reflections, a shimmer, moonlight, mist
   function drawWater(ctx, vis, x0, y0, x1, y1) {
     const R = AI.R;
@@ -495,14 +565,6 @@
       g.save(); g.translate(e.x, e.y + 2); g.scale(1, -0.85);
       try { e.anim.draw(g, 0, 0, { alpha: 1 }); } catch (err) { /* ignore */ }
       g.restore();
-    }
-    // the moon, when the sky is clear
-    if (Sky && Sky.darkness() > 0.5 && Sky.cloud < 0.6) {
-      const mx = cam.x + cam.w * 0.18, my = cam.y - cam.h * 0.05;
-      const k = Sky.moonLight();
-      const gr = g.createRadialGradient(mx, my, 0, mx, my, 60);
-      gr.addColorStop(0, 'rgba(230,236,255,' + (0.7 * k).toFixed(2) + ')'); gr.addColorStop(1, 'rgba(230,236,255,0)');
-      g.fillStyle = gr; g.fillRect(mx - 60, my - 60, 120, 120);
     }
     // keep only what falls on water (the chunks' masks are combined first: 'destination-in' clears
     // everything outside the image drawn, so it must be applied once)
@@ -600,7 +662,11 @@
   function shadeLightMap(lg, sx, sy, k, scale) {
     if (!on()) return false;
     const cam = AI.R.Camera;
-    const day = AI.Sky ? 1 - AI.Sky.darkness() * 0.6 : 1;
+    // by day the canopy shades the floor; by night it's the moon's light the leaves hold back, so under
+    // a bright clear moon the clearings stand out and under a new moon everything is equally dark
+    const Sky = AI.Sky;
+    const dk = Sky ? Sky.darkness() : 0;
+    const day = Sky ? U.lerp(1, 0.35 + 0.6 * Sky.moonLight() * (1 - Sky.cloud), dk) : 1;
     const step = 64;
     const gx0 = Math.floor(cam.left() / step) - 1, gy0 = Math.floor(cam.top() / step) - 1;
     const cols = Math.ceil(cam.w / step) + 3, rows = Math.ceil(cam.h / step) + 3;
@@ -651,6 +717,9 @@
   }
   function lights(out) {
     for (const f of flies) { const a = flyGlow(f); if (a > 0.1) out.push({ x: f.x, y: f.y - 18, r: 16, c: [200, 255, 120], i: a * 0.7 }); }
+    // moonlight on the water where the moon is reflected
+    const mv = moonVis();
+    if (mv > 0.02 && moonRef.ok && AI.time - moonRef.t < 1) out.push({ x: moonRef.x, y: moonRef.y, r: 70, c: [170, 185, 230], i: 0.45 * AI.Sky.moonLight() * mv });
   }
 
   // ---------------------------------------------------------------- water and Pokémon: who can go where
@@ -890,7 +959,7 @@
   }
 
   AI.define('Forest', {
-    on, plan, water, depthClass, region, soilAt, pathDist, terr, trees, grass, drawGround, drawMist, drawFlies, lights, shadeAt, shadeLightMap,
+    on, plan, water, depthClass, region, soilAt, pathDist, terr, trees, grass, drawGround, drawMist, drawFlies, lights, shadeAt, shadeLightMap, drawMoonReflection, moonVis,
     locomotion, canDeep, collideWater, spawnOk, waterPointNear, tick, reset, invalidate, quietAt, chunks, vn, fbm, treeFor, underFor, decor, KIND,
   });
 })();

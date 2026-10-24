@@ -234,6 +234,7 @@
     const target = cast.target;
     const ang = cast.ang;
     const d = m.def;
+    if (AI.Light) try { AI.Light.moveLight(e, m, ang, target); } catch (err) { /* ignore */ }
     switch (m.cls) {
       case 'shot': {
         const k = d.kind;

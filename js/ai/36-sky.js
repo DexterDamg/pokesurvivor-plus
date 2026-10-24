@@ -13,9 +13,9 @@
   const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
   // ambient light keyframes: hour → [r, g, b] (multiplied over the scene; 255 = untouched)
   const AMBIENT = [
-    [0, [52, 62, 112]], [3.8, [58, 64, 114]], [5, [104, 92, 136]], [5.9, [176, 134, 146]], [6.8, [236, 206, 186]],
+    [0, [33, 39, 78]], [3.8, [37, 43, 82]], [5, [92, 82, 128]], [5.9, [176, 134, 146]], [6.8, [236, 206, 186]],
     [8.2, [252, 246, 236]], [12, [255, 255, 252]], [16, [255, 246, 228]], [17.4, [255, 214, 170]], [18.4, [240, 150, 116]],
-    [19.2, [178, 108, 152]], [20, [104, 86, 140]], [21, [62, 66, 116]], [24, [52, 62, 112]],
+    [19.2, [170, 104, 148]], [20, [90, 76, 128]], [21, [44, 50, 92]], [24, [33, 39, 78]],
   ];
   const SKY = [ // sky colour (puddle reflections, fog tint)
     [0, [24, 30, 58]], [5, [70, 62, 104]], [6.2, [240, 170, 150]], [8, [170, 210, 245]], [17, [180, 205, 240]],
@@ -129,8 +129,8 @@
     if (!cfgOn() || indoor()) return [255, 255, 255];
     const c = lerpKeys(AMBIENT, st.hour);
     const d = darkness();
-    // moonlight: a full moon is noticeably brighter, a new moon very dark
-    const moon = 0.78 + 0.32 * moonLight() * (1 - st.cur.cloud * 0.8);
+    // night is properly dark; a full moon on a clear night is noticeably brighter, a new moon is not
+    const moon = 0.8 + 0.42 * moonLight() * (1 - st.cur.cloud * 0.8);
     const k = d > 0 ? U.lerp(1, moon, d) : 1;
     const w = st.cur;
     // heavy storm clouds swallow the light; a nighttime storm is nearly black
@@ -142,6 +142,9 @@
     // fog lifts the darks toward grey, rain and night shift to blue
     if (w.fog > 0) for (let i = 0; i < 3; i++) out[i] = U.lerp(out[i], 196 - d * 90, w.fog * 0.35);
     out[2] += w.rain * 10;
+    // accessibility: brighter nights for those who need them (light sources still stand out)
+    const nv = AI.cfg.nightVisibility || 0;
+    if (nv > 0 && d > 0) { const NV = [96, 104, 144], k2 = U.clamp(nv, 0, 1) * d * 0.6; for (let i = 0; i < 3; i++) if (out[i] < NV[i]) out[i] = U.lerp(out[i], NV[i], k2); }
     return out.map((v) => U.clamp(Math.round(v), 0, 255));
   }
   function skyColor() {

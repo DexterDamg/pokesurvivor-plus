@@ -43,7 +43,8 @@
     newArt: true, // detailed trees, plants and forest decor
     areaSpawns: true, // each area has its own Pokémon (curated rosters, habitats)
     speech: true, // Pokémon speech bubbles (rumours, warnings)
-    lantern: 'auto', // player lantern: 'auto' (on at night) | 'on' | 'off'
+    lantern: 'manual', // the lantern you carry: 'manual' (L lights it) | 'on' (kept lit while it has oil) | 'off'
+    nightVisibility: 0, // accessibility: 0 = nights as dark as intended … 1 = noticeably brighter nights (light sources still matter)
     ambientVol: 0.7, // ambient sound volume (relative to the game's sound effects volume)
     // world generation & forest
     naturalTerrain: true, // forests: no rectangular wall blocks, measured tree density

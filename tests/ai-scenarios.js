@@ -28,7 +28,7 @@ function installHelpers() {
     // a calm, frozen midday unless a scenario asks for other weather
     AI.Sky.set({ hour: 12, day: 0, fog: 0, rain: 0, storm: 0, wind: 0.1, cloud: 0.1, snow: 0, wet: 0, snowCover: 0, season: 'spring', freeze: true });
     AI.Lore.reset();
-    AI.Player.lanternToggle = null;
+    AI.Light.reset();
     return true;
   };
   T.dist = (e) => { const p = R.Game.player; return Math.hypot(e.x - p.x, e.y - p.y); };
@@ -594,10 +594,124 @@ async function sample(h, ms, every, fn, arg) {
     await h.R(() => PSXAI.Sky.set({ hour: 12 }));
     await h.wait(700);
     const day = await lum();
-    await h.R(() => { PSXAI.Sky.set({ hour: 0.5, day: 4 }); PSXAI.Player.lanternToggle = true; });
+    await h.R(() => { PSXAI.Sky.set({ hour: 0.5, day: 4 }); PSXAI.Light.lamp.lit = true; });
     await h.wait(700);
     const night = await lum();
     return { pass: night.corner < day.corner * 0.55 && night.center > night.corner * 1.4, detail: { day, night } };
+  });
+
+  await scenario(h, 'only Pokémon with a real light source glow: Charmander\'s tail flame lights the dark, Regirock and Pikachu do not', async () => {
+    const r = await h.R(async () => {
+      const R = __PSX_REG__, L = PSXAI.Light, p = R.Game.player;
+      PSXAI.Sky.set({ hour: 0.5, day: 2 });
+      const ch = PSXAI.Debug.spawn(4, { temp: 'neutral', dx: 120 });
+      const rg = PSXAI.Debug.spawn(377, { temp: 'neutral', dx: -120 });
+      const vu = PSXAI.Debug.spawn(37, { temp: 'neutral', dy: 110 }); // Vulpix: a Fire type with no flame of its own
+      await new Promise((res) => setTimeout(res, 600));
+      ch.anim.dir = 2; // facing right: the tail (and its flame) is on the left
+      const ls = L.gather(R.Camera);
+      const of = (e) => ls.filter((l) => l.body === e);
+      const fl = of(ch)[0];
+      return { charmander: of(ch).length, tailSide: fl ? Math.sign(fl.x - ch.x) : 0, tailUp: fl ? Math.round(ch.y - fl.y) : 0, reach: fl ? fl.r : 0, regirock: of(rg).length, vulpix: of(vu).length, player: of(p).length, playerLantern: L.lanternOn() };
+    });
+    return { pass: r.charmander === 1 && r.tailSide === -1 && r.tailUp > 5 && r.reach >= 80 && r.reach <= 140 && r.regirock === 0 && r.vulpix === 0 && r.player === 0 && !r.playerLantern, detail: r };
+  });
+
+  await scenario(h, 'moves light the world for as long as they last: a Thunder Shock flash, a Flamethrower stream, Will-o-Wisp\'s soft glow', async () => {
+    const r = await h.R(async () => {
+      const R = __PSX_REG__, L = PSXAI.Light, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.Sky.set({ hour: 0.5 });
+      L.flashes.length = 0;
+      const e = PSXAI.Debug.spawn(4, { temp: 'neutral', dx: 150 });
+      await wait(200);
+      L.moveLight(e, { id: 'thunder-shock', type: 'electric' }, 0);
+      const shock = L.flashes.slice(-1)[0];
+      await wait(300);
+      const shockGone = !L.flashes.includes(shock);
+      L.moveLight(e, { id: 'flamethrower', type: 'fire' }, Math.PI);
+      const ft = L.flashes.slice(-1)[0];
+      const x0 = ft.ent ? ft.ent.x + ft.ox : ft.x;
+      e.x += 40;
+      const x1 = ft.ent ? ft.ent.x + ft.ox : ft.x;
+      L.moveLight(e, { id: 'will-o-wisp', type: 'fire', def: { dur: 6 } }, 0);
+      const wisp = L.flashes.slice(-1)[0];
+      // and moves used in battle by wild Pokémon light up too (a hostile Charmander's Ember / Flamethrower)
+      L.flashes.length = 0;
+      const foe = PSXAI.Debug.spawn(4, { temp: 'aggressive', dx: -160 });
+      PSXAI.Debug.freeze(false);
+      let fromBattle = 0;
+      let dbg = null;
+      for (let i = 0; i < 50 && !fromBattle; i++) { await wait(200); fromBattle = L.flashes.filter((f) => f.c[0] === 255 && f.c[1] === 150).length; dbg = { beh: foe.psx && foe.psx.beh.id, stance: foe.psx && foe.psx.stance, inCombat: foe.psx && foe.psx.inCombat, n: L.flashes.length, d: Math.round(Math.hypot(foe.x - p.x, foe.y - p.y)) }; }
+      PSXAI.Debug.freeze(true);
+      return { shock: { r: shock.r, dur: shock.dur }, shockGone, flame: { r: ft.r, follows: Math.round(x1 - x0), dur: ft.dur }, wisp: { r: wisp.r, dur: wisp.dur, soft: !!wisp.soft }, fromBattle, dbg };
+    });
+    const ok = r.shock.r >= 100 && r.shock.dur < 0.3 && r.shockGone && r.flame.follows === 40 && r.flame.dur >= 0.5 && r.wisp.dur === 6 && r.wisp.soft && r.wisp.r < r.flame.r && r.fromBattle > 0;
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'the lantern is real equipment: dark until you light it (L), hangs at your side and burns oil', async () => {
+    const r = await h.R(async () => {
+      const R = __PSX_REG__, L = PSXAI.Light, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.Sky.set({ hour: 0.5 });
+      L.reset();
+      const before = L.lanternOn();
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyL' }));
+      const lit = L.lanternOn();
+      const ls = L.gather(R.Camera).filter((l) => l.r === 175);
+      const side = ls[0] ? Math.round(Math.abs(ls[0].x - p.x)) : -1;
+      const oil0 = L.lamp.oil;
+      await wait(1200);
+      const burned = +(oil0 - L.lamp.oil).toFixed(1);
+      L.lamp.oil = 0.3;
+      await wait(700);
+      const outOfOil = L.lanternOn();
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyL' }));
+      const stillOut = L.lanternOn();
+      L.addOil(90);
+      const refilled = L.lamp.oil;
+      L.reset();
+      return { before, lit, side, burned, outOfOil, stillOut, refilled: Math.round(refilled) };
+    });
+    return { pass: !r.before && r.lit && r.side > 10 && r.burned >= 0.8 && !r.outOfOil && !r.stillOut && r.refilled >= 90, detail: r };
+  });
+
+  await scenario(h, 'nights are very dark but never black; the moon\'s current phase is mirrored in the water', async () => {
+    const r = await h.R(async () => {
+      const S = PSXAI.Sky, F = PSXAI.Forest, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const amb = (day, cloud) => { S.set({ hour: 0.5, day, cloud, rain: 0, fog: 0 }); return S.ambient().reduce((a, b) => a + b, 0) / 3; };
+      const newMoon = amb(0, 0.05), fullMoon = amb(4, 0.05), noon = (S.set({ hour: 12 }), S.ambient().reduce((a, b) => a + b, 0) / 3);
+      PSXAI.setCfg('nightVisibility', 1); const assisted = amb(0, 0.05); PSXAI.setCfg('nightVisibility', 0);
+      // by the lake on a first-quarter night: the reflection is half lit
+      const Lk = F.plan().lake;
+      let x = Lk.x, y = Lk.y;
+      for (let d = 0; d < 2000; d += 20) { x = Lk.x + Math.cos(0.8) * d; y = Lk.y + Math.sin(0.8) * d; if (F.water(x, y).e < -40) break; }
+      p.x = x + 60; p.y = y + 60; PSXAI.Mansion.snapCamera(p);
+      S.set({ hour: 0.5, day: 2, cloud: 0.05 });
+      await wait(900);
+      const phase = S.moonPhase();
+      const shot = () => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(() => {
+        const cam = R.Camera, cv = document.getElementById('game'), g = cv.getContext('2d');
+        const vis = F.moonVis();
+        // find the brightest small patch on the lake
+        let best = 0;
+        const k = cv.width / (cam.w * cam.scale);
+        for (let yy = cv.height * 0.12; yy < cv.height * 0.8; yy += 6) for (let xx = 0; xx < cv.width; xx += 6) { // (below the HUD's clock)
+          const wx = cam.left() + xx / k / cam.scale, wy = cam.top() + yy / k / cam.scale;
+          if (F.water(wx, wy).e < 20) continue;
+          const d = g.getImageData(xx, yy, 1, 1).data; best = Math.max(best, d[0] + d[1] + d[2]);
+        }
+        res({ vis, best });
+      })));
+      const half = await shot();
+      S.set({ day: 0 }); await wait(500);
+      const none = await shot();
+      return { newMoon: Math.round(newMoon), fullMoon: Math.round(fullMoon), noon: Math.round(noon), assisted: Math.round(assisted), phase, half, none };
+    });
+    const ok = r.newMoon < r.noon * 0.2 && r.newMoon > 25 && r.fullMoon > r.newMoon * 1.3 && r.assisted > r.newMoon * 1.5 && r.phase === 0.25 && r.half.vis > 0.5 && r.half.best > 500 && r.none.best < r.half.best * 0.6;
+    return { pass: ok, detail: r };
   });
 
   await scenario(h, 'trees and undergrowth use the new varied art', async () => {
@@ -726,11 +840,13 @@ async function sample(h, ms, every, fn, arg) {
       res(n);
     }))));
     const add = () => h.R(() => { const p = __PSX_REG__.Game.player; __PSX_REG__.Hazards.clear(); __PSX_REG__.Hazards.add({ kind: 'zone', x: p.x + 60, y: p.y + 40, r: 80, delay: 3, dmg: 0, type: 'fire', color: '#f00' }); __PSX_REG__.Hazards.add({ kind: 'line', x: p.x - 120, y: p.y - 60, angle: 0.3, len: 220, w: 26, delay: 3, dmg: 0, type: 'fire', color: '#f00' }); });
+    // compared without the light map, so canopy shade doesn't dim the colours being counted
+    await h.R(() => PSXAI.setCfg('atmosphere', false));
     await add(); await h.wait(1500);
     const soft = await red();
     await h.R(() => PSXAI.setCfg('softTelegraphs', false)); await add(); await h.wait(1500);
     const old = await red();
-    await h.R(() => { __PSX_REG__.Hazards.clear(); PSXAI.setCfg('softTelegraphs', true); });
+    await h.R(() => { __PSX_REG__.Hazards.clear(); PSXAI.setCfg('softTelegraphs', true); PSXAI.setCfg('atmosphere', true); });
     return { pass: old > 200 && soft < old * 0.25, detail: { harshRedPixels: { soft, original: old } } };
   });
 
@@ -966,7 +1082,7 @@ async function sample(h, ms, every, fn, arg) {
     await h.R(() => { for (let i = 0; i < 20; i++) PSXAI.Debug.spawn([16, 19, 161, 10, 13][i % 5], { temp: 'neutral', dx: Math.cos(i) * 260, dy: Math.sin(i) * 180 }); PSXAI.setCfg('atmosphere', false); PSXAI.setCfg('newArt', false); });
     await h.wait(500);
     const base = await fps();
-    await h.R(() => { PSXAI.setCfg('atmosphere', true); PSXAI.setCfg('newArt', true); PSXAI.Sky.set({ hour: 23, rain: 0.9, storm: 0.8, fog: 0.4, wind: 0.6, wet: 1 }); PSXAI.Player.lanternToggle = true; });
+    await h.R(() => { PSXAI.setCfg('atmosphere', true); PSXAI.setCfg('newArt', true); PSXAI.Sky.set({ hour: 23, rain: 0.9, storm: 0.8, fog: 0.4, wind: 0.6, wet: 1 }); PSXAI.Light.lamp.lit = true; });
     await h.wait(500);
     const full = await fps();
     await h.R(() => PSXAI.resetCfg());
@@ -1023,8 +1139,10 @@ async function sample(h, ms, every, fn, arg) {
       for (let i = 0; i < lamps.length; i += 2) pairs.push(Math.round(Math.hypot((lamps[i].x + lamps[i + 1].x) / 2 - g.S[0], (lamps[i].y + lamps[i + 1].y) / 2 - g.S[1])));
       const gaps = pairs.slice(1).map((d, i) => d - pairs[i]);
       // nothing grows or stands on the path or in the grounds: no trees, rocks, chests or ponds
+      // (the house's own gargoyles, graves and fence are meant to be there)
       let blocked = 0, wet = 0, n = 0;
-      const check = (x, y) => { n++; if (PSXAI.Env.treesIn(x, y, 24).length || W.propsInCircle(x, y, 20).some((p) => p.solid || p.type === 'rock') || !W.isFree(x, y, 8)) blocked++; if (W.isLiquid(x, y)) wet++; };
+      const own = (x, y) => PSXAI.Decor.blocked(x, y, 8) || PSXAI.Mansion.blockedExterior(x, y, 8);
+      const check = (x, y) => { n++; if (PSXAI.Env.treesIn(x, y, 24).length || W.propsInCircle(x, y, 20).some((p) => p.solid || p.type === 'rock') || (!W.isFree(x, y, 8) && !own(x, y))) blocked++; if (W.isLiquid(x, y)) wet++; };
       for (const p of g.dense) check(p[0], p[1]);
       for (let y = g.D[1] + 10; y < g.G[1]; y += 40) for (let x = g.D[0] - g.SW + 30; x < g.D[0] + g.SW - 30; x += 40) check(x, y);
       const end = g.pts[g.pts.length - 1];
@@ -1393,7 +1511,7 @@ async function sample(h, ms, every, fn, arg) {
       const e = PSXAI.Debug.spawn(10, { x: t.x + 110, y: t.y + 50, natural: true, temp: 'neutral' });
       p.x = t.x - 900; p.y = t.y; // far enough not to disturb it
       const samples = [];
-      for (let i = 0; i < 40; i++) { await wait(500); samples.push({ beh: e.psx.beh.id, phase: e.psx.bs.phase, perch: Math.round(e.psx.vis.perch || 0), d: Math.round(Math.hypot(e.x - t.x, e.y - t.y)) }); if (e.psx.bs.phase === 'feed' && i > 4) break; }
+      for (let i = 0; i < 40; i++) { await wait(500); const tt = (e.psx.eco && e.psx.eco.tree) || t; samples.push({ beh: e.psx.beh.id, phase: e.psx.bs.phase, perch: Math.round(e.psx.vis.perch || 0), d: Math.round(Math.hypot(e.x - tt.x, e.y - tt.y)) }); if (e.psx.bs.phase === 'feed' && i > 4) break; }
       const phases = [...new Set(samples.map((q) => q.phase).filter(Boolean))];
       const rising = samples.filter((q) => q.phase === 'up').map((q) => q.perch);
       e.dead = true;

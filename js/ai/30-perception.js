@@ -91,8 +91,8 @@
         // a light sleeper may notice someone right next to it
         seen = c.pd < 55 && Math.random() < s.pers.tr.alertness * 0.25;
       } else {
-        // a lit lantern is easy to spot in the dark
-        const lit = AI.Light && AI.Sky && AI.Sky.darkness() > 0.4 && AI.Light.lanternOn() ? 1.35 : 1;
+        // a lit lantern or a flame is easy to spot in the dark
+        const lit = AI.Light && AI.Sky && AI.Sky.darkness() > 0.4 && AI.Light.carriesLight(p) ? 1.35 : 1;
         const range = (sightRange(s) + (p.walking ? 60 : 0)) * lit;
         if (c.pd < 85 * s.p.hearing) seen = true;
         else if (c.pd < range) {
