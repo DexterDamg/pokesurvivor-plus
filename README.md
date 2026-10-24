@@ -10,4 +10,6 @@ By default this public version runs without any server: your progress is saved i
 
 New in this version: power crystals and random events (Jigglypuff, egg, Jirachi), golden rifts, fixed rift/boss schedule, Z-Moves, TMs, new items, League of Legends–style HUD, targeting options, Traditional Chinese, and more. See "What's new" in the game.
 
+**Living World AI:** wild Pokémon now have temperaments, emotions (shown as little bubbles), daily routines, friendships, grudges and their own fights, react to Legendaries, and can evolve on the spot. Not everything is hostile anymore. Press **1–4** to stop or resume a move's automatic attacks, click or tap a Pokémon to mark it as your target, and press **F7** for settings. Details: **[docs/LIVING_WORLD_AI.md](docs/LIVING_WORLD_AI.md)**.
+
 Fan project, not affiliated with Nintendo, Creatures, GAME FREAK or The Pokémon Company. Sprites: PMD SpriteCollab (CC BY-NC 4.0). Code: MIT (see LICENSE). Full credits in CREDITS.md.
