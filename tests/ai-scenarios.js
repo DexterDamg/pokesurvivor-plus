@@ -559,7 +559,7 @@ async function sample(h, ms, every, fn, arg) {
   await scenario(h, 'a gale sends a small bird tumbling away, crying', async () => {
     await h.R(() => { window.A = PSXAI.Debug.spawn(16, { temp: 'neutral', dx: 120 }); PSXAI.Sky.set({ wind: 1 }); });
     await h.wait(600);
-    await h.R(() => { window.X0 = [A.x, A.y]; PSXAI.Bus.emit({ type: 'gust', x: 0, y: 0, loud: 0, power: 1.4 }); PSXAI.Bus.emit({ type: 'gust', x: 0, y: 0, loud: 0, power: 1.4 }); PSXAI.Bus.emit({ type: 'gust', x: 0, y: 0, loud: 0, power: 1.4 }); });
+    await h.R(() => { window.X0 = [A.x, A.y]; for (let k = 0; k < 8; k++) PSXAI.Bus.emit({ type: 'gust', x: 0, y: 0, loud: 0, power: 1.4 }); }); // each gust has ~36% chance
     await h.wait(400);
     const mid = await h.R(() => ({ lock: !!A.psx.lock, fear: +A.psx.mind.emo.fear.toFixed(2), icon: (PSXAI.Mind.bubbleFor(A.psx) || {}).icon }));
     await h.wait(2600);
