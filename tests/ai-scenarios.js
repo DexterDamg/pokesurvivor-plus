@@ -629,7 +629,7 @@ async function sample(h, ms, every, fn, arg) {
     return { pass: r.told && !!r.text && r.versions >= 2 && react.length >= 1, detail: { text: r.text, versions: r.versions, reactions: react } };
   });
 
-  await scenario(h, 'the abandoned trail: clues, a lantern that flickers without wind, and a frightened Hoothoot', async () => {
+  await scenario(h, 'the old path: clues, a lantern that flickers without wind, and a frightened Hoothoot', async () => {
     const info = await h.R(() => {
       const t = PSXAI.Decor.trail;
       if (!t) return null;
@@ -646,11 +646,11 @@ async function sample(h, ms, every, fn, arg) {
     if (!info) return { pass: false, detail: 'no trail in this area' };
     await h.wait(2000);
     const spawned = await h.R(() => !!PSXAI.Lore.st.hoot);
-    await h.R(() => { const p = __PSX_REG__.Game.player, t = PSXAI.Decor.trail; p.x = t.start[0] - 80; p.y = t.start[1] + 40; });
+    await h.R(() => { const p = __PSX_REG__.Game.player, t = PSXAI.Decor.trail, sg = t.items.find((i) => i.k === 'sign'); p.x = sg.x - 70; p.y = sg.y + 30; });
     await h.wait(5000);
     const r = await h.R(() => ({ warned: PSXAI.Lore.says.some((s) => s.e === PSXAI.Lore.st.hoot) || PSXAI.Lore.st.hoot && PSXAI.Lore.st.hoot.psx.mind.emo.fear > 0.5, fear: PSXAI.Lore.st.hoot ? +PSXAI.Lore.st.hoot.psx.mind.emo.fear.toFixed(2) : null }));
     await h.R(() => { PSXAI.Lore.st.allowHoot = false; const p = __PSX_REG__.Game.player; p.x = 0; p.y = 0; });
-    const need = ['sign', 'gallows', 'fence', 'wraith', 'path'];
+    const need = ['sign', 'gallows', 'dirt', 'lamp', 'wraith', 'fence_h', 'mansion'];
     return { pass: need.every((k) => info.kinds.includes(k)) && info.minFlame < 0.3 && spawned && r.warned, detail: { ...info, hoothoot: spawned, ...r } };
   });
 
