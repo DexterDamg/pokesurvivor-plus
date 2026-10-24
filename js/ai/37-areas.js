@@ -191,6 +191,8 @@
       if (Sky && Sky.rain > 0.4 && (types.includes('bug') || types.includes('fire'))) w *= 0.5;
       if (Sky && Sky.fog > 0.5 && (types.includes('ghost') || types.includes('dark'))) w *= 2.2;
       if (jk > 0.15) w *= types.includes('ghost') ? 1 + jk * 4 : 1 - jk * 0.75;
+      // tree-dwellers mostly live in their trees (63-wildlife.js): cocoons never roam, few caterpillars do
+      if (AI.Wildlife && AI.cfg.wildlife !== false) { if (AI.Wildlife.COCOON.has(d.dex)) w = 0; else if (AI.Wildlife.CRAWLER.has(d.dex)) w *= 0.35; }
       const n = Math.floor(w) + (Math.random() < w - Math.floor(w) ? 1 : 0);
       for (let i = 0; i < n; i++) out.push(d);
     }

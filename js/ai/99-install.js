@@ -174,6 +174,7 @@
     const oCollide = W.collide;
     W.collide = function (ent) {
       if (ent && insideAt(ent.x, ent.y)) return AI.Mansion.collide(ent);
+      if (AI.enabled && ent && ent.psx && (ent.psx.vis.perch > 2 || ent.psx.vis.trunk)) return false; // on or up a tree (63-wildlife.js)
       const r = oCollide.apply(this, arguments);
       if (AI.enabled && ent) try { AI.Mansion.collideExterior(ent); AI.Decor.collide(ent); AI.Forest.collideWater(ent); } catch (e) { AI.warn('mansion-collide', e); }
       return r;
@@ -232,6 +233,21 @@
         if (AI.enabled && AI.Journey.blocksFinale() && time >= AT - 1) return oJU.call(this, dt, p, AT - 1);
         return oJU.apply(this, arguments);
       };
+    }
+
+    // the game moves far-away or lagging Pokémon ahead of the player; tree-dwellers stay home instead
+    // (they quietly leave and come back to the same tree later: 63-wildlife.js)
+    if (R.Spawner.ahead) {
+      const oAhead = R.Spawner.ahead;
+      R.Spawner.ahead = function (e) {
+        if (AI.enabled && e && (e.psxResident || (e.psx && e.psx.eco && e.psx.vis.perch > 0))) return false;
+        return oAhead.apply(this, arguments);
+      };
+    }
+    // no ground shadow under a Pokémon that's up a tree
+    if (R.Sprites.drawShadow) {
+      const oShadow = R.Sprites.drawShadow;
+      R.Sprites.drawShadow = function () { if (AI.noShadow) return; return oShadow.apply(this, arguments); };
     }
 
     // story scenes can point the camera elsewhere
@@ -370,6 +386,7 @@
         AI.Decor.tick(dt);
         AI.Forest.tick(dt);
         AI.Journey.tick(dt);
+        AI.Wildlife.tick(dt);
         AI.Mysteries.tick(dt);
         AI.Areas.tick(dt);
         AI.EnvBeh.tick(dt);
@@ -402,7 +419,7 @@
     // ------------------------------------------------------------ new run → fresh world
     const oWR = R.World.reset;
     R.World.reset = function (seed) {
-      try { resetWorld(); AI.Decor.reset(seed); AI.Journey.reset(AI.Decor.seed); AI.Forest.reset(); AI.Mysteries.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); AI.Player.lanternToggle = null; } catch (e) { AI.warn('reset', e); }
+      try { resetWorld(); AI.Decor.reset(seed); AI.Journey.reset(AI.Decor.seed); AI.Wildlife.reset(); AI.Forest.reset(); AI.Mysteries.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); AI.Player.lanternToggle = null; } catch (e) { AI.warn('reset', e); }
       return oWR.apply(this, arguments);
     };
     function resetWorld() {

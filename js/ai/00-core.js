@@ -13,10 +13,11 @@
 
   // ---------------------------------------------------------------- configuration
   const DEFAULTS = {
-    maxNpcs: 48, // global cap of AI-driven wild Pokémon (vanilla hard cap of 64 still applies)
-    localCap: 9, // max wild Pokémon around a spawn point (prevents crowding)
+    maxNpcs: 24, // global cap of roaming wild Pokémon (vanilla hard cap of 64 still applies)
+    maxResidents: 10, // tree-dwellers living in nearby trees (cocoons, caterpillars, perching birds), on their own budget
+    localCap: 5, // max wild Pokémon around a spawn point (prevents crowding)
     localRadius: 420,
-    spawnInterval: 0.32, // seconds between ambient spawns (token bucket refill)
+    spawnInterval: 0.9, // seconds between ambient spawns (token bucket refill)
     spawnBurst: 12, // tokens a horde/surge may spend at once
     hostility: 1, // multiplier on aggressive/territorial/opportunistic temperament weights
     hostilityRamp: 600, // seconds of run time for hostility pressure to double

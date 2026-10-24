@@ -1024,7 +1024,7 @@ async function sample(h, ms, every, fn, arg) {
       const gaps = pairs.slice(1).map((d, i) => d - pairs[i]);
       // nothing grows or stands on the path or in the grounds: no trees, rocks, chests or ponds
       let blocked = 0, wet = 0, n = 0;
-      const check = (x, y) => { n++; if (W.propsInCircle(x, y, 20).some((p) => p.solid || p.type === 'tree' || p.type === 'rock')) blocked++; if (W.isLiquid(x, y)) wet++; };
+      const check = (x, y) => { n++; if (PSXAI.Env.treesIn(x, y, 24).length || W.propsInCircle(x, y, 20).some((p) => p.solid || p.type === 'rock') || !W.isFree(x, y, 8)) blocked++; if (W.isLiquid(x, y)) wet++; };
       for (const p of g.dense) check(p[0], p[1]);
       for (let y = g.D[1] + 10; y < g.G[1]; y += 40) for (let x = g.D[0] - g.SW + 30; x < g.D[0] + g.SW - 30; x += 40) check(x, y);
       const end = g.pts[g.pts.length - 1];
@@ -1268,7 +1268,7 @@ async function sample(h, ms, every, fn, arg) {
       const corridor = g.dense.map((q) => Math.floor(q[0] / 512) * 65536 + Math.floor(q[1] / 512));
       const seenBefore = corridor.filter((k) => fresh0.has(k)).length;
       let blocked = 0, trees = 0;
-      for (const q of g.dense) { if (!W.isFree(q[0], q[1], 10)) blocked++; for (const pr of W.propsInCircle(q[0], q[1], 30)) if (pr.type === 'tree' || pr.solid) trees++; }
+      for (const q of g.dense) { if (!W.isFree(q[0], q[1], 10)) blocked++; trees += PSXAI.Env.treesIn(q[0], q[1], 30).length; }
       const ahead = Math.cos(Math.atan2(g.S[1] - p.y, g.S[0] - p.x)); // east = 1
       const outOfSight = !C.sees(g.S[0], g.S[1], 60) && !C.sees(g.D[0], g.D[1], 200);
       // it's placed once: trying again changes nothing, and it stays put
@@ -1355,6 +1355,99 @@ async function sample(h, ms, every, fn, arg) {
     return { pass: ok, detail: r };
   });
 
+  await scenario(h, 'cocoons never walk: Metapod, Kakuna, Silcoon and Cascoon cling to trees, still, and only Harden', async () => {
+    const r = await h.R(async () => {
+      const W = PSXAI.Wildlife, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const trees = W.treesNear(p.x, p.y, 700).filter((t) => !W.claims.has(t.tx + ',' + t.ty));
+      const out = [];
+      for (const dex of [11, 14, 266, 268]) {
+        const t = trees.shift();
+        const e = W.spawnResident(t, { dex, kind: 'cocoon' });
+        if (e) out.push({ e, t, x0: e.x, y0: e.y });
+      }
+      // and one that just turns up on the ground somewhere: it goes to a tree, or doesn't appear
+      const loose = PSXAI.Debug.spawn(14, { x: p.x + 200, y: p.y + 100, natural: true });
+      p.x = out[0].t.x + 70; p.y = out[0].t.y + 30; // stand right beside the first one
+      const hp0 = p.hp;
+      await wait(4000);
+      R.Combat && out[1] && (AI => AI)(PSXAI);
+      out[1].e.hurt(3, '#fff', 0, 0, 0);
+      await wait(400);
+      const res = out.map((o) => ({ dex: o.e.dex, beh: o.e.psx.beh.id, moved: Math.round(Math.hypot(o.e.x - o.x0, o.e.y - o.y0)), perch: Math.round(o.e.psx.vis.perch), atTree: Math.round(Math.hypot(o.e.x - o.t.x, o.e.y - o.t.y)) }));
+      const hardened = !!(out[1].e.psx.buff && out[1].e.psx.buff.def < 1);
+      const looseOk = !R.EnemyMgr.all().includes(loose) || (loose.psx && loose.psx.eco && loose.psx.eco.tree && Math.hypot(loose.x - loose.psx.eco.tree.x, loose.y - loose.psx.eco.tree.y) < 10);
+      for (const o of out) o.e.dead = true;
+      return { res, hardened, touchDamage: Math.round(hp0 - p.hp), looseOk };
+    });
+    const ok = r.res.length === 4 && r.res.every((c) => c.beh === 'cocoon' && c.moved === 0 && c.perch > 5 && c.atTree < 8) && r.hardened && r.touchDamage === 0 && r.looseOk;
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'Caterpie crawls to a tree, climbs the trunk where you can see it, and feeds in the leaves', async () => {
+    const r = await h.R(async () => {
+      const W = PSXAI.Wildlife, R = __PSX_REG__, p = R.Game.player;
+      PSXAI.Sky.set({ hour: 11, freeze: true });
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const t = W.treesNear(p.x + 300, p.y, 500).filter((q) => !W.claims.has(q.tx + ',' + q.ty))[0];
+      const e = PSXAI.Debug.spawn(10, { x: t.x + 110, y: t.y + 50, natural: true, temp: 'neutral' });
+      p.x = t.x - 900; p.y = t.y; // far enough not to disturb it
+      const samples = [];
+      for (let i = 0; i < 40; i++) { await wait(500); samples.push({ beh: e.psx.beh.id, phase: e.psx.bs.phase, perch: Math.round(e.psx.vis.perch || 0), d: Math.round(Math.hypot(e.x - t.x, e.y - t.y)) }); if (e.psx.bs.phase === 'feed' && i > 4) break; }
+      const phases = [...new Set(samples.map((q) => q.phase).filter(Boolean))];
+      const rising = samples.filter((q) => q.phase === 'up').map((q) => q.perch);
+      e.dead = true;
+      return { phases, rising, last: samples[samples.length - 1] };
+    });
+    const ok = r.phases.includes('approach') && r.phases.includes('up') && r.phases.includes('feed') && r.rising.length >= 2 && r.rising[r.rising.length - 1] > r.rising[0] && r.last.d < 10 && r.last.perch > 25;
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'trees have residents: birds perch in the canopy, nothing floats, residents come back to the same trees', async () => {
+    const r = await h.R(async () => {
+      const W = PSXAI.Wildlife, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.Sky.set({ hour: 10, freeze: true });
+      W.reset(); PSXAI.Debug.clear(true);
+      const home = { x: p.x, y: p.y };
+      for (let i = 0; i < 30; i++) { p.x += 40; PSXAI.Mansion.snapCamera(p); await wait(100); }
+      await wait(1200);
+      const first = new Map([...W.residents].map(([k, e]) => [k, e.dex]));
+      // anything up in the air is held by a tree trunk right below it
+      let floating = 0, perched = 0;
+      for (const e of R.EnemyMgr.all()) { if (!e.psx || (e.psx.vis.perch || 0) < 3) continue; perched++; const t = e.psx.eco && e.psx.eco.tree; if (!t || Math.hypot(e.x - t.x, e.y - t.y) > 8) floating++; }
+      // go far away, then come back the same way
+      p.x = home.x + 6000; PSXAI.Mansion.snapCamera(p);
+      for (let i = 0; i < 6; i++) await wait(400);
+      const away = [...first.keys()].filter((k) => W.residents.has(k)).length; // the old trees' residents have gone home
+      p.x = home.x; PSXAI.Mansion.snapCamera(p);
+      for (let i = 0; i < 30; i++) { p.x += 40; PSXAI.Mansion.snapCamera(p); await wait(100); }
+      await wait(1200);
+      const again = new Map([...W.residents].map(([k, e]) => [k, e.dex]));
+      let same = 0, diff = 0;
+      for (const [k, d] of again) if (first.has(k)) { if (first.get(k) === d || (W.COCOON.has(d) && W.COCOON.has(first.get(k)))) same++; else diff++; }
+      return { first: first.size, perched, floating, away, again: again.size, same, diff };
+    });
+    return { pass: r.first >= 2 && r.perched >= 1 && r.floating === 0 && r.away === 0 && r.same >= 1 && r.diff === 0, detail: r };
+  });
+
+  await scenario(h, 'fewer wild Pokémon: small caps, quiet stretches, no roaming cocoons', async () => {
+    const r = await h.R(async () => {
+      const R = __PSX_REG__, A = PSXAI.Areas, F = PSXAI.Forest;
+      const bag = A.weightBag(R.Enemies.cast[1].list.slice());
+      const cocoonsInBag = bag.filter((d) => PSXAI.Wildlife.COCOON.has(d.dex)).length;
+      let quiet = 0, n = 0;
+      for (let y = -6000; y <= 6000; y += 300) for (let x = -6000; x <= 6000; x += 300) { n++; if (F.quietAt(x, y) > 0.8) quiet++; }
+      // a minute of play with spawning on: never more than the cap
+      PSXAI.Debug.freeze(false); R.Game.debugSpeed(3);
+      let max = 0;
+      for (let i = 0; i < 20; i++) { await new Promise((res) => setTimeout(res, 500)); max = Math.max(max, PSXAI.Population.aliveWild()); }
+      R.Game.debugSpeed(1); PSXAI.Debug.freeze(true);
+      return { cap: PSXAI.cfg.maxNpcs, residentsCap: PSXAI.cfg.maxResidents, cocoonsInBag, quietShare: +(quiet / n).toFixed(2), maxAlive: max };
+    });
+    return { pass: r.cap <= 24 && r.cocoonsInBag === 0 && r.quietShare > 0.1 && r.quietShare < 0.6 && r.maxAlive <= r.cap + r.residentsCap, detail: r };
+  });
+
   await scenario(h, 'the forest floor is one continuous painted surface: no tile grid, no sparkles, no seams', async () => {
     const r = await h.R(async () => {
       const R = __PSX_REG__, F = PSXAI.Forest;
@@ -1423,7 +1516,7 @@ async function sample(h, ms, every, fn, arg) {
         if (it.k === 'flower' && !it.myst) { flowers++; if (F.region(it.x, it.y).clear < 0.3) flowersOut++; }
         if (it.n === 'w_reeds') { reeds++; if (F.water(it.x, it.y).e < -80) reedsDry++; }
         if (it.k === 'lily') { lilies++; if (F.water(it.x, it.y).e <= 0) liliesDry++; }
-        if (!it.flat && it.r) for (const p of W.propsInCircle(it.x, it.y, 20)) if (p.type === 'tree' && Math.hypot(p.x - it.x, p.y - it.y) < 12) inTrunk++;
+        if (!it.flat && it.r) inTrunk += PSXAI.Env.treesIn(it.x, it.y, 12).length;
       }
       return { items: items.length, flowers, flowersOut, reeds, reedsDry, lilies, liliesDry, inTrunk };
     });

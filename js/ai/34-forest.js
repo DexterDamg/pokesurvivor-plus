@@ -259,6 +259,8 @@
     const bare = soilAt(x, y);
     return bare < 0.45 && U.hash(tx, ty, plan().seed + 91) < 0.55 + r.grove * 0.25 - r.clear * 0.3;
   }
+  // how quiet a stretch of forest is (0 lively … 1 empty): roaming Pokémon rarely turn up there
+  function quietAt(x, y) { return sm(0.42, 0.28, vn(x / 900, y / 900, plan().seed + 111)); }
   function soilAt(x, y) { const s = plan().seed; return sm(0.58, 0.72, fbm(x / 260, y / 260, s + 31, 3)) * (1 - region(x, y).wet * 0.5); }
 
   // ---------------------------------------------------------------- the ground: palettes
@@ -317,7 +319,7 @@
     }
     // trees in and around the chunk shade the ground beneath them and drop their leaves
     const trunks = [];
-    try { for (const pr of AI.R.World.propsInCircle(x0 + CH / 2, y0 + CH / 2, CH * 0.8)) if (pr.type === 'tree') trunks.push(pr); } catch (e) { /* ignore */ }
+    try { for (const pr of AI.Env.treesIn(x0 + CH / 2, y0 + CH / 2, CH * 0.8)) trunks.push(pr); } catch (e) { /* ignore */ }
     const cv = document.createElement('canvas');
     cv.width = N; cv.height = N;
     const g = cv.getContext('2d');
@@ -581,7 +583,7 @@
     let v = shadeCache.get(k);
     if (v != null) return v;
     let n = 0;
-    try { for (const pr of AI.R.World.propsInCircle(x, y, 120)) if (pr.type === 'tree') n++; } catch (e) { /* ignore */ }
+    try { n = AI.Env.treesIn(x, y, 120).length; } catch (e) { /* ignore */ }
     const r = region(x, y);
     v = U.clamp(0.15 + n * 0.08 + r.grove * 0.25 + r.deep * 0.35 - r.clear * 0.6 - (water(x, y).e > 0 ? 0.4 : 0), 0, 0.85);
     if (AI.Journey) v = Math.min(0.9, v + AI.Journey.nearK(x, y) * 0.3);
@@ -889,6 +891,6 @@
 
   AI.define('Forest', {
     on, plan, water, depthClass, region, soilAt, pathDist, terr, trees, grass, drawGround, drawMist, drawFlies, lights, shadeAt, shadeLightMap,
-    locomotion, canDeep, collideWater, spawnOk, waterPointNear, tick, reset, invalidate, chunks, vn, fbm, treeFor, underFor, decor, KIND,
+    locomotion, canDeep, collideWater, spawnOk, waterPointNear, tick, reset, invalidate, quietAt, chunks, vn, fbm, treeFor, underFor, decor, KIND,
   });
 })();

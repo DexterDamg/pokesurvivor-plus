@@ -457,7 +457,7 @@
       // never seen clearly: the canopy shakes in a line overhead, vines creak, a call
       if (AI.Ambience) { AI.Ambience.myst('leaves', p.x + 120, p.y - 60); AI.Ambience.myst('call', p.x + 200, p.y - 80); }
       try {
-        const props = AI.R.World.propsInCircle(p.x, p.y, 320).filter((q) => q.type === 'tree');
+        const props = AI.Env.treesIn(p.x, p.y, 320);
         props.sort((a, b) => a.x - b.x);
         props.forEach((q, i) => setTimeout(() => { try { AI.Decor.shakeProp(q, 0.8); } catch (e) { /* ignore */ } }, i * 140));
       } catch (e) { /* ignore */ }
