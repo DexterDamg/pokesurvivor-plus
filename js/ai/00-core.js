@@ -63,6 +63,12 @@
     // Pokémon size
     softTelegraphs: true, // gentler attack warnings instead of blinking red dashed outlines
     speciesScale: true, // size Pokémon by species (Pokédex height), with subtle individual variation
+    enemyBars: false, // health bars over wild Pokémon (they still have HP)
+    announce: false, // banners for things that happen in the wild (evolutions, shinies, Meowth or Gholdengo appearing…); they still happen, quietly
+    gameWeather: false, // the game's own type-boosting weather & terrain events (Misty Terrain, Harsh Sunlight…); the living sky stays either way
+    forestTraps: false, // hidden poison/grass/fire floor traps in the Shady Forest
+    forestWorld: true, // the rebuilt Shady Forest: continuous ground, regions, the great lake (34-forest.js)
+    mysteries: true, // the Forest Mysteries: legendary sightings and the journal (82-mysteries.js)
     mansion: true, // the haunted mansion at the end of the old path, its hauntings and its story
     jumpscare: true, // the mirror's full-screen jumpscare (off: a gentler fade instead)
     hauntRate: 1, // how often the mansion's hauntings happen

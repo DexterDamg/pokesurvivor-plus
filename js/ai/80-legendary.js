@@ -99,7 +99,7 @@
   // ---------------------------------------------------------------- Lake Trio resonance
   function startLake(x, y) {
     lake = { x, y, r: 620, until: AI.time + 12, t0: AI.time, uxT: 1.5, trio: ['uxie', 'mesprit', 'azelf'] };
-    AI.R.Spawner.say && AI.R.Spawner.say(lakeText(), 3, true);
+    if (AI.say) AI.say(lakeText(), 3, true);
   }
   function lakeFromPlayer(p) {
     const which = { 480: ['uxie'], 481: ['mesprit'], 482: ['azelf'] }[p.dex];

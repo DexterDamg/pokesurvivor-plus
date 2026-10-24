@@ -224,7 +224,7 @@
 
   function announce(a, b) {
     const R = AI.R;
-    if (!R.Spawner || !R.Spawner.say) return;
+    if (!R.Spawner || !R.Spawner.say || AI.cfg.announce !== true) return; // wild evolutions happen quietly
     const lang = (navigator.language || 'es').slice(0, 2);
     const T = { es: '¡El {a} salvaje ha evolucionado en {b}!', en: 'The wild {a} evolved into {b}!', fr: '{a} sauvage a évolué en {b} !', zh: '野生的{a}進化成了{b}！' };
     R.Spawner.say((T[lang] || T.en).replace('{a}', a).replace('{b}', b), 3, true);
@@ -323,7 +323,7 @@
       AI.playerBubble.icon = why === 'environment' ? 'sparkle' : 'anger';
       AI.playerBubble.t = 2.5;
       p.startEvo(target, (a, b) => {
-        R.Spawner.say(R.I18n.f('¡{x} ha evolucionado en {x}!', a.name, b.name), 3, true);
+        AI.say(R.I18n.f('¡{x} ha evolucionado en {x}!', a.name, b.name), 3, true);
         R.Audio.sfx && R.Audio.sfx('shinyGet');
         if (R.Coop && R.Coop.active && R.Coop.evolved) R.Coop.evolved(b.dex);
       });

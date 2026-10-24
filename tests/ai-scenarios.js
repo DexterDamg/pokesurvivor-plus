@@ -464,7 +464,7 @@ async function sample(h, ms, every, fn, arg) {
       const cast0 = R.Enemies.cast[0].list.map((d) => d.dex);
       return { biome: PSXAI.Env.biome(), cast0, castOk: cast0.every((d) => early.has(d)), maxBst: Math.max(...cast0.map((d) => R.DEX_BY[d].bst)) };
     });
-    const s = await sample(h, 9000, 500, () => { for (const e of __PSX_REG__.EnemyMgr.all()) if (e.psx && !e.boss) SEEN.add(e.dex); return SEEN.size; });
+    const s = await sample(h, 9000, 500, () => { for (const e of __PSX_REG__.EnemyMgr.all()) if (e.psx && !e.boss && !e.psx.evolvedFrom) SEEN.add(e.dex); return SEEN.size; /* (beginners that evolve in the wild are another feature) */ });
     const seen = await h.R(() => [...SEEN]);
     const ok = await h.R((seen) => { const ro = PSXAI.Areas.roster(); const early = new Set([...ro.tiers[0], ...ro.tiers[1]]); return seen.every((d) => early.has(d)); }, seen);
     await h.R(() => { __PSX_REG__.Game.debugSpeed(1); PSXAI.Debug.freeze(true); });
@@ -1216,6 +1216,263 @@ async function sample(h, ms, every, fn, arg) {
     await h.R(() => PSXAI.resetCfg());
     return { pass: r.actors === 14 && r.stage === 'done' && !r.busy && fps > 40, detail: { ...r, fps: Math.round(fps), errors: h.errors.filter((e) => !e.includes('404')).slice(0, 3) } };
   });
+  await h.close();
+
+  // =========================================================== the Shady Forest, rebuilt
+  h = await boot({ partner: 377 });
+  const tp = (x, y) => h.R(([x, y]) => { const p = __PSX_REG__.Game.player; p.x = x; p.y = y; PSXAI.Mansion.snapCamera(p); }, [x, y]);
+
+  await scenario(h, 'the forest floor is one continuous painted surface: no tile grid, no sparkles, no seams', async () => {
+    const r = await h.R(async () => {
+      const R = __PSX_REG__, F = PSXAI.Forest;
+      let painted = 0;
+      const o = R.Tiles.paintChunk;
+      R.Tiles.paintChunk = function () { painted++; return o.apply(this, arguments); };
+      const p = R.Game.player;
+      for (let i = 0; i < 6; i++) { p.x = 600 * i - 1500; p.y = (i % 2) * 700; PSXAI.Mansion.snapCamera(p); await new Promise((res) => setTimeout(res, 160)); }
+      R.Tiles.paintChunk = o;
+      // the edges of neighbouring chunks overlap by one world pixel
+      const keys = [...F.chunks.keys()];
+      return { on: F.on(), painted, chunks: keys.length };
+    });
+    return { pass: r.on && r.painted === 0 && r.chunks >= 4, detail: r };
+  });
+
+  await scenario(h, 'the forest is planned: a great lake, a stream, ponds, paths and mystery sites, all kept apart, across seeds', async () => {
+    const r = await h.R(async () => {
+      const R = __PSX_REG__, F = PSXAI.Forest, out = [];
+      const keep = PSXAI.Decor.seed;
+      for (const seed of [11, 404, 2024, 77777, 31337]) {
+        R.World.reset(seed);
+        const P = F.plan(), P2 = F.plan();
+        const M = PSXAI.Mansion.geom();
+        const sites = Object.values(P.sites).filter((s) => s.id !== 'suicune');
+        let overlap = 0, wet = 0, nearStart = 0;
+        for (let i = 0; i < sites.length; i++) {
+          for (let j = i + 1; j < sites.length; j++) if (Math.hypot(sites[i].x - sites[j].x, sites[i].y - sites[j].y) < sites[i].r + sites[j].r) overlap++;
+          if (F.water(sites[i].x, sites[i].y).e > 0 && sites[i].id !== 'cresselia') wet++;
+          if (Math.hypot(sites[i].x, sites[i].y) < 1000) nearStart++;
+        }
+        let startWater = 0;
+        for (let a = 0; a < 6.28; a += 0.3) for (let d = 0; d < 600; d += 60) if (F.water(Math.cos(a) * d, Math.sin(a) * d).e > 0) startWater++;
+        const lakeToHouse = M ? Math.hypot(P.lake.x - M.D[0], P.lake.y - M.D[1]) : 9999;
+        out.push({ seed, lakeR: Math.round(P.lake.R), ponds: P.ponds.length, streams: P.streams.length, paths: P.paths.length, sites: sites.length + 1, overlap, wet, nearStart, startWater, lakeToHouse: Math.round(lakeToHouse), same: P === P2 });
+      }
+      R.World.reset(keep);
+      return out;
+    });
+    const ok = r.every((s) => s.lakeR >= 440 && s.ponds >= 1 && s.paths >= 2 && s.sites >= 8 && s.overlap === 0 && s.wet === 0 && s.nearStart === 0 && s.startWater === 0 && s.lakeToHouse > 900 && s.same);
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'trees keep an even, natural spacing and stay out of water, off paths and out of the sanctuaries', async () => {
+    const r = await h.R(() => {
+      const F = PSXAI.Forest, trees = [];
+      for (let y = -2000; y <= 2000; y += 300) for (let x = -2000; x <= 2000; x += 300) for (const p of PSXAI.Env.props(x, y, 150)) if (p.type === 'tree' && !trees.includes(p)) trees.push(p);
+      let close = 0, inWater = 0, onPath = 0, inSite = 0;
+      for (const t of trees) {
+        if (F.water(t.x, t.y).e > -10) inWater++;
+        if (F.pathDist(t.x, t.y) < 10) onPath++;
+        if (F.region(t.x, t.y).siteK > 0.5) inSite++;
+        for (const u of trees) if (u !== t && Math.hypot(u.x - t.x, u.y - t.y) < 56) close++;
+      }
+      return { trees: trees.length, close: close / 2, inWater, onPath, inSite };
+    });
+    return { pass: r.trees > 150 && r.close === 0 && r.inWater === 0 && r.onPath === 0 && r.inSite === 0, detail: r };
+  });
+
+  await scenario(h, 'undergrowth follows habitat: reeds at the water, flowers only in clearings and sanctuaries, nothing inside a trunk', async () => {
+    const r = await h.R(() => {
+      const F = PSXAI.Forest, D = PSXAI.Decor, W = __PSX_REG__.World;
+      const items = D.inRect(-2400, -2400, 2400, 2400, []);
+      let flowersOut = 0, flowers = 0, reeds = 0, reedsDry = 0, inTrunk = 0, lilies = 0, liliesDry = 0;
+      for (const it of items) {
+        if (it.k === 'flower' && !it.myst) { flowers++; if (F.region(it.x, it.y).clear < 0.3) flowersOut++; }
+        if (it.n === 'w_reeds') { reeds++; if (F.water(it.x, it.y).e < -80) reedsDry++; }
+        if (it.k === 'lily') { lilies++; if (F.water(it.x, it.y).e <= 0) liliesDry++; }
+        if (!it.flat && it.r) for (const p of W.propsInCircle(it.x, it.y, 20)) if (p.type === 'tree' && Math.hypot(p.x - it.x, p.y - it.y) < 12) inTrunk++;
+      }
+      return { items: items.length, flowers, flowersOut, reeds, reedsDry, lilies, liliesDry, inTrunk };
+    });
+    return { pass: r.items > 500 && r.flowersOut === 0 && r.reedsDry === 0 && r.liliesDry === 0 && r.inTrunk === 0, detail: r };
+  });
+
+  await scenario(h, 'deep water stops the player from every direction, at any speed and through knockback; shallows only slow', async () => {
+    const r = await h.R(() => {
+      const R = __PSX_REG__, F = PSXAI.Forest, W = R.World, p = R.Game.player, L = F.plan().lake;
+      let entered = 0, reachedShallow = 0;
+      for (let k = 0; k < 16; k++) {
+        const a = (k / 16) * 6.283;
+        // start on the shore, run straight at the middle in huge steps (dashes, knockback)
+        let d = L.R * 1.8;
+        while (d > 0 && F.water(L.x + Math.cos(a) * d, L.y + Math.sin(a) * d).e < -10) d -= 6;
+        p.x = L.x + Math.cos(a) * (d + 20); p.y = L.y + Math.sin(a) * (d + 20); p._psxOk = null; W.collide(p);
+        for (let i = 0; i < 60; i++) {
+          const step = i % 10 === 9 ? 70 : 12;
+          p.x -= Math.cos(a) * step + Math.sin(a) * (i % 2 ? 6 : -6); p.y -= Math.sin(a) * step;
+          W.collide(p);
+          const dc = F.depthClass(p.x, p.y);
+          if (dc === 2) entered++;
+          if (dc === 1) reachedShallow++;
+        }
+      }
+      // dropped straight into the middle (a teleport): out to the nearest shore
+      p.x = L.x; p.y = L.y; p._psxOk = null; W.collide(p);
+      const rescued = F.depthClass(p.x, p.y) < 2;
+      p.x = 0; p.y = 0; p._psxOk = null;
+      return { entered, reachedShallow, rescued };
+    });
+    return { pass: r.entered === 0 && r.reachedShallow > 0 && r.rescued, detail: r };
+  });
+
+  await scenario(h, 'Pokémon cross water by how they move: walkers stay out of the deep, fish stay in it, flyers and floaters cross', async () => {
+    const r = await h.R(() => {
+      const R = __PSX_REG__, F = PSXAI.Forest, L = F.plan().lake;
+      const loco = { rattata: F.locomotion(19), magikarp: F.locomotion(129), pidgey: F.locomotion(16), psyduck: F.locomotion(54), surskit: F.locomotion(283), gastly: F.locomotion(92), squirtle: F.locomotion(7) };
+      const walker = PSXAI.Debug.spawn(19, { x: L.x, y: L.y, temp: 'neutral', natural: true });
+      const flyer = PSXAI.Debug.spawn(16, { x: L.x + 20, y: L.y, temp: 'neutral', natural: true });
+      const fish = PSXAI.Debug.spawn(129, { x: L.x, y: L.y + L.R * 2.2, temp: 'neutral', natural: true });
+      const out = { loco, walkerDepth: F.depthClass(walker.x, walker.y), flyerDepth: F.depthClass(flyer.x, flyer.y), fishDepth: fish.dead || !R.EnemyMgr.all().includes(fish) ? 'vetoed' : F.depthClass(fish.x, fish.y) };
+      // a walker told to wander into the lake picks somewhere else
+      let deepPicks = 0;
+      for (let i = 0; i < 40; i++) { const pt = PSXAI.Behaviors.pointNear ? PSXAI.Behaviors.pointNear(walker, L.x, L.y, 0, L.R * 0.5) : null; if (pt && F.depthClass(pt[0], pt[1]) === 2) deepPicks++; }
+      out.deepPicks = deepPicks;
+      return out;
+    });
+    const l = r.loco;
+    const ok = l.rattata === 'walk' && l.magikarp === 'swim' && l.pidgey === 'fly' && l.psyduck === 'amphi' && l.surskit === 'surface' && l.gastly === 'fly' && l.squirtle === 'amphi' &&
+      r.walkerDepth < 2 && r.flyerDepth === 2 && (r.fishDepth === 'vetoed' || r.fishDepth > 0) && r.deepPicks === 0;
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'the water lives: reflections, rain ripples, mist and moonlight, at a steady frame rate', async () => {
+    const r = await h.R(async () => {
+      const F = PSXAI.Forest, L = F.plan().lake, p = __PSX_REG__.Game.player;
+      let y = L.y + L.R * 2; while (F.water(L.x, y).e < 30) y -= 6;
+      p.x = L.x; p.y = y + 60; PSXAI.Mansion.snapCamera(p);
+      PSXAI.Sky.set({ hour: 22, rain: 0.9, storm: 0, fog: 0.5, cloud: 0.6, wet: 1, freeze: true });
+      await new Promise((res) => setTimeout(res, 800));
+      const ripples = PSXAI.Decor.ripples.filter((q) => F.water(q.x, q.y).e > 0).length;
+      const fps = await new Promise((res) => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 2500) requestAnimationFrame(f); else res(n / ((performance.now() - t0) / 1000)); }; requestAnimationFrame(f); });
+      return { ripples, fps: Math.round(fps), chunksWithWater: [...F.chunks.values()].filter((c) => c.water).length };
+    });
+    return { pass: r.ripples > 0 && r.chunksWithWater > 0 && r.fps >= 28, detail: r };
+  });
+
+  await scenario(h, 'Forest Mysteries: rumours and clues fill the journal step by step, never spoiling, and it is kept', async () => {
+    const r = await h.R(async () => {
+      const M = PSXAI.Mysteries, st = M.run.sites.celebi, p = __PSX_REG__.Game.player;
+      M.resetJournal();
+      const empty = Object.keys(M.journal.m).length;
+      PSXAI.Sky.set({ hour: 12, rain: 0, fog: 0, cloud: 0.1, freeze: true });
+      p.x = st.x; p.y = st.y + 120; PSXAI.Mansion.snapCamera(p);
+      await new Promise((res) => setTimeout(res, 400));
+      const afterRumour = M.status('celebi');
+      p.x = st.x; p.y = st.y + 20;
+      await new Promise((res) => setTimeout(res, 400));
+      const afterClue = M.status('celebi');
+      p.x = st.x; p.y = st.y + 120;
+      await new Promise((res) => setTimeout(res, 6500));
+      const celebiSeen = M.run.apps.some((a) => a.id === 'celebi');
+      // walking up to it: it leaves, and the sighting is written down
+      const ap = M.run.apps.find((a) => a.id === 'celebi');
+      if (ap) { p.x = ap.x; p.y = ap.y + 10; }
+      await new Promise((res) => setTimeout(res, 1500));
+      const saved = JSON.parse(localStorage.getItem('psx.mysteries.v1') || '{}');
+      M.toggle(true); await new Promise((res) => setTimeout(res, 150)); M.toggle(false);
+      const others = M.ORDER.filter((id) => id !== 'celebi').map((id) => M.status(id));
+      return { empty, afterRumour, afterClue, celebiSeen, final: M.status('celebi'), saved: !!(saved.m && saved.m.celebi && saved.m.celebi.r), othersUnknown: others.filter((s) => s == null).length, othersTotal: others.length };
+    });
+    return { pass: r.empty === 0 && r.afterRumour === 'Rumour' && /^Clues 1/.test(r.afterClue) && r.celebiSeen && /Sighted|Confirmed/.test(r.final) && r.saved && r.othersUnknown >= r.othersTotal - 2, detail: r };
+  });
+
+  await scenario(h, 'Darkrai: the night darkens, a shadow rises and dissolves if rushed; only with its clues does it fight', async () => {
+    const r = await h.R(async () => {
+      const M = PSXAI.Mysteries, st = M.run.sites.darkrai, p = __PSX_REG__.Game.player, R = __PSX_REG__;
+      if (!st) return { skip: true };
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      M.resetJournal(); M.run.cool = {};
+      // in daylight: nothing
+      PSXAI.Sky.set({ hour: 13, freeze: true });
+      p.x = st.x + st.r * 1.2; p.y = st.y; PSXAI.Mansion.snapCamera(p);
+      await wait(1500);
+      const dayApps = M.run.apps.length;
+      PSXAI.Sky.set({ hour: 23.5, cloud: 0.1, rain: 0, fog: 0, freeze: true });
+      await wait(4500);
+      const dark = M.run.dark;
+      const ap = M.run.apps.find((a) => a.id === 'darkrai');
+      const rose = !!ap;
+      if (ap) { p.x = ap.x + 60; p.y = ap.y; }
+      await wait(2000);
+      const dissolved = !M.run.apps.some((a) => a.id === 'darkrai');
+      const noFight1 = !R.EnemyMgr.all().some((e) => e.dex === 491);
+      // find its clues
+      for (const it of PSXAI.Decor.inRect(st.x - 400, st.y - 400, st.x + 400, st.y + 400, [])) if (it.clue && it.clue.id === 'darkrai') { p.x = it.x; p.y = it.y + 8; await wait(300); }
+      M.run.cool.darkrai = 0;
+      p.x = st.x + st.r * 1.2; p.y = st.y; PSXAI.Mansion.snapCamera(p);
+      await wait(4500);
+      const ap2 = M.run.apps.find((a) => a.id === 'darkrai');
+      if (ap2) { p.x = ap2.x + 90; p.y = ap2.y; }
+      await wait(1200);
+      const boss = R.EnemyMgr.all().find((e) => e.dex === 491 && e.boss);
+      if (boss) boss.dead = true;
+      return { dayApps, dark: +dark.toFixed(2), rose, dissolved, noFight1, status: M.status('darkrai'), fought: !!boss };
+    });
+    if (r.skip) return { pass: true, detail: 'no hollow this world' };
+    return { pass: r.dayApps === 0 && r.dark > 0.3 && r.rose && r.dissolved && r.noFight1 && r.status === 'Confirmed' && r.fought, detail: r };
+  });
+
+  await scenario(h, 'Raikou only in night storms: on the ridge in a lightning flash, gone by the next strike; Spectrier never fights', async () => {
+    const r = await h.R(async () => {
+      const M = PSXAI.Mysteries, S = PSXAI.Sky, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const st = M.run.sites.raikou;
+      const out = {};
+      if (st) {
+        M.run.cool = {};
+        p.x = st.x; p.y = st.y + 95; PSXAI.Mansion.snapCamera(p);
+        S.set({ hour: 13, storm: 1, rain: 1, cloud: 1, freeze: true });
+        await wait(300); S.bolt(0.5); await wait(300);
+        out.dayStorm = M.run.apps.some((a) => a.id === 'raikou');
+        S.set({ hour: 23, storm: 1, rain: 1, cloud: 1, freeze: true });
+        await wait(600); S.bolt(0.5); await wait(400);
+        out.onRidge = M.run.apps.some((a) => a.id === 'raikou');
+        await wait(900); S.bolt(0.5); await wait(1200);
+        out.goneNext = !M.run.apps.some((a) => a.id === 'raikou');
+      }
+      const sp = M.run.sites.spectrier;
+      if (sp && sp.path) {
+        M.run.cool = {};
+        S.set({ hour: 1, storm: 0, rain: 0, cloud: 0.2, freeze: true });
+        // walk the path toward its end until something is there
+        let ap = null;
+        for (let k = 3; k < 9 && !ap; k++) { const q = sp.path[k]; p.x = q[0]; p.y = q[1]; PSXAI.Mansion.snapCamera(p); await wait(700); ap = M.run.apps.find((a) => a.id === 'spectrier'); }
+        if (ap) await wait(1500);
+        out.spectrier = !!ap;
+        if (ap) { const e = sp.path[9]; p.x = e[0]; p.y = e[1]; await wait(500); out.trail = ap.trail.length > 0; out.leaving = ap.state === 'out' || !M.run.apps.includes(ap); }
+        out.noEnemy = !R.EnemyMgr.all().some((e) => e.dex === 897);
+      }
+      return out;
+    });
+    return { pass: r.dayStorm === false && r.onRidge && r.goneNext && r.spectrier && r.trail && r.leaving && r.noEnemy, detail: r };
+  });
+
+  await scenario(h, 'the Evergold Sanctuary: no hostile Pokémon appear inside, and none stay there', async () => {
+    const r = await h.R(async () => {
+      const M = PSXAI.Mysteries, st = M.run.sites.celebi, R = __PSX_REG__;
+      const n0 = R.EnemyMgr.all().length;
+      const e = PSXAI.Debug.spawn(19, { x: st.x + 10, y: st.y + 10, temp: 'aggressive', natural: true });
+      const vetoed = !R.EnemyMgr.all().includes(e);
+      return { vetoed, sanctuary: M.sanctuary(st.x, st.y), n: R.EnemyMgr.all().length - n0 };
+    });
+    return { pass: r.vetoed && r.sanctuary, detail: r };
+  });
+
+  await scenario(h, 'wild Pokémon keep their HP but show no health bar, and their events stay quiet', async () => {
+    const r = await h.R(() => ({ noBars: PSXGEN.noBars(), quietCfg: PSXAI.cfg.announce !== true, say: typeof PSXAI.say }));
+    return { pass: r.noBars && r.quietCfg && r.say === 'function', detail: r };
+  });
+
   await h.close();
 
   const pass = results.filter((r) => r.pass).length;

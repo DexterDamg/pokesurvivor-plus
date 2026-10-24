@@ -73,6 +73,13 @@
     replay: { es: 'Ver de nuevo', en: 'Replay', fr: 'Revoir', zh: '重播' },
     noScenes: { es: 'Aún no has visto ninguna escena.', en: 'No scenes seen yet.', fr: 'Aucune scène vue pour l\'instant.', zh: '尚未看過任何場景。' },
     resetStory: { es: 'Reiniciar la historia', en: 'Reset story progress', fr: 'Réinitialiser l\'histoire', zh: '重設劇情進度' },
+    forestTitle: { es: 'El Bosque Umbrío', en: 'The Shady Forest', fr: 'La Forêt Ombreuse', zh: '幽暗森林' },
+    forestWorld: { es: 'Bosque renovado (suelo, lago, regiones)', en: 'Rebuilt forest (ground, lake, regions)', fr: 'Forêt refaite (sol, lac, régions)', zh: '重建的森林（地面、湖泊、區域）' },
+    mysteries: { es: 'Misterios del bosque (legendarios)', en: 'Forest Mysteries (legendaries)', fr: 'Mystères de la forêt (légendaires)', zh: '森林之謎（傳說寶可夢）' },
+    enemyBars: { es: 'Barras de vida de Pokémon salvajes', en: 'Health bars on wild Pokémon', fr: 'Barres de vie des Pokémon sauvages', zh: '野生寶可夢血條' },
+    announce: { es: 'Anunciar sucesos salvajes', en: 'Announce wild events', fr: 'Annoncer les événements sauvages', zh: '公告野生事件' },
+    forestTraps: { es: 'Trampas ocultas en el suelo', en: 'Hidden floor traps', fr: 'Pièges cachés au sol', zh: '地面隱藏陷阱' },
+    journal: { es: '📖 Diario de misterios (J)', en: '📖 Mysteries journal (J)', fr: '📖 Journal des mystères (J)', zh: '📖 謎團日誌（J）' },
   };
   AI.lang = function () {
     const l = (AI.R && AI.R.I18n && AI.R.I18n.lang) || (navigator.language || 'es');
@@ -91,6 +98,7 @@
   const WORLD_TOGGLES = ['naturalTerrain', 'treeSizes', 'speciesScale', 'softTelegraphs', 'earnedEvents', 'hordes'];
   const WORLD_SLIDERS = [['treeDensity', 0.3, 2, 0.1], ['eventCooldown', 20, 240, 5], ['weatherDuration', 0.3, 3, 0.1], ['fogSpawns', 0, 1.5, 0.05], ['lightningRate', 0, 3, 0.1], ['flashIntensity', 0, 1, 0.05]];
   const MANSION_TOGGLES = ['mansion', 'jumpscare'];
+  const FOREST_TOGGLES = ['forestWorld', 'mysteries', 'enemyBars', 'announce', 'forestTraps'];
   let el = null;
 
   function build() {
@@ -124,6 +132,9 @@
     for (const [k, min, max, step] of WORLD_SLIDERS) {
       h += row('<div style="display:flex;justify-content:space-between"><span>' + AI.tr(k) + '</span><b data-v="' + k + '">' + c[k] + '</b></div><input type="range" style="width:100%" min="' + min + '" max="' + max + '" step="' + step + '" value="' + c[k] + '" data-k="' + k + '">');
     }
+    h += '<h4 style="margin:14px 0 6px;color:#9fe0c0">' + AI.tr('forestTitle') + '</h4>';
+    for (const k of FOREST_TOGGLES) h += row('<label><input type="checkbox" data-k="' + k + '"' + (c[k] ? ' checked' : '') + '> ' + AI.tr(k) + '</label>');
+    if (AI.Mysteries) h += row('<button class="btn" data-a="journal">' + AI.tr('journal') + '</button>');
     h += '<h4 style="margin:14px 0 6px;color:#c9a0f0">' + AI.tr('mansionTitle') + '</h4>';
     for (const k of MANSION_TOGGLES) h += row('<label><input type="checkbox" data-k="' + k + '"' + (c[k] ? ' checked' : '') + '> ' + AI.tr(k) + '</label>');
     h += row('<div style="display:flex;justify-content:space-between"><span>' + AI.tr('hauntRate') + '</span><b data-v="hauntRate">' + c.hauntRate + '</b></div><input type="range" style="width:100%" min="0" max="3" step="0.1" value="' + c.hauntRate + '" data-k="hauntRate">');
@@ -137,6 +148,8 @@
     box.querySelector('[data-a=reset]').onclick = () => { AI.resetCfg(); render(); };
     box.querySelector('[data-a=close]').onclick = close;
     box.querySelectorAll('[data-replay]').forEach((b) => { b.onclick = () => { close(); if (AI.Story) AI.Story.replay(b.dataset.replay); }; });
+    const jb = box.querySelector('[data-a=journal]');
+    if (jb) jb.onclick = () => { close(); AI.Mysteries.toggle(true); };
     const rs = box.querySelector('[data-a=resetStory]');
     if (rs) rs.onclick = () => { if (AI.Story) AI.Story.resetProgress(); render(); };
   }

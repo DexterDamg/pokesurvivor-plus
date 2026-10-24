@@ -254,7 +254,7 @@
       const { e, s, b } = cand[i];
       const v = s.vis;
       const lift = (v.lift || 0) + (v.hopLift || 0) + (e.jumpLift || 0);
-      const top = e.y - AI.Scale.top(e) - lift - (e.hp < e.maxHp ? 16 : 8) + Math.sin(now * 3 + e.id) * 1.2;
+      const top = e.y - AI.Scale.top(e) - lift - (e.hp < e.maxHp && AI.cfg.enemyBars === true ? 16 : 8) + Math.sin(now * 3 + e.id) * 1.2;
       const age = now - (s.bubbleAt || 0);
       const pop = b.fresh ? U.clamp(age / 0.12, 0.4, 1) : 1;
       bubble(ctx, e.x, top, b.icon, pop);

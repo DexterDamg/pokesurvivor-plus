@@ -63,6 +63,18 @@
       return null;
     };
     const push = (o) => out.push(item(o));
+    // the Shady Forest grows its undergrowth by habitat (34-forest.js)
+    if (AI.Env.biome() === 0 && AI.Forest && AI.cfg.forestWorld !== false) {
+      // (nothing grows into anything else placed in this chunk)
+      const roomy = (x, y, r) => ok(x, y, r) && !out.some((o) => !o.flat && (o.r || o.k === 'log') && Math.abs(o.x - x) < 70 && Math.abs(o.y - y) < 40 && (o.k === 'log' ? Math.abs(o.x - x) < 44 + r && Math.abs(o.y - y) < 16 + r : Math.hypot(o.x - x, o.y - y) < (o.r || 8) + r));
+      const spot2 = (r) => { for (let k = 0; k < 6; k++) { const x = x0 + 30 + R() * (ch - 60), y = y0 + 30 + R() * (ch - 60); if (roomy(x, y, r) && AI.Forest.water(x, y).e < -30) return [x, y]; } return null; };
+      if (R() < 0.45) { const c = spot2(30); if (c) push({ k: 'log', n: LOGS[(R() * LOGS.length) | 0], x: c[0], y: c[1], f: R() < 0.5, hab: 'log', r: 22 }); }
+      if (R() < 0.5) { const c = spot2(16); if (c) push({ k: 'stump', n: R() < 0.6 ? 'stump_small' : R() < 0.5 ? 'stump_dark' : 'stump_big', x: c[0], y: c[1], f: R() < 0.5, hab: 'log', r: 14 }); }
+      if (R() < 0.4) { const c = spot2(14); if (c) push({ k: 'bush', n: BERRY.summer, x: c[0], y: c[1], f: R() < 0.5, hab: 'berry', r: 12, berries: 3 }); }
+      if (R() < 0.45) { const c = spot2(14); if (c) push({ k: 'burrow', x: c[0], y: c[1], hab: 'burrow', r: 12, flat: true }); }
+      AI.Forest.decor(cx, cy, ch, R, push, roomy);
+      return out;
+    }
     if (th === 'forest' || th === 'jungle') {
       // wildflower clusters
       const cols = FLOWER_COLS[sea];
@@ -126,11 +138,17 @@
     return out;
   }
 
+  // (generation checks free space, which looks at decor: while a chunk is being generated, that
+  // look only sees chunks that already exist, so generating never sets off more generating)
+  let generating = 0;
+  const NONE = [];
   function chunk(cx, cy) {
     const key = cx + ',' + cy;
     let c = chunks.get(key);
     if (!c) {
-      c = genChunk(cx, cy);
+      if (generating) return NONE;
+      generating++;
+      try { c = genChunk(cx, cy); } finally { generating--; }
       if (chunks.size > 260) chunks.delete(chunks.keys().next().value);
       chunks.set(key, c);
     }
@@ -262,7 +280,11 @@
     const ch = CH();
     for (let cy = Math.floor(y0 / ch); cy <= Math.floor(y1 / ch); cy++)
       for (let cx = Math.floor(x0 / ch); cx <= Math.floor(x1 / ch); cx++)
+      {
         for (const it of chunk(cx, cy)) if (it.x >= x0 && it.x <= x1 && it.y >= y0 && it.y <= y1) out.push(it);
+        const fx = fixed.get(cx + ',' + cy);
+        if (fx) for (const it of fx) if (it.x >= x0 && it.x <= x1 && it.y >= y0 && it.y <= y1) out.push(it);
+      }
     if (trail) for (const it of trail.items) if (it.x >= x0 && it.x <= x1 && it.y >= y0 && it.y <= y1) out.push(it);
     if (cave && cave.x >= x0 && cave.x <= x1 && cave.y >= y0 && cave.y <= y1) out.push(cave);
     for (const it of dyn) if (it.x >= x0 && it.x <= x1 && it.y >= y0 && it.y <= y1) out.push(it);
@@ -278,6 +300,68 @@
     }
     return best;
   }
+  // ---------------------------------------------------------------- weight: things you can't walk through
+  /* Fallen logs, stumps, gravestones, statues, gargoyles, gate pillars, lamp and sign posts and the
+   * sealed cave are solid. Bushes, ferns, grass and flowers aren't: they part as you brush through. */
+  function solidOf(it) {
+    if (it._solid !== undefined) return it._solid;
+    let sh = null;
+    const s = it.s || 1;
+    switch (it.k) {
+      case 'log': {
+        const w = AI.Art && AI.Art.ready ? AI.Art.size(it.n)[0] * s : 60 * s;
+        sh = { rect: [it.x - w * 0.42, it.y - 12 * Math.min(1.4, s), it.x + w * 0.42, it.y + 2] };
+        break;
+      }
+      case 'stump': sh = { r: 11 * s }; break;
+      case 'stone': sh = { r: (it.r || 8) * s }; break;
+      case 'ridge': { const w = AI.Art && AI.Art.ready ? AI.Art.size(it.n)[0] * s : 200; sh = { rect: [it.x - w * 0.45, it.y - 30, it.x + w * 0.45, it.y + 2] }; break; }
+      case 'grave': case 'gargoyle': case 'gpillar': sh = it.r ? { r: Math.max(7, it.r) } : null; break;
+      case 'cave': sh = { r: 30 }; break;
+      case 'lamp': case 'sign': sh = { r: 6 }; break;
+      default: sh = null;
+    }
+    if (sh && sh.r) sh.c = [it.x, it.y - 2];
+    if (AI.Art && AI.Art.ready) it._solid = sh; // sizes are only known once the art has loaded
+    return sh;
+  }
+  const solidBuf = [];
+  function solidsIn(x0, y0, x1, y1) {
+    solidBuf.length = 0;
+    for (const it of inRect(x0 - 60, y0 - 30, x1 + 60, y1 + 30, [])) { const sh = solidOf(it); if (sh) solidBuf.push(sh); }
+    return solidBuf;
+  }
+  function collide(ent) {
+    if (!AI.cfg.newArt || !ent) return false;
+    const r = ent.r || 12;
+    let hit = false;
+    for (const sh of solidsIn(ent.x - r, ent.y - r, ent.x + r, ent.y + r)) {
+      if (sh.rect) {
+        const b = sh.rect;
+        const cx = U.clamp(ent.x, b[0], b[2]), cy = U.clamp(ent.y, b[1], b[3]);
+        const dx = ent.x - cx, dy = ent.y - cy, d2 = dx * dx + dy * dy;
+        if (d2 >= r * r) continue;
+        hit = true;
+        if (d2 > 1e-4) { const d = Math.sqrt(d2); ent.x = cx + dx / d * r; ent.y = cy + dy / d * r; }
+        else { const up = ent.y - b[1], dn = b[3] - ent.y; if (up < dn) ent.y = b[1] - r; else ent.y = b[3] + r; }
+      } else {
+        const dx = ent.x - sh.c[0], dy = ent.y - sh.c[1], d = Math.hypot(dx, dy), m = r + sh.r;
+        if (d >= m) continue;
+        hit = true;
+        if (d > 1e-4) { ent.x = sh.c[0] + dx / d * m; ent.y = sh.c[1] + dy / d * m; } else ent.y = sh.c[1] + m;
+      }
+    }
+    return hit;
+  }
+  function blocked(x, y, r) {
+    if (!AI.cfg.newArt) return false;
+    for (const sh of solidsIn(x - r, y - r, x + r, y + r)) {
+      if (sh.rect) { const b = sh.rect; if (x + r > b[0] && x - r < b[2] && y + r > b[1] && y - r < b[3]) return true; }
+      else if (Math.hypot(x - sh.c[0], y - sh.c[1]) < r + sh.r) return true;
+    }
+    return false;
+  }
+
   function lights(x0, y0, x1, y1) { return inRect(x0, y0, x1, y1, []).filter((it) => it.light); }
 
   // ---------------------------------------------------------------- environmental memory
@@ -338,6 +422,9 @@
   function nibble(it) { nibbled.add(it.id); }
   function isNibbled(it) { return nibbled.has(it.id); }
   function addDyn(o) { const it = item(o); dyn.push(it); if (dyn.length > 60) dyn.shift(); return it; }
+  // permanent additions for this run (the forest's mysteries dress their sites with these)
+  const fixed = new Map();
+  function addFixed(o) { const it = item(o); const ch = CH(), k = Math.floor(it.x / ch) + ',' + Math.floor(it.y / ch); (fixed.get(k) || fixed.set(k, []).get(k)).push(it); return it; }
   function removeDyn(it) { const i = dyn.indexOf(it); if (i >= 0) dyn.splice(i, 1); }
 
   // ---------------------------------------------------------------- lanterns & upkeep
@@ -396,7 +483,7 @@
 
   function reset(s) {
     seed = (s | 0) || ((Math.random() * 1e9) | 0);
-    chunks.clear(); dyn.length = 0; prints.length = 0; mud.clear(); ripples.length = 0;
+    chunks.clear(); dyn.length = 0; fixed.clear(); prints.length = 0; mud.clear(); ripples.length = 0;
     nibbled.clear(); shake.clear(); visitedPatches.clear();
     nextId = 1;
     trail = null; cave = null;
@@ -407,7 +494,7 @@
 
   AI.define('Decor', {
     reset, ensure, tick, chunk, inRect, near, lights, trailZone, footprint, mudAt, trample, puddleAmt, puddlesIn, puddleAt,
-    ripple, ripples, prints, rustle, shakeOf, shakeProp, nibble, isNibbled, addDyn, removeDyn, flame, checkPatch,
-    mansionGeom, get trail() { return trail; }, get cave() { return cave; }, get seed() { return seed; },
+    ripple, ripples, prints, rustle, shakeOf, shakeProp, nibble, isNibbled, addDyn, addFixed, removeDyn, flame, checkPatch,
+    mansionGeom, solidOf, solidsIn, collide, blocked, get trail() { return trail; }, get cave() { return cave; }, get seed() { return seed; },
   });
 })();

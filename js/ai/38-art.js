@@ -145,6 +145,8 @@
     const d = dmin == null ? 999 : dmin;
     const r = U.hash(prop.tx, prop.ty, 4242);
     const sizes = AI.cfg.treeSizes !== false;
+    // the Shady Forest: each of its regions grows its own trees (34-forest.js)
+    if (biome === 0 && AI.Forest && AI.Decor && AI.cfg.forestWorld !== false) return AI.Forest.treeFor(prop, d, sizes);
     if (sizes && r < 0.022 && d > 170) return { n: pickFrom(GIANTS, prop, 4244), s: 1.5, stage: 'ancient' };
     if (sizes && r < 0.2 && d > 110) return { n: pickFrom(r < 0.11 ? S.tall : S.mature, prop, 4245), s: 1.5, stage: 'large' };
     if (!sizes || d > 64) return { n: pickFrom(r > 0.75 ? S.young : r > 0.45 ? S.tall : S.mature, prop, 4246), s: 1, stage: 'mature' };
@@ -153,7 +155,8 @@
   }
   function underFor(prop, biome, season) {
     const th = theme(biome);
-    if (!th || th === 'jungle' && false) return null;
+    if (!th) return null;
+    if (biome === 0 && AI.Forest && AI.Decor && AI.cfg.forestWorld !== false) return AI.Forest.underFor(prop);
     // forests stay green whatever the calendar says; seasons show in flowers, light and snow
     const list = th === 'haunted' ? HAUNT_UNDER : th === 'ice' ? UNDER.winter : th === 'forest' ? (season === 'spring' ? UNDER.spring : UNDER.summer) : UNDER[season] || UNDER.summer;
     return list[(U.hash(prop.tx, prop.ty, 5151) * list.length) | 0];

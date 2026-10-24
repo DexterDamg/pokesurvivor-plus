@@ -69,6 +69,8 @@
         L.push({ x: lx, y: ly, r: it.light.r * (0.85 + f * 0.15), c: it.light.c, i: f, src: it });
       }
     }
+    if (AI.Forest) AI.Forest.lights(L);
+    if (AI.Mysteries) AI.Mysteries.lights(L);
     // lightning lights up everything around where it strikes
     for (const s of AI.Sky.st.strikes) L.push({ x: s.x, y: s.y - 40, r: 520, c: [220, 230, 255], i: Math.max(0, 1 - s.t / 0.5) * s.power * 1.4 });
     const p = R.Game.player;
@@ -104,7 +106,8 @@
     const amb = Sky.ambient();
     const dark = Sky.darkness();
     const lights = gather(cam);
-    const needMap = amb[0] < 250 || amb[1] < 250 || amb[2] < 250;
+    const shady = AI.Forest && AI.Forest.on() && !(AI.Mansion && AI.Mansion.inside);
+    const needMap = amb[0] < 250 || amb[1] < 250 || amb[2] < 250 || shady;
     if (needMap) {
       const q = quality();
       const lw = Math.ceil(w / q), lh = Math.ceil(h / q);
@@ -112,8 +115,10 @@
       lg.globalCompositeOperation = 'source-over';
       lg.fillStyle = 'rgb(' + amb[0] + ',' + amb[1] + ',' + amb[2] + ')';
       lg.fillRect(0, 0, lw, lh);
-      lg.globalCompositeOperation = 'lighter';
       const k = 1 / q;
+      // the forest canopy shades the ground; clearings stay sunlit
+      if (shady) try { AI.Forest.shadeLightMap(lg, sx, sy, k, cam.scale); } catch (e) { AI.warn('canopy', e); }
+      lg.globalCompositeOperation = 'lighter';
       const night = U.clamp(1 - (amb[0] + amb[1] + amb[2]) / 700, 0, 1);
       for (const l of lights) {
         const x = sx(l.x) * k, y = sy(l.y) * k, r = l.r * cam.scale * k;

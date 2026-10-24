@@ -152,6 +152,18 @@
     R.World.drawProp = AI.Ground.wrapDrawProp(R.World.drawProp);
     R.World.visibleProps = AI.Ground.wrapVisibleProps(R.World.visibleProps);
     R.Weather.draw = AI.Light.wrapWeatherDraw(R.Weather.draw);
+    // the game's own weather & terrain events (type boosts, banners, the HUD pill) are switched off;
+    // the living sky above is purely atmospheric
+    const noGameWeather = () => AI.enabled && AI.cfg.gameWeather !== true;
+    const oWU = R.Weather.update;
+    R.Weather.update = function () {
+      if (noGameWeather()) { if (R.Weather.current) try { R.Weather.clear(); } catch (e) { /* ignore */ } return; }
+      return oWU.apply(this, arguments);
+    };
+    for (const k of ['force', 'onEvent', 'debugStart']) {
+      const o = R.Weather[k];
+      if (typeof o === 'function') R.Weather[k] = function () { if (noGameWeather()) return; return o.apply(this, arguments); };
+    }
     AI.Light.patchVignette(R.Weather);
 
     // ------------------------------------------------------------ the haunted mansion
@@ -163,14 +175,14 @@
     W.collide = function (ent) {
       if (ent && insideAt(ent.x, ent.y)) return AI.Mansion.collide(ent);
       const r = oCollide.apply(this, arguments);
-      if (AI.enabled && ent) try { AI.Mansion.collideExterior(ent); } catch (e) { AI.warn('mansion-collide', e); }
+      if (AI.enabled && ent) try { AI.Mansion.collideExterior(ent); AI.Decor.collide(ent); AI.Forest.collideWater(ent); } catch (e) { AI.warn('mansion-collide', e); }
       return r;
     };
     const oFree = W.isFree;
     W.isFree = function (x, y, r) {
       if (insideAt(x, y)) return AI.Mansion.freeAt(x, y, r);
       const f = oFree.apply(this, arguments);
-      return f && !(AI.enabled && AI.Mansion.blockedExterior(x, y, r || 12));
+      return f && !(AI.enabled && (AI.Mansion.blockedExterior(x, y, r || 12) || AI.Decor.blocked(x, y, r || 12)));
     };
     const inHouse = {
       kindAt: (x, y) => (AI.Mansion.freeAt(x, y, 2) ? 'floor' : 'wall'), isWall: (x, y) => !AI.Mansion.freeAt(x, y, 2), isLiquid: () => false,
@@ -186,10 +198,12 @@
     const oDG = W.drawGround;
     W.drawGround = function (ctx) {
       if (AI.enabled && AI.Mansion.inside) { try { AI.Mansion.drawInterior(ctx); } catch (e) { AI.warn('mansion-draw', e); } return; }
+      // the Shady Forest's ground is one continuous painted surface, not a grid of tiles
+      if (AI.Forest.on()) { try { AI.Forest.drawGround(ctx); return; } catch (e) { AI.warn('forest-ground', e); } }
       return oDG.apply(this, arguments);
     };
     const oDL = W.drawLiquid;
-    W.drawLiquid = function () { if (AI.enabled && AI.Mansion.inside) return; return oDL.apply(this, arguments); };
+    W.drawLiquid = function () { if (AI.enabled && (AI.Mansion.inside || AI.Forest.on())) return; return oDL.apply(this, arguments); };
     const oVP = W.visibleProps;
     W.visibleProps = function (cam) { if (AI.enabled && AI.Mansion.inside && cam === R.Camera) return AI.Mansion.visibleProps(cam); return oVP.apply(this, arguments); };
     const oDP = W.drawProp;
@@ -197,6 +211,18 @@
       if (prop && (prop.psxMansion || prop.psxDraw)) { try { AI.Mansion.drawProp(ctx, prop); } catch (e) { AI.warn('mansion-prop', e); } return; }
       return oDP.apply(this, arguments);
     };
+    // the wild goes about its business quietly: no banners for wild evolutions, shinies, enraged or
+    // escaping Pokémon, event Pokémon appearing… (they still happen). Your own messages stay.
+    const oSay = R.Spawner.say;
+    let quiet = 0;
+    R.Spawner.say = function () { if (AI.enabled && AI.cfg.announce !== true && quiet > 0 && !AI.sayOK) return; return oSay.apply(this, arguments); };
+    AI.say = function (text, dur, prio) { AI.sayOK = true; try { return R.Spawner.say.call(R.Spawner, text, dur, prio); } finally { AI.sayOK = false; } };
+    for (const [obj, k] of [[R.Events, 'update'], [R.Spawner, 'update'], [R.Spawner, 'burst'], [R.EnemyMgr, 'update'], [R.Crystal, 'update']]) {
+      const o = obj && obj[k];
+      if (typeof o !== 'function') continue;
+      obj[k] = function () { quiet++; try { return o.apply(this, arguments); } finally { quiet--; } };
+    }
+
     // story scenes can point the camera elsewhere
     const oFollow = R.Camera.follow;
     R.Camera.follow = function (x, y, dt) { const c = AI.enabled && AI.Story && AI.Story.cam; return c ? oFollow.call(this, c[0], c[1], dt * 0.35) : oFollow.apply(this, arguments); };
@@ -239,6 +265,7 @@
     R.HUD.draw = function (ctx, w, h) {
       const r = oHud.apply(this, arguments);
       if (AI.enabled) try { AI.Player.drawHud(ctx); AI.Light.drawClock(ctx); AI.Render.drawDebugHud(ctx, w, h); } catch (e) { AI.warn('hud', e); }
+      if (AI.enabled) try { AI.Mysteries.drawScreen(ctx, w, h); } catch (e) { AI.warn('myst-hud', e); }
       if (AI.enabled) try { AI.Haunt.drawScreen(ctx, w, h); AI.Mansion.drawScreen(ctx, w, h); AI.Story.drawScreen(ctx, w, h); } catch (e) { AI.warn('mansion-hud', e); }
       return r;
     };
@@ -246,6 +273,7 @@
     const oAir = R.Training.drawAir;
     R.Training.drawAir = function (ctx) {
       const r = oAir.apply(this, arguments);
+      if (AI.enabled) try { AI.Forest.drawMist(ctx); AI.Forest.drawFlies(ctx); } catch (e) { AI.warn('forest-air', e); }
       if (AI.enabled) try { AI.Light.drawAir(ctx); } catch (e) { AI.warn('env-air', e); }
       if (AI.enabled) try { AI.Mansion.drawAir(ctx); } catch (e) { AI.warn('mansion-air', e); }
       if (AI.enabled) try { AI.Render.drawAir(ctx); } catch (e) { AI.warn('air', e); }
@@ -329,6 +357,8 @@
         AI.refreshPlayers();
         AI.Sky.tick(dt);
         AI.Decor.tick(dt);
+        AI.Forest.tick(dt);
+        AI.Mysteries.tick(dt);
         AI.Areas.tick(dt);
         AI.EnvBeh.tick(dt);
         AI.Lore.tick(dt);
@@ -360,7 +390,7 @@
     // ------------------------------------------------------------ new run → fresh world
     const oWR = R.World.reset;
     R.World.reset = function (seed) {
-      try { resetWorld(); AI.Decor.reset(seed); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); AI.Player.lanternToggle = null; } catch (e) { AI.warn('reset', e); }
+      try { resetWorld(); AI.Decor.reset(seed); AI.Forest.reset(); AI.Mysteries.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); AI.Player.lanternToggle = null; } catch (e) { AI.warn('reset', e); }
       return oWR.apply(this, arguments);
     };
     function resetWorld() {

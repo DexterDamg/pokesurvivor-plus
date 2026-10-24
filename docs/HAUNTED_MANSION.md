@@ -43,7 +43,11 @@ The interior is a separate space, drawn from the supplied mansion sheet:
 
 - **No wild Pokémon, ever.** While you're inside, the Pokémon outside are set aside (the
   game's own stash, as rifts use) and come back when you leave. Nothing spawns indoors, and
-  anything that somehow gets in is shown out.
+  anything that somehow gets in is shown out. (In co-op the outside keeps running for whoever
+  is still out there.)
+- **Co-op.** Everyone can go in; it is no longer locked in co-op.
+- **The run clock stops** while you're inside (in co-op: while everyone is inside) and while a
+  story scene plays, the way it does in rift arenas.
 - **It's dark.** Candles, chandeliers and moonlight through the windows are the only light. The
   forest's sounds fall away. The house settles and creaks, the clock ticks in the foyer, and
   outside weather doesn't reach in.
