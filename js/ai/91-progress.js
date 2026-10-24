@@ -22,7 +22,7 @@
 
   function on() { return AI.enabled && AI.cfg.earnedEvents !== false; }
   function host() { const C = AI.R.Coop; return !C || !C.active || C.isHost; }
-  function say(key, dur) { try { AI.R.Spawner.say(MSG[key][AI.lang ? AI.lang() : 'en'] || MSG[key].en, dur || 3.2); } catch (e) { /* ignore */ } }
+  function say(key, dur) { try { AI.say(MSG[key][AI.lang ? AI.lang() : 'en'] || MSG[key].en, dur || 3.2); } catch (e) { /* ignore */ } }
   function kills() { const p = AI.R.Game.player; return p ? p.kills || 0 : 0; }
   // the n-th milestone of a list; past its end the gaps keep growing like the last one
   function milestone(list, n) {

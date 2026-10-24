@@ -40,6 +40,8 @@
         return AI.players.every((p) => p && AI.Mansion.inInterior(p.x, p.y));
       } catch (e) { return false; }
     },
+    // wild Pokémon keep their HP, but no health bars float over them
+    noBars() { return AI.enabled && AI.cfg.enemyBars !== true; },
     // no hidden poison/grass/fire floor traps in the Shady Forest
     noTrap(biome) { return AI.enabled && biome === 0 && AI.cfg.forestTraps !== true; },
     // nothing grows on the mansion grounds, along its path, or where the house's interior lies

@@ -209,6 +209,18 @@
       if (prop && (prop.psxMansion || prop.psxDraw)) { try { AI.Mansion.drawProp(ctx, prop); } catch (e) { AI.warn('mansion-prop', e); } return; }
       return oDP.apply(this, arguments);
     };
+    // the wild goes about its business quietly: no banners for wild evolutions, shinies, enraged or
+    // escaping Pokémon, event Pokémon appearing… (they still happen). Your own messages stay.
+    const oSay = R.Spawner.say;
+    let quiet = 0;
+    R.Spawner.say = function () { if (AI.enabled && AI.cfg.announce !== true && quiet > 0 && !AI.sayOK) return; return oSay.apply(this, arguments); };
+    AI.say = function (text, dur, prio) { AI.sayOK = true; try { return oSay.call(R.Spawner, text, dur, prio); } finally { AI.sayOK = false; } };
+    for (const [obj, k] of [[R.Events, 'update'], [R.Spawner, 'update'], [R.Spawner, 'burst'], [R.EnemyMgr, 'update'], [R.Crystal, 'update']]) {
+      const o = obj && obj[k];
+      if (typeof o !== 'function') continue;
+      obj[k] = function () { quiet++; try { return o.apply(this, arguments); } finally { quiet--; } };
+    }
+
     // story scenes can point the camera elsewhere
     const oFollow = R.Camera.follow;
     R.Camera.follow = function (x, y, dt) { const c = AI.enabled && AI.Story && AI.Story.cam; return c ? oFollow.call(this, c[0], c[1], dt * 0.35) : oFollow.apply(this, arguments); };
