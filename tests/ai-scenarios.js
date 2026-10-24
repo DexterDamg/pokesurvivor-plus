@@ -31,12 +31,26 @@ function installHelpers() {
     AI.Light.reset();
     // (no Pseudo Players unless a scenario is about them)
     AI.cfg.pseudoPlayers = false;
+    AI.cfg.forestEvents = false; AI.Events.reset();
+    AI.cfg.exploreExp = false;
     for (const c of AI.Companions.list().slice()) AI.Companions.dismiss(c, true);
     AI.Companions.st.humansOverride = 0;
     AI.Talk.reset();
     return true;
   };
   T.dist = (e) => { const p = R.Game.player; return Math.hypot(e.x - p.x, e.y - p.y); };
+  // stand somewhere Pokémon do turn up (not in one of the forest's quiet stretches, not in water)
+  T.unquiet = function () {
+    const p = R.Game.player, F = AI.Forest;
+    if (!F || !F.on()) return;
+    let best = null, bv = 9;
+    for (let r = 0; r <= 4000 && bv > 0.1; r += 200) for (let a = 0; a < 6.28; a += 0.5) {
+      const x = p.x + Math.cos(a) * r, y = p.y + Math.sin(a) * r;
+      const q = F.quietAt(x, y) + (F.water(x, y).e > -60 ? 9 : 0) + (R.World.isFree(x, y, 20) ? 0 : 9);
+      if (q < bv) { bv = q; best = [x, y]; }
+    }
+    if (best) { p.x = best[0]; p.y = best[1]; AI.Mansion.snapCamera(p); }
+  };
 }
 
 async function scenario(h, name, fn) {
@@ -461,7 +475,7 @@ async function sample(h, ms, every, fn, arg) {
 
   // =========================================================== living environment
   await scenario(h, 'the starting woodland only brings out its own beginner Pokémon', async () => {
-    await h.R(() => { PSXAI.Debug.freeze(false); __PSX_REG__.Game.debugSpeed(2); window.SEEN = new Set(); });
+    await h.R(() => { T.unquiet(); PSXAI.Debug.freeze(false); __PSX_REG__.Game.debugSpeed(2); window.SEEN = new Set(); });
     const r = await h.R(async () => {
       const R = __PSX_REG__;
       const ro = PSXAI.Areas.roster();
@@ -952,6 +966,7 @@ async function sample(h, ms, every, fn, arg) {
     const r = await h.R(async () => {
       const X = PSXAI.Exp, R = __PSX_REG__, p = R.Game.player;
       const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.cfg.exploreExp = true;
       X.reset(); PSXAI.Debug.freeze(false);
       const xp = () => X.st.total;
       // standing still (after whatever the starting spot itself is worth)
@@ -982,6 +997,7 @@ async function sample(h, ms, every, fn, arg) {
   await scenario(h, 'EXP for kindness, curiosity and teamwork, with a limit so none of it can be farmed', async () => {
     const r = await h.R(() => {
       const X = PSXAI.Exp, B = PSXAI.Bus;
+      PSXAI.cfg.exploreExp = true;
       X.reset();
       const t = () => X.st.total;
       B.emit({ type: 'befriend', key: 77, loud: 0 }); const friend = t();
@@ -996,6 +1012,88 @@ async function sample(h, ms, every, fn, arg) {
       return { friend, sameFriend, revive, clue, flood, fullRate };
     });
     return { pass: r.friend > 0 && r.sameFriend === 0 && r.revive > r.friend && r.clue > 0 && r.flood < r.fullRate * 0.5, detail: r };
+  });
+
+  // ------------------------------------------------------------------ forest events & storytelling
+  await scenario(h, 'forest event: a lost Pokémon calms when you stay with it, its parent comes, and you are thanked (and remembered)', async () => {
+    const r = await party(async () => {
+      const E = PSXAI.Events, C = PSXAI.Companions, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.cfg.forestEvents = true; PSXAI.cfg.exploreExp = true;
+      PSXAI.Sky.set({ hour: 14 });
+      E.reset(); p._vx = 100; p._vy = 0;
+      const ev = E.start('lost');
+      if (!ev) return { started: false };
+      const kidDex = ev.kid.dex;
+      await wait(1200);
+      const trust0 = C.alive().reduce((a, c) => a + C.rel(c.pp.key, 'P').trust, 0);
+      p.x = ev.kid.x + 30; p.y = ev.kid.y + 10; PSXAI.Mansion.snapCamera(p);
+      const phases = [];
+      for (let i = 0; i < 30 && E.st.cur === ev; i++) { await wait(400); phases.push(ev.phase + (ev.reunited ? '+' : '')); }
+      const trust1 = C.alive().reduce((a, c) => a + C.rel(c.pp.key, 'P').trust, 0);
+      return { started: true, kidDex, parentDex: ev.parent && ev.parent.dex, phases: [...new Set(phases)], reunited: !!ev.reunited, helped: C.mem.helped, trustUp: +(trust1 - trust0).toFixed(2), xp: PSXAI.Exp.st.log.some((l) => l.why === 'forest event') };
+    });
+    return { pass: r.started && r.reunited && r.parentDex && r.helped >= 1 && r.trustUp > 0 && r.xp, detail: r };
+  });
+
+  await scenario(h, 'forest events: strange tracks lead to something buried; a fallen tree blocks the way until a Fire-type burns it clear', async () => {
+    const r = await h.R(async () => {
+      const E = PSXAI.Events, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.cfg.forestEvents = true;
+      E.reset(); p._vx = 100; p._vy = 0;
+      const prints0 = PSXAI.Decor.prints.length;
+      const tr = E.start('tracks');
+      const prints = PSXAI.Decor.prints.length - prints0;
+      p.x = tr.x + 5; p.y = tr.y + 5;
+      for (let i = 0; i < 10 && E.st.cur === tr; i++) await wait(300);
+      const dug = E.st.cur !== tr;
+      // the fallen tree: solid, and it stays until a Fire-type stands at it
+      E.st.cur = null;
+      const fl = E.start('fallen');
+      const solid = !R.World.isFree(fl.x, fl.y - 4, 10);
+      p.x = fl.x; p.y = fl.y + 70;
+      await wait(2000);
+      const stillThere = E.st.cur === fl && fl.burn === 0; // (Pikachu can't burn it)
+      const ch = PSXAI.Debug.spawn(4, { temp: 'friendly', x: fl.x + 40, y: fl.y + 40 });
+      // a wild Charmander doesn't count: only the party; put a companion there instead
+      ch.dead = true;
+      PSXAI.cfg.pseudoPlayers = true; PSXAI.Companions.st.allocT = 0;
+      for (let i = 0; i < 20 && !PSXAI.Companions.alive().some((c) => c.dex === 4); i++) await wait(150);
+      const char = PSXAI.Companions.alive().find((c) => c.dex === 4);
+      if (char) { char.x = fl.x + 30; char.y = fl.y + 30; }
+      for (let i = 0; i < 20 && E.st.cur === fl; i++) await wait(300);
+      return { prints, dug, solid, stillThere, burned: E.st.cur !== fl, freeAfter: R.World.isFree(fl.x, fl.y - 4, 10) };
+    });
+    return { pass: r.prints >= 20 && r.dug && r.solid && r.stillThere && r.burned && r.freeAfter, detail: r };
+  });
+
+  await scenario(h, 'the forest tells its story: markers, carvings, signs, statues and letters, read by standing at them, each once', async () => {
+    const r = await h.R(async () => {
+      const E = PSXAI.Events, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.cfg.forestEvents = true; PSXAI.cfg.exploreExp = true;
+      E.reset(); PSXAI.Exp.reset(); p._vx = 100;
+      const kinds = new Set(), texts = [];
+      for (let k = 0; k < 6; k++) {
+        E.placeLore();
+        const q = E.st.props[E.st.props.length - 1];
+        if (!q) continue;
+        kinds.add(q.lore.kind);
+        p.x = q.x + 8; p.y = q.y + 8;
+        for (let i = 0; i < 8 && E.st.props.includes(q); i++) await wait(250);
+        if (E.st.card) texts.push(E.st.card.text.slice(0, 40));
+        p.x += 50;
+      }
+      const read = E.st.read.size;
+      // reading the same one again gives nothing new
+      const xp0 = PSXAI.Exp.st.total;
+      E.readLore([...E.st.read][0]);
+      const again = PSXAI.Exp.st.total - xp0;
+      const named = texts.some((t) => /Giratina|Gengar's|Darkrai/.test(t));
+      return { kinds: [...kinds], read, again, sample: texts.slice(0, 2), lore: E.LORE.length };
+    });
+    return { pass: r.read >= 5 && r.kinds.length >= 3 && r.again === 0 && r.lore >= 12, detail: r };
   });
 
   await scenario(h, 'trees and undergrowth use the new varied art', async () => {
@@ -1058,8 +1156,11 @@ async function sample(h, ms, every, fn, arg) {
       PSXAI.Journey.establishNow();
       const t = PSXAI.Decor.trail;
       const p = __PSX_REG__.Game.player;
-      p.x = t.pts[5][0] + 300; p.y = t.pts[5][1];
-      window.A = PSXAI.Debug.spawn(161, { temp: 'neutral', x: t.pts[6][0], y: t.pts[6][1] + 20 });
+      // the spot along the path where the trail's pull is strongest
+      let at = [t.pts[6][0], t.pts[6][1] + 20], bz = -1;
+      for (let i = 3; i < Math.min(12, t.pts.length); i++) for (const dy of [0, 12, 24]) { const z = PSXAI.Decor.trailZone(t.pts[i][0], t.pts[i][1] + dy); if (z > bz && __PSX_REG__.World.isFree(t.pts[i][0], t.pts[i][1] + dy, 12)) { bz = z; at = [t.pts[i][0], t.pts[i][1] + dy]; } }
+      p.x = at[0] + 300; p.y = at[1];
+      window.A = PSXAI.Debug.spawn(161, { temp: 'neutral', x: at[0], y: at[1] });
       PSXAI.Sky.set({ fog: 0.9, hour: 15 });
       return PSXAI.Decor.trailZone(A.x, A.y);
     });
@@ -1072,6 +1173,7 @@ async function sample(h, ms, every, fn, arg) {
   await scenario(h, 'new arrivals emerge naturally instead of popping up in plain view', async () => {
     await h.R(() => {
       const R = __PSX_REG__;
+      T.unquiet();
       window.ARR = [];
       const oa = R.EnemyMgr.add;
       if (!R.EnemyMgr._t) { R.EnemyMgr._t = true; R.EnemyMgr.add = function (e) { const r = oa.apply(this, arguments); if (window.ARR && e.psxNative !== undefined) ARR.push({ vis: R.Camera.sees(e.x, e.y, -10), emerge: e.psxEmerge ? e.psxEmerge.kind : null }); return r; }; }

@@ -48,7 +48,7 @@
     // cocoons only exist clinging to a tree (63-wildlife.js)
     if (AI.Wildlife && !AI.Wildlife.spawnOk(e)) { AI.stats.spawnVetoed++; return false; }
     // tree residents have their own small budget, apart from the roaming wildlife
-    if (e.psxResident) return true;
+    if (e.psxResident || e.psxEvent) return true;
     if (exempt(e)) return true;
     // the global cap applies to every source of wild Pokémon (spawner, event bursts, summoned allies…)
     if (aliveWild() >= AI.cfg.maxNpcs) { AI.stats.spawnVetoed++; return false; }

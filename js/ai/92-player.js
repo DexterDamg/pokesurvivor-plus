@@ -251,7 +251,7 @@
       const lit = AI.Light.toggleLantern();
       const empty = !(AI.Light.lamp.oil > 0);
       const p = R.Game.player;
-      try { if (p) R.FX.dmgText(p.x, p.y - (p.bodyH || 40) - 24, empty ? '🏮 …' : lit ? '🏮 ON' : '🏮 OFF', lit ? '#ffd27a' : '#9aa6c0', true); } catch (e) { /* ignore */ }
+      try { if (p) R.FX.dmgText(p.x, p.y - (p.bodyH || 40) - 24, empty ? 'out of oil' : lit ? 'lantern on' : 'lantern off', lit ? '#ffd27a' : '#9aa6c0', true); } catch (e) { /* ignore */ }
       if (lit) AI.Bus.emit({ type: 'lantern', x: p ? p.x : 0, y: p ? p.y : 0, loud: 40 });
     });
   }

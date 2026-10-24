@@ -44,6 +44,7 @@
     areaSpawns: true, // each area has its own Pokémon (curated rosters, habitats)
     speech: true, // Pokémon speech bubbles (rumours, warnings)
     lantern: 'manual', // the lantern you carry: 'manual' (L lights it) | 'on' (kept lit while it has oil) | 'off'
+    forestEvents: true, // the Shady Forest's events (a lost Pokémon, strange tracks, lights, a silence, a fallen tree, voices, a campsite) and its history (86-events.js)
     exploreExp: true, // EXP for exploring, treasure, kindness and teamwork too (91-exp.js)
     pseudoPlayers: true, // AI companions fill the party's empty places (four in all): Charmander, Froakie and Sprigatito in the Shady Forest
     partyTalk: true, // they talk among themselves and to you, now and then

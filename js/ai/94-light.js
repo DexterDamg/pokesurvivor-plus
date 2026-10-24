@@ -203,7 +203,7 @@
       if (lamp.oil <= 0) {
         lamp.lit = false;
         const p = AI.R.Game.player;
-        try { if (p) AI.R.FX.dmgText(p.x, p.y - (p.bodyH || 40) - 24, '🏮 …', '#9aa6c0', true); } catch (e) { /* ignore */ }
+        try { if (p) AI.R.FX.dmgText(p.x, p.y - (p.bodyH || 40) - 24, 'out of oil', '#9aa6c0', true); } catch (e) { /* ignore */ }
       }
     }
   }
@@ -269,6 +269,7 @@
     }
     if (AI.Forest) AI.Forest.lights(L);
     if (AI.Mysteries) AI.Mysteries.lights(L);
+    if (AI.Events) AI.Events.lights(L);
     // lightning lights up everything around where it strikes
     for (const s of AI.Sky.st.strikes) L.push({ x: s.x, y: s.y - 40, r: 520, c: [220, 230, 255], i: Math.max(0, 1 - s.t / 0.5) * s.power * 1.4 });
     creatures(cam, L);

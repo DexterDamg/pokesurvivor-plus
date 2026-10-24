@@ -26,7 +26,9 @@
 
   // ---------------------------------------------------------------- who they are
   const ROSTER = [4, 656, 906];
-  const KEY = { 4: 'char', 656: 'froa', 906: 'spri' };
+  // if a human already plays one of them, a kindred Pokémon takes its place (same role, its own species)
+  const SUBST = { 4: 390, 656: 393, 906: 722 };
+  const KEY = { 4: 'char', 656: 'froa', 906: 'spri', 390: 'char', 393: 'froa', 722: 'spri' };
   /* species foundations (a Nature, experiences and moods shape how they show):
    * Charmander — expressive, warm, protective; its tail flame lights the dark
    * Froakie    — observant, agile, perceptive; quiet; notices danger and tracks first
@@ -36,6 +38,14 @@
     656: { role: 'scout', tr: { alertness: 0.3, agility: 0.2, curiosity: 0.05 }, x: { talk: -0.15 }, sense: { tracks: 1.5, danger: 1.4 }, col: '#4a8fd8' },
     906: { role: 'nature', tr: { curiosity: 0.3, playfulness: 0.15 }, x: { independence: 0.15, talk: 0.05 }, sense: { plants: 1.6, smell: 1.3 }, col: '#4aa860' },
   };
+  BASE[390] = Object.assign({}, BASE[4], { col: '#e08a3a' });
+  BASE[393] = Object.assign({}, BASE[656], { col: '#5a8ad8' });
+  BASE[722] = Object.assign({}, BASE[906], { col: '#9a8a5a' });
+  // the roster for this party: anyone a human already plays is swapped for its kindred substitute
+  function roster() {
+    const taken = new Set(AI.players.filter((p) => !p.pp).map((p) => p.dex));
+    return ROSTER.map((d) => (taken.has(d) && SUBST[d] ? SUBST[d] : d));
+  }
   const MAX_PARTY = 4;
 
   const st = { list: [], seed: 0, rel: {}, mem: mem0(), startT: 0, saveT: 0, syncT: 0, allocT: 0, talk: null, guests: new Map(), dismissing: [] };
@@ -66,7 +76,8 @@
   // ---------------------------------------------------------------- allocation
   // the best companions for `n` places, given the humans in the party
   function choose(n) {
-    if (n >= ROSTER.length) return ROSTER.slice();
+    const ros = roster();
+    if (n >= ros.length) return ros.slice();
     const R = AI.R;
     const ht = new Set();
     let light = false;
@@ -79,7 +90,7 @@
       if (BASE[dex].role === 'scout') v += 0.3;
       return v;
     };
-    return ROSTER.slice().sort((a, b) => score(b) - score(a)).slice(0, Math.max(0, n));
+    return ros.slice().sort((a, b) => score(b) - score(a)).slice(0, Math.max(0, n));
   }
   function allocate(force) {
     if (isGuest()) return;
@@ -461,6 +472,11 @@
         const d = U.rand(L * 0.6, L * 1.15);
         const pt = B().pointNear(e, p.x + Math.cos(a) * d, p.y + Math.sin(a) * d * 0.8, 0, 60);
         s.bs.to = pt || [p.x + Math.cos(a) * d, p.y + Math.sin(a) * d * 0.8];
+        // near the old house, the curious one goes to look at the gate
+        try {
+          const g = AI.Journey && AI.Journey.st.geo;
+          if (g && mansionK() > 0.6 && s.pers.tr.curiosity > 0.6 && (s.pers.nx.caution || 0.5) < 0.6) { const G = AI.Decor.mansionGeom(g.S, g.D).G; s.bs.to = [G[0] + U.rand(-40, 40), G[1] + 50]; }
+        } catch (err) { /* ignore */ }
         s.bs.look = 0; s.bs.t = 0;
       },
       update(e, s, dt, it) {
@@ -480,13 +496,21 @@
     BH.add({
       id: 'party-notice', tier: 6, party: true, emotion: 'excitement', minCommit: 2,
       score(e, s) { return s.companion && e.pp.notice && !foesNear(e.x, e.y, 300) ? 0.9 : 0; },
-      start(e, s) { const n = e.pp.notice; if (n && n.kind !== 'open') { M().say(s, 'surprise', 1.4, 2); setTimeout(() => announce(e, n), 500); } },
+      start(e, s) { const n = e.pp.notice; if (n && n.kind !== 'open' && n.kind !== 'burn') { M().say(s, 'surprise', 1.4, 2); setTimeout(() => announce(e, n), 500); } },
       update(e, s, dt, it) {
         const n = e.pp.notice;
         if (!n) return false;
         n.t += dt;
         const p = lead();
         const d = Math.hypot(n.x - e.x, n.y - e.y);
+        if (n.kind === 'burn') {
+          // a Fire-type burning a fallen tree clear
+          const ev = AI.Events && AI.Events.st.cur;
+          if (!ev || ev.id !== 'fallen' || n.t > 10) { e.pp.notice = null; return false; }
+          if (d > 30) { B().go(it, n.x, n.y, 1); return true; }
+          B().stay(it); it.face = -Math.PI / 2; it.anim = 'Shoot';
+          return true;
+        }
         if (n.kind === 'open') {
           // helping open a big chest: stand by it until it pops
           if (!(n.prop && n.prop.open > 0) || n.t > 8) { e.pp.notice = null; return false; }
@@ -1027,6 +1051,9 @@
       froa: [['Remind me not to fall behind again.', 'dry']],
       spri: [['Nice of you to wait. Oh wait, you didn\'t.', 'dry']],
     },
+    burnLog: {
+      char: [['Stand back! I\'ll burn it clear!', 'bold'], ['Leave it to me… Ember!', 'warm'], ['I-I think I can burn through it…', 'scared']],
+    },
     tease: {
       spri: [['Taking your time there, {who}? Should I bring you a snack?', 'warm']],
     },
@@ -1119,7 +1146,11 @@
     const pool = set.filter((l) => l[1] === mood);
     const pick = (pool.length ? pool : set);
     const used = c.pp.said[ctx] || 0;
-    return fill(pick[used % pick.length][0], vars);
+    let text = fill(pick[used % pick.length][0], vars);
+    // (a substitute speaks in its own voice: no cat noises from a Rowlet)
+    if (c.dex !== 906) text = text.replace(/\bM+r+o*w*r*[!…,.]*\s*/gi, '').replace(/^\s*(\.\.\.|…)\s*$/, '…');
+    if (c.dex !== 4 && c.dex !== 390) text = text.replace(/my tail/gi, 'my flame');
+    return text || null;
   }
   function quiet() {
     // unsettling moments are left silent: deep in the house's shadow, during a haunting
@@ -1370,7 +1401,7 @@
   function restorePending() {
     if (!st.pending || isGuest()) return;
     const p = lead();
-    for (const o of st.pending) if (ROSTER.includes(o.dex)) spawn(o.dex, Object.assign({}, o, { x: null, y: null }));
+    for (const o of st.pending) if (BASE[o.dex]) spawn(o.dex, Object.assign({}, o, { x: null, y: null }));
     st.pending = null;
     void p;
   }
@@ -1379,7 +1410,7 @@
   addBehaviors();
 
   AI.define('Companions', {
-    st, ROSTER, BASE, KEY, LN, list, alive, tick, reset, think, okFor, hurtFoe, hazards, drawables, drawAir, drawHud, onNet,
+    st, ROSTER, SUBST, BASE, KEY, LN, roster, list, alive, tick, reset, think, okFor, hurtFoe, hazards, drawables, drawAir, drawHud, onNet,
     rel, bump, allocate, choose, spawn, dismiss, say, convo, react, restorePending, humans, isGuest, moodOf, lineFor, leash, down, getUp,
     get mem() { return st.mem; },
   });
