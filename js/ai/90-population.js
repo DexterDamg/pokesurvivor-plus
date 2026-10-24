@@ -41,6 +41,7 @@
   function allowAdd(e) {
     // nothing wild ever comes into the haunted mansion
     if (AI.Mansion && AI.Mansion.inInterior(e.x, e.y) && !e.psxStory) { AI.stats.spawnVetoed++; return false; }
+    if (AI.Totem && AI.Totem.inside(e.x, e.y) && !e.psxTrial) { AI.stats.spawnVetoed++; return false; }
     // nobody appears in water they couldn't be in (34-forest.js moves them to a spot that suits them)
     if (AI.Forest && !e.psxStory && !AI.Forest.spawnOk(e)) { AI.stats.spawnVetoed++; return false; }
     // and nothing hostile appears in the Evergold Sanctuary (82-mysteries.js)
@@ -48,7 +49,7 @@
     // cocoons only exist clinging to a tree (63-wildlife.js)
     if (AI.Wildlife && !AI.Wildlife.spawnOk(e)) { AI.stats.spawnVetoed++; return false; }
     // tree residents have their own small budget, apart from the roaming wildlife
-    if (e.psxResident || e.psxEvent) return true;
+    if (e.psxResident || e.psxEvent || e.psxTrial) return true;
     if (exempt(e)) return true;
     // the global cap applies to every source of wild Pokémon (spawner, event bursts, summoned allies…)
     if (aliveWild() >= AI.cfg.maxNpcs) { AI.stats.spawnVetoed++; return false; }

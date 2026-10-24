@@ -20,7 +20,7 @@
   const M = () => AI.Mind;
 
   const st = { t: 70, loreT: 45, done: {}, last: null, cur: null, props: [], read: new Set(), card: null, silentUntil: 0, lights: [] };
-  function on() { return AI.enabled && AI.cfg.forestEvents !== false && AI.Forest && AI.Forest.on() && !(AI.Mansion && AI.Mansion.inside); }
+  function on() { return AI.enabled && AI.cfg.forestEvents !== false && AI.Forest && AI.Forest.on() && !(AI.Mansion && AI.Mansion.inside) && !(AI.Totem && AI.Totem.active()); }
   function lead() { return AI.R.Game.player; }
   function C() { return AI.Companions; }
   function lang() { return AI.lang ? AI.lang() : 'en'; }

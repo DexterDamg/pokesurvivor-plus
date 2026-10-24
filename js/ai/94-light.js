@@ -241,6 +241,12 @@
     L.length = 0;
     const R = AI.R;
     const Sky = AI.Sky;
+    if (AI.Totem && AI.Totem.active()) {
+      // a Totem's maze: only what light you bring (and its Totem)
+      AI.Totem.lights(L);
+      creatures(cam, L);
+      return L;
+    }
     if (AI.Mansion && AI.Mansion.inside) {
       // inside the mansion: candles, chandeliers, moonlight through the windows
       AI.Mansion.lights(L);
@@ -270,6 +276,8 @@
     if (AI.Forest) AI.Forest.lights(L);
     if (AI.Mysteries) AI.Mysteries.lights(L);
     if (AI.Events) AI.Events.lights(L);
+    if (AI.Power) AI.Power.lights(L);
+    if (AI.Totem) AI.Totem.lights(L);
     // lightning lights up everything around where it strikes
     for (const s of AI.Sky.st.strikes) L.push({ x: s.x, y: s.y - 40, r: 520, c: [220, 230, 255], i: Math.max(0, 1 - s.t / 0.5) * s.power * 1.4 });
     creatures(cam, L);

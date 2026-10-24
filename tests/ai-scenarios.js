@@ -36,6 +36,7 @@ function installHelpers() {
     for (const c of AI.Companions.list().slice()) AI.Companions.dismiss(c, true);
     AI.Companions.st.humansOverride = 0;
     AI.Talk.reset();
+    AI.Totem.reset();
     return true;
   };
   T.dist = (e) => { const p = R.Game.player; return Math.hypot(e.x - p.x, e.y - p.y); };
@@ -1094,6 +1095,169 @@ async function sample(h, ms, every, fn, arg) {
       return { kinds: [...kinds], read, again, sample: texts.slice(0, 2), lore: E.LORE.length };
     });
     return { pass: r.read >= 5 && r.kinds.length >= 3 && r.again === 0 && r.lore >= 12, detail: r };
+  });
+
+  // ------------------------------------------------------------------ Mega Evolution & Z-Moves: how they're earned
+  const withProgress = (fn, arg) => h.R(async (a) => {
+    const R = __PSX_REG__, s = R.DB.save, p = R.Game.player;
+    const keep = { wins: s.mapWins ? Object.assign({}, s.mapWins) : undefined, map: R.Maps.cur.n, dex: p.dex, level: p.level, item: p.item, megaForm: s.megaForm ? Object.assign({}, s.megaForm) : undefined };
+    window.__KEEP = keep;
+    return true;
+  }, arg || {}).then(() => h.R(fn, arg)).finally(() => h.R(() => {
+    const R = __PSX_REG__, s = R.DB.save, p = R.Game.player, k = window.__KEEP;
+    s.mapWins = k.wins; R.Maps.set(k.map); p.dex = k.dex; if (k.megaForm) s.megaForm = k.megaForm;
+    if (p.item !== k.item) p.equip(k.item || null);
+    PSXAI.Power._forgetCrystals();
+  }));
+
+  await scenario(h, 'Mega Evolution: locked until Crystal Cave is beaten, only from Level 3, and only with that Pokémon\'s own Mega Stone in its held-item slot', async () => {
+    const r = await withProgress(() => {
+      const R = __PSX_REG__, W = PSXAI.Power, p = R.Game.player, s = R.DB.save;
+      p.dex = 448; // (Lucario; the old level-50 rule no longer matters at any level)
+      s.mapWins = {};
+      const out = { oldRule: R.Mega.unlocked(p) };
+      s.mapWins = { 1: 1, 2: 1 }; R.Maps.set(2);
+      out.beatenButStage2 = R.Mega.unlocked(p);
+      R.Maps.set(3);
+      out.stage3NoStone = R.Mega.unlocked(p);
+      p.equip('mstone_94_mega'); out.wrongStone = R.Mega.unlocked(p); // (Gengarite on a Lucario)
+      p.equip('mstone_448_mega'); out.ownStone = R.Mega.unlocked(p);
+      out.heldItem = p.item;
+      p.equip('assaultvest'); out.vestInstead = R.Mega.unlocked(p);
+      out.slotHolds = p.item;
+      out.stoneIsHeldItem = !!R.Items.BY.mstone_448_mega;
+      return out;
+    });
+    const ok = !r.oldRule && !r.beatenButStage2 && !r.stage3NoStone && !r.wrongStone && r.ownStone && r.heldItem === 'mstone_448_mega' && !r.vestInstead && r.slotHolds === 'assaultvest' && r.stoneIsHeldItem;
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'Mega Stones only ever come for the Pokémon you play: chests 5%, big chests 10%, level-ups 1%, never from random drops', async () => {
+    const r = await withProgress(() => {
+      const R = __PSX_REG__, W = PSXAI.Power, p = R.Game.player, s = R.DB.save;
+      s.mapWins = { 1: 1, 2: 1 }; R.Maps.set(3); p.equip(null);
+      const dropped = [];
+      const oDrop = R.Pickups.drop;
+      R.Pickups.drop = function (kind, x, y, id) { if (kind === 'item' && W.isStone(id)) { dropped.push(id); return null; } return oDrop.apply(this, arguments); };
+      const count = (fn, n) => { dropped.length = 0; for (let i = 0; i < n; i++) fn(i); return dropped.length / n; };
+      try {
+        p.dex = 25; const pikachu = count((i) => W.onChest({ type: 'bigchest', x: i, y: 0 }), 400); // (no Mega for Pikachu: nothing, ever)
+        p.dex = 448;
+        const chest = count((i) => W.onChest({ type: 'chest', x: i, y: 1 }), 6000);
+        const kinds = new Set(dropped);
+        const big = count((i) => W.onChest({ type: 'bigchest', x: i, y: 2 }), 6000);
+        const again = count(() => W.onChest(Object.assign(window.__C = window.__C || { type: 'bigchest', x: 5, y: 5 })), 50); // (each chest rolls once)
+        let up = 0; const N = 20000; for (let i = 0; i < N; i++) if (W.canGetStone(p) && Math.random() < W.P.levelup) up++;
+        let rolled = 0; for (let i = 0; i < 4000; i++) if (W.isStone(R.Items.roll())) rolled++;
+        // before Crystal Cave is beaten: nothing at all
+        s.mapWins = { 1: 1 }; const locked = count((i) => W.onChest({ type: 'bigchest', x: i, y: 9 }), 500);
+        return { pikachu, chest: +chest.toFixed(3), big: +big.toFixed(3), kinds: [...kinds], again: +again.toFixed(2), levelup: +(up / N).toFixed(4), rolled, locked, P: W.P };
+      } finally { R.Pickups.drop = oDrop; }
+    });
+    const ok = r.pikachu === 0 && Math.abs(r.chest - 0.05) < 0.015 && Math.abs(r.big - 0.1) < 0.02 && r.kinds.join() === 'mstone_448_mega' && r.again <= 0.02 && Math.abs(r.levelup - 0.01) < 0.004 && r.rolled === 0 && r.locked === 0 && r.P.chest === 0.05 && r.P.bigchest === 0.1 && r.P.levelup === 0.01;
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'the glowing Mega Stone on the map: placed out of sight with no message, marker or arrow, and found only by walking up to it', async () => {
+    const r = await withProgress(async () => {
+      const R = __PSX_REG__, W = PSXAI.Power, p = R.Game.player, s = R.DB.save;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      s.mapWins = { 1: 1, 2: 1 }; R.Maps.set(3); p.dex = 448; p.equip(null);
+      W.reset(); W.st.worldAt = 0;
+      const said = []; const oSay = R.Spawner.say; R.Spawner.say = function (t) { said.push(t); return oSay.apply(this, arguments); };
+      await wait(400);
+      const w = W.st.world;
+      const seenAtPlacement = w ? R.Camera.sees(w.x, w.y, 0) : null;
+      const saidBefore = said.slice();
+      const lit = PSXAI.Light.gather(R.Camera).length;
+      let picked = false;
+      if (w) {
+        const oDrop = R.Pickups.drop; R.Pickups.drop = function (kind, x, y, id) { if (kind === 'item' && id === w.id) picked = true; return oDrop.apply(this, arguments); };
+        p.x = w.x; p.y = w.y; PSXAI.Mansion.snapCamera(p);
+        await wait(400);
+        R.Pickups.drop = oDrop;
+      }
+      R.Spawner.say = oSay;
+      // (nothing is said until you've actually picked it up)
+      return { placed: !!w, id: w && w.id, seenAtPlacement, silent: saidBefore.filter((t) => /stone|mega|ite\b/i.test(t)).length === 0, picked, oncePerRun: W.st.worldDone && !W.st.world };
+    });
+    return { pass: r.placed && r.id === 'mstone_448_mega' && r.seenAtPlacement === false && r.silent && r.picked && r.oncePerRun, detail: r };
+  });
+
+  await scenario(h, 'Z-Moves: no Z slot at all before Volcano is beaten; afterwards a Z-Move needs the Z-Crystal of its own type', async () => {
+    const r = await withProgress(async () => {
+      const R = __PSX_REG__, W = PSXAI.Power, p = R.Game.player, s = R.DB.save;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      s.mapWins = { 1: 1, 2: 1 }; R.Maps.set(3);
+      PSXAI.Power._forgetCrystals();
+      await wait(300);
+      const before = { ultDef: !!p.ultDef, noSlot: window.PSXGEN.noZslot() };
+      s.mapWins[3] = 1; R.Maps.set(4);
+      await wait(300);
+      const noCrystal = !!p.ultDef;
+      const type = W.zTypeOf(p);
+      W.giveCrystal(type === 'fire' ? 'water' : 'fire'); await wait(300);
+      const wrongCrystal = !!p.ultDef;
+      W.giveCrystal(type); await wait(300);
+      const withCrystal = !!p.ultDef;
+      const name = W.CRYSTAL[type];
+      return { before, noCrystal, wrongCrystal, withCrystal, type, name };
+    });
+    return { pass: !r.before.ultDef && r.before.noSlot && !r.noCrystal && !r.wrongCrystal && r.withCrystal && !!r.name, detail: r };
+  });
+
+  await scenario(h, 'a Totem\'s shrine stands in the stage after Volcano, only for your own Pokémon\'s Z-Crystal; standing at it starts its trial', async () => {
+    const r = await withProgress(async () => {
+      const R = __PSX_REG__, T = PSXAI.Totem, W = PSXAI.Power, p = R.Game.player, s = R.DB.save;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      W._forgetCrystals(); T.reset(); PSXAI.Debug.freeze(false);
+      R.Game.debugTime(90);
+      s.mapWins = { 1: 1, 2: 1 }; R.Maps.set(4);
+      await wait(400);
+      const beforeVolcano = !!T.st.shrine;
+      s.mapWins[3] = 1;
+      await wait(400);
+      const sh = T.st.shrine;
+      const type = W.zTypeOf(p);
+      const out = { beforeVolcano, placed: !!sh, shrineType: sh && sh.type, ownType: type, outOfSight: sh ? !R.Camera.sees(sh.x, sh.y, 0) : null };
+      if (sh) { p.x = sh.x; p.y = sh.y + 30; PSXAI.Mansion.snapCamera(p); }
+      for (let i = 0; i < 30 && !T.active(); i++) await wait(200);
+      out.started = T.active();
+      out.trialType = T.st.trial && T.st.trial.type;
+      // (leave without finishing)
+      if (T.st.trial) { T.leave(); for (let i = 0; i < 20 && T.st.trial; i++) await wait(200); }
+      // once you have the crystal, no shrine for it
+      T.reset(); W.giveCrystal(type); await wait(400);
+      out.noneOnceEarned = !T.st.shrine;
+      PSXAI.Debug.freeze(true); R.Game.debugTime(0);
+      return out;
+    });
+    return { pass: !r.beforeVolcano && r.placed && r.shrineType === r.ownType && r.outOfSight && r.started && r.trialType === r.ownType && r.noneOnceEarned, detail: r };
+  });
+
+  await scenario(h, 'a Totem Trial: a pitch-black maze for Ghost, hordes of its type out of the dark, then the Totem; beating it gives its Z-Crystal', async () => {
+    const r = await h.R(async () => {
+      const T = PSXAI.Totem, R = __PSX_REG__, p = R.Game.player, W = PSXAI.Power;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      W._forgetCrystals(); T.reset(); PSXAI.Debug.freeze(false);
+      const home = [p.x, p.y];
+      T.start('ghost', { quick: true, survive: 9 });
+      for (let i = 0; i < 40 && !T.active(); i++) await wait(100);
+      const amb = PSXAI.Sky.ambient();
+      const t = T.st.trial;
+      const types = new Set();
+      for (let i = 0; i < 50 && t.phase === 'survive'; i++) { await wait(250); for (const e of R.EnemyMgr.all()) if (e.psxTrial && !e.dead) for (const ty of e.types || []) types.add(ty); }
+      const allGhost = [...types].includes('ghost');
+      const wildInside = R.EnemyMgr.all().filter((e) => !e.dead && T.inside(e.x, e.y) && !e.psxTrial).length;
+      const totem = t.totem && t.totem.dex;
+      if (t.totem) t.totem.hurt(t.totem.maxHp * 3, '#fff', 0, 0, 0);
+      for (let i = 0; i < 30 && T.st.trial; i++) await wait(250);
+      PSXAI.Debug.freeze(true);
+      const out = { dark: amb[0] + amb[1] + amb[2] < 60, waves: t.wave, allGhost, wildInside, totem, crystal: W.hasCrystal('ghost'), back: Math.round(Math.hypot(p.x - home[0], p.y - home[1])), done: !T.st.trial };
+      W._forgetCrystals();
+      return out;
+    });
+    return { pass: r.dark && r.waves >= 2 && r.allGhost && r.wildInside === 0 && !!r.totem && r.crystal && r.back < 5 && r.done, detail: r };
   });
 
   await scenario(h, 'trees and undergrowth use the new varied art', async () => {

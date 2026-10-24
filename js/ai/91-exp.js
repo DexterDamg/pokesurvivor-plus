@@ -58,7 +58,7 @@
     if (!on()) return;
     const R = AI.R, p = player();
     if (!p || p.dead || R.Game.state !== 'playing') return;
-    if (AI.Mansion && AI.Mansion.inside) { st.last = null; return; }
+    if ((AI.Mansion && AI.Mansion.inside) || (AI.Totem && AI.Totem.active())) { st.last = null; return; }
     // only real travel counts: no teleports, no standing still
     if (st.last) {
       const step = Math.hypot(p.x - st.last[0], p.y - st.last[1]);

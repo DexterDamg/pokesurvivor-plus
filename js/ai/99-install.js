@@ -174,6 +174,7 @@
     const insideAt = (x, y) => AI.enabled && AI.Mansion.inside && AI.Mansion.inInterior(x, y);
     const oCollide = W.collide;
     W.collide = function (ent) {
+      if (ent && AI.enabled && AI.Totem.inside(ent.x, ent.y)) return AI.Totem.collide(ent); // (a Totem's maze: 89-totem.js)
       if (ent && insideAt(ent.x, ent.y)) return AI.Mansion.collide(ent);
       if (AI.enabled && ent && ent.psx && (ent.psx.vis.perch > 2 || ent.psx.vis.trunk)) return false; // on or up a tree (63-wildlife.js)
       const r = oCollide.apply(this, arguments);
@@ -182,6 +183,7 @@
     };
     const oFree = W.isFree;
     W.isFree = function (x, y, r) {
+      if (AI.enabled && AI.Totem.inside(x, y)) return AI.Totem.freeAt(x, y, r);
       if (insideAt(x, y)) return AI.Mansion.freeAt(x, y, r);
       const f = oFree.apply(this, arguments);
       return f && !(AI.enabled && (AI.Mansion.blockedExterior(x, y, r || 12) || AI.Decor.blocked(x, y, r || 12)));
@@ -192,22 +194,37 @@
       reachable: () => true, propsInCircle: () => [], specialsNear: () => [], nearestBreakable: () => null, obstacleNear: () => false,
       breakAt: () => undefined, useAltarAt: () => undefined, damageProp: () => false,
     };
+    const mazeWall = (x, y) => { const [tx, ty] = AI.Totem.tileOf(x, y); return AI.Totem.wall(tx, ty); };
+    const inMaze = {
+      kindAt: (x, y) => (mazeWall(x, y) ? 'wall' : 'floor'), isWall: (x, y) => mazeWall(x, y), isLiquid: () => false, walkable: (x, y) => !mazeWall(x, y),
+      projectileBlock: () => null, underCanopy: () => false, clearance: () => null, reachable: () => true, propsInCircle: () => [], specialsNear: () => [],
+      nearestBreakable: () => null, obstacleNear: () => false, breakAt: () => undefined, useAltarAt: () => undefined, damageProp: () => false,
+    };
     for (const k of Object.keys(inHouse)) {
       const o = W[k];
       if (typeof o !== 'function') continue;
-      W[k] = function (x, y) { return insideAt(x, y) ? inHouse[k].apply(null, arguments) : o.apply(this, arguments); };
+      W[k] = function (x, y) {
+        if (insideAt(x, y)) return inHouse[k].apply(null, arguments);
+        if (AI.enabled && AI.Totem.inside(x, y)) return inMaze[k].apply(null, arguments);
+        return o.apply(this, arguments);
+      };
     }
     const oDG = W.drawGround;
     W.drawGround = function (ctx) {
+      if (AI.enabled && AI.Totem.active()) { try { AI.Totem.drawGround(ctx); } catch (e) { AI.warn('totem-draw', e); } return; }
       if (AI.enabled && AI.Mansion.inside) { try { AI.Mansion.drawInterior(ctx); } catch (e) { AI.warn('mansion-draw', e); } return; }
       // the Shady Forest's ground is one continuous painted surface, not a grid of tiles
       if (AI.Forest.on()) { try { AI.Forest.drawGround(ctx); return; } catch (e) { AI.warn('forest-ground', e); } }
       return oDG.apply(this, arguments);
     };
     const oDL = W.drawLiquid;
-    W.drawLiquid = function () { if (AI.enabled && (AI.Mansion.inside || AI.Forest.on())) return; return oDL.apply(this, arguments); };
+    W.drawLiquid = function () { if (AI.enabled && (AI.Mansion.inside || AI.Forest.on() || AI.Totem.active())) return; return oDL.apply(this, arguments); };
     const oVP = W.visibleProps;
-    W.visibleProps = function (cam) { if (AI.enabled && AI.Mansion.inside && cam === R.Camera) return AI.Mansion.visibleProps(cam); return oVP.apply(this, arguments); };
+    W.visibleProps = function (cam) {
+      if (AI.enabled && AI.Totem.active() && cam === R.Camera) return AI.Totem.visibleProps(cam);
+      if (AI.enabled && AI.Mansion.inside && cam === R.Camera) return AI.Mansion.visibleProps(cam);
+      return oVP.apply(this, arguments);
+    };
     const oDP = W.drawProp;
     W.drawProp = function (ctx, prop) {
       if (prop && (prop.psxMansion || prop.psxDraw)) { try { AI.Mansion.drawProp(ctx, prop); } catch (e) { AI.warn('mansion-prop', e); } return; }
@@ -295,7 +312,7 @@
       if (AI.enabled) try { AI.Player.drawHud(ctx); AI.Light.drawClock(ctx); AI.Render.drawDebugHud(ctx, w, h); } catch (e) { AI.warn('hud', e); }
       if (AI.enabled) try { AI.Mysteries.drawScreen(ctx, w, h); } catch (e) { AI.warn('myst-hud', e); }
       if (AI.enabled) try { AI.Haunt.drawScreen(ctx, w, h); AI.Mansion.drawScreen(ctx, w, h); AI.Story.drawScreen(ctx, w, h); } catch (e) { AI.warn('mansion-hud', e); }
-      if (AI.enabled) try { AI.Companions.drawHud(ctx, w, h); AI.Events.drawScreen(ctx, w, h); } catch (e) { AI.warn('party-hud', e); }
+      if (AI.enabled) try { AI.Companions.drawHud(ctx, w, h); AI.Events.drawScreen(ctx, w, h); AI.Totem.drawScreen(ctx, w, h); } catch (e) { AI.warn('party-hud', e); }
       if (AI.enabled) try { AI.Talk.draw(ctx, w, h); } catch (e) { AI.warn('talk', e); }
       return r;
     };
@@ -306,7 +323,7 @@
       if (AI.enabled) try { AI.Forest.drawMist(ctx); AI.Journey.drawFog(ctx); AI.Journey.drawSils(ctx); AI.Forest.drawFlies(ctx); } catch (e) { AI.warn('forest-air', e); }
       if (AI.enabled) try { AI.Light.drawAir(ctx); } catch (e) { AI.warn('env-air', e); }
       if (AI.enabled) try { AI.Mansion.drawAir(ctx); } catch (e) { AI.warn('mansion-air', e); }
-      if (AI.enabled) try { AI.Events.drawAir(ctx); AI.Render.drawAir(ctx); AI.Companions.drawAir(ctx); } catch (e) { AI.warn('air', e); }
+      if (AI.enabled) try { AI.Events.drawAir(ctx); AI.Power.drawAir(ctx); AI.Totem.drawAir(ctx); AI.Render.drawAir(ctx); AI.Companions.drawAir(ctx); } catch (e) { AI.warn('air', e); }
       if (AI.enabled) try { AI.Lore.drawSpeech(ctx); } catch (e) { AI.warn('speech', e); }
       return r;
     };
@@ -404,6 +421,8 @@
         AI.Companions.tick(dt);
         AI.Exp.tick(dt);
         AI.Events.tick(dt);
+        AI.Power.tick(dt);
+        AI.Totem.tick(dt);
         AI.Player.frame();
         AI.Legend.tick(dt);
         AI.Social.tick(dt);
@@ -420,7 +439,7 @@
     const oBreak = R.World.breakProp;
     if (oBreak) R.World.breakProp = function (prop) {
       const r = oBreak.apply(this, arguments);
-      if (AI.enabled) try { AI.Exp.onBreak(prop); } catch (e) { AI.warn('chest-exp', e); }
+      if (AI.enabled) try { AI.Exp.onBreak(prop); AI.Power.onChest(prop); } catch (e) { AI.warn('chest-exp', e); }
       return r;
     };
     // the Pseudo Players are drawn with everyone else (sorted into the scene by the game)
@@ -441,7 +460,7 @@
     // ------------------------------------------------------------ new run → fresh world
     const oWR = R.World.reset;
     R.World.reset = function (seed) {
-      try { resetWorld(); AI.Decor.reset(seed); AI.Journey.reset(AI.Decor.seed); AI.Wildlife.reset(); AI.Light.reset(); AI.Talk.reset(); AI.Companions.reset(AI.Decor.seed); AI.Exp.reset(); AI.Events.reset(); AI.Forest.reset(); AI.Mysteries.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); } catch (e) { AI.warn('reset', e); }
+      try { resetWorld(); AI.Decor.reset(seed); AI.Journey.reset(AI.Decor.seed); AI.Wildlife.reset(); AI.Light.reset(); AI.Talk.reset(); AI.Companions.reset(AI.Decor.seed); AI.Exp.reset(); AI.Events.reset(); AI.Power.reset(); AI.Totem.reset(); AI.Forest.reset(); AI.Mysteries.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); } catch (e) { AI.warn('reset', e); }
       return oWR.apply(this, arguments);
     };
     function resetWorld() {
@@ -456,6 +475,7 @@
 
     AI.Player.installPointer();
     AI.Panel.install();
+    try { AI.Power.registerItems(); AI.Power.install(); } catch (e) { AI.warn('power', e); }
     AI.installed = true;
     console.info('[PSXAI] Living World AI ' + AI.version + ' installed');
   }
