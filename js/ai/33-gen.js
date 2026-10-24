@@ -2,7 +2,8 @@
  * The game's terrain generator asks these (via two one-expression hooks in js/app.min.js) how many
  * solid "wall" blocks and how many trees to lay down in each area. Forests get continuous, open
  * forest floor instead of big rectangular raised blocks, with a measured tree density; other
- * areas keep the original values. Rift arenas are untouched (they don't use these rules).
+ * areas keep the original values. Rift arenas are untouched (they don't use these rules). A third
+ * hook keeps trees, rocks and chests off the haunted mansion's grounds and path.
  */
 (function () {
   'use strict';
@@ -27,6 +28,11 @@
       const k = AI.cfg.treeDensity == null ? 1 : AI.cfg.treeDensity;
       if (!g) return grove ? 0.07 : 0.006;
       return (grove ? g.trees[0] : g.trees[1]) * k;
+    },
+    // nothing grows on the mansion grounds, along its path, or where the house's interior lies
+    clear(tx, ty) {
+      if (!AI.enabled || !AI.Mansion) return false;
+      try { return AI.Mansion.clearAt((tx + 0.5) * 32, (ty + 0.5) * 32); } catch (e) { return false; }
     },
   };
   AI.define('Gen', { GEN, on });

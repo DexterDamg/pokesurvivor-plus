@@ -61,7 +61,7 @@
 
   // ---------------------------------------------------------------- clock
   function cfgOn() { return AI.cfg.atmosphere !== false; }
-  function indoor() { try { return INDOOR_BIOMES.has(AI.Env.biome()); } catch (e) { return false; } }
+  function indoor() { try { return INDOOR_BIOMES.has(AI.Env.biome()) || !!(AI.Mansion && AI.Mansion.inside); } catch (e) { return false; } }
   function hour() { return st.hour; }
   function phaseOf(h) {
     if (h >= 5 && h < 8) return 'dawn';
@@ -125,6 +125,7 @@
   }
   // the colour the whole scene is multiplied by (before local lights are added)
   function ambient() {
+    if (cfgOn() && AI.Mansion && AI.Mansion.inside) return AI.Mansion.ambient();
     if (!cfgOn() || indoor()) return [255, 255, 255];
     const c = lerpKeys(AMBIENT, st.hour);
     const d = darkness();
