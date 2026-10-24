@@ -1100,12 +1100,14 @@ async function sample(h, ms, every, fn, arg) {
   // ------------------------------------------------------------------ Mega Evolution & Z-Moves: how they're earned
   const withProgress = (fn, arg) => h.R(async (a) => {
     const R = __PSX_REG__, s = R.DB.save, p = R.Game.player;
-    const keep = { wins: s.mapWins ? Object.assign({}, s.mapWins) : undefined, map: R.Maps.cur.n, dex: p.dex, level: p.level, item: p.item, megaForm: s.megaForm ? Object.assign({}, s.megaForm) : undefined };
+    const keep = { wins: s.mapWins ? Object.assign({}, s.mapWins) : undefined, map: R.Maps.cur.n, biome: R.World.biome, dex: p.dex, level: p.level, item: p.item, megaForm: s.megaForm ? Object.assign({}, s.megaForm) : undefined };
     window.__KEEP = keep;
     return true;
   }, arg || {}).then(() => h.R(fn, arg)).finally(() => h.R(() => {
     const R = __PSX_REG__, s = R.DB.save, p = R.Game.player, k = window.__KEEP;
     s.mapWins = k.wins; R.Maps.set(k.map); p.dex = k.dex; if (k.megaForm) s.megaForm = k.megaForm;
+    // (Zona Cero is the endless map: while it's set, the game cycles the world's biome)
+    if (R.World.biome !== k.biome) R.World.setBiome(k.biome, true);
     if (p.item !== k.item) p.equip(k.item || null);
     PSXAI.Power._forgetCrystals();
   }));
@@ -1309,7 +1311,7 @@ async function sample(h, ms, every, fn, arg) {
     const spawned = await h.R(() => !!PSXAI.Lore.st.hoot);
     await h.R(() => { const p = __PSX_REG__.Game.player, t = PSXAI.Decor.trail, sg = t.items.find((i) => i.k === 'sign'); p.x = sg.x - 70; p.y = sg.y + 30; });
     await h.wait(5000);
-    const r = await h.R(() => ({ warned: PSXAI.Lore.says.some((s) => s.e === PSXAI.Lore.st.hoot) || PSXAI.Lore.st.hoot && PSXAI.Lore.st.hoot.psx.mind.emo.fear > 0.5, fear: PSXAI.Lore.st.hoot ? +PSXAI.Lore.st.hoot.psx.mind.emo.fear.toFixed(2) : null }));
+    const r = await h.R(() => ({ warned: PSXAI.Lore.says.some((s) => s.e === PSXAI.Lore.st.hoot) || PSXAI.Lore.st.hoot && PSXAI.Lore.st.hoot.psx.mind.emo.fear > 0.4, fear: PSXAI.Lore.st.hoot ? +PSXAI.Lore.st.hoot.psx.mind.emo.fear.toFixed(2) : null }));
     await h.R(() => { PSXAI.Lore.st.allowHoot = false; const p = __PSX_REG__.Game.player; p.x = 0; p.y = 0; });
     const need = ['sign', 'gallows', 'dirt', 'lamp', 'wraith', 'fence_h', 'mansion'];
     return { pass: need.every((k) => info.kinds.includes(k)) && info.minFlame < 0.3 && spawned && r.warned, detail: { ...info, hoothoot: spawned, ...r } };

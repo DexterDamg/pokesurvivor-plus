@@ -11,10 +11,15 @@ character-driven dialogue. It is also where something very old first takes an in
 
 ## Getting there (`39-decor.js`, `87-mansion.js`)
 
-- **The path.** The dirt path leaves the woods about 1450 px from where you start and curves north
-  for over a thousand pixels. Pairs of lamp posts line it at even intervals, one on each side, and
-  they light up at night. The old sign and the creaking hanging lantern (with its Hoothoot) still
-  mark where it begins. The woods thin and die off as you get closer.
+- **When and where.** The mansion is the Shady Forest's end stage. It doesn't exist for the first
+  20 minutes of active play; then it is placed once, ahead of the party on ground nobody has seen
+  yet, and never moves again. Old lamp posts, broken fences and signs out in the woods point the
+  way, and the last stretch grows stranger. The details are in
+  [SHADY_FOREST.md](SHADY_FOREST.md#the-journey-to-the-mansion-84-journeyjs).
+- **The path.** A dirt path curves through the last of the woods to the gates. Pairs of lamp posts
+  line it at even intervals, one on each side, and they light up at night. The old sign and the
+  creaking hanging lantern (with its Hoothoot) mark where it begins. The woods thin and die off as
+  you get closer.
 - **The gates.** Stone pillars with lanterns on top flank an iron fence. The fence wraps around the
   grounds; only the gate is open.
 - **The grounds.** The path continues through a courtyard with a small family plot (graves,
@@ -98,8 +103,11 @@ flash setting.
 
 ## The story (`89-story.js`)
 
-Pokémon speak in proper dialogue, Mystery Dungeon style, never by repeating their names. A box
-shows their portrait, their name and a text that types out with a per-character voice.
+Pokémon speak in proper dialogue, Mystery Dungeon style, never by repeating their names. Each
+speaker gets a box with their PMD portrait, their name and a text that types out with a
+per-character voice: you and your party on the left, the residents on the right, at most two a
+side (see [PARTY.md](PARTY.md#dialogue-boxes-81-talkjs)). The narration keeps the box at the
+bottom.
 Advance with **Space**, **Enter**, **E**, **Z** or a click or tap. You can't move while a scene
 plays.
 

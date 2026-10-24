@@ -704,6 +704,7 @@
       regen(c, dt);
     }
     st.statT = (st.statT == null || st.statT <= 0) ? 1 : st.statT - dt;
+    apart(dt);
     helpOpen(dt);
     shots();
     tickTalk(dt);
@@ -744,6 +745,20 @@
       if (!placed) { const [x, y] = spotNear(p.x, p.y, c.pp.slot); c.x = x; c.y = y; }
       c.pp.stuckT = 0;
       if (c.psx) { c.psx.px = c.x; c.psx.py = c.y; c.psx.thinkT = 0; }
+    }
+  }
+  // companions never stand on top of each other: bodies that overlap ease apart
+  function apart(dt) {
+    const R = AI.R, L = alive();
+    for (let a = 0; a < L.length; a++) for (let b = a + 1; b < L.length; b++) {
+      const A = L[a], B = L[b];
+      const min = (A.r || 14) + (B.r || 14) + 6;
+      let dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy);
+      if (d >= min) continue;
+      if (d < 0.01) { const t = Math.random() * 6.283; dx = Math.cos(t); dy = Math.sin(t); d = 1; }
+      const push = Math.min(min - d, 160 * dt) / 2, ux = dx / d, uy = dy / d;
+      if (R.World.isFree(A.x - ux * push, A.y - uy * push, 10)) { A.x -= ux * push; A.y -= uy * push; }
+      if (R.World.isFree(B.x + ux * push, B.y + uy * push, 10)) { B.x += ux * push; B.y += uy * push; }
     }
   }
   // hostile Pokémon that touch a companion hurt it, as they would you

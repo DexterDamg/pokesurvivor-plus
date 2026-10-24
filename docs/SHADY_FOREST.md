@@ -120,6 +120,85 @@ pushing at it.
 - Weather keeps working as before (rain, fog, storms, wind). The game's own weather and terrain
   events (type boosts such as Misty Terrain, their banners and the HUD pill) stay switched off.
 
+## The journey to the mansion (`84-journey.js`)
+
+The Haunted Mansion is the Shady Forest's end stage and the only way to complete it.
+
+- **For the first 20 minutes of active play there is no mansion and no path.** Time inside story
+  scenes and the house doesn't count.
+- **Then it is placed once:** ahead of the party, on ground nobody has seen yet (the area is
+  regenerated cleanly around it), far enough away that you never see it appear, with a clear dirt
+  path leading to its gates. Its location never changes after that; saving and resuming keeps it.
+- **The forest points the way, wherever you wander:** old unlit lamp posts, lengths of broken
+  fence, worn paving stones and leaning signs appear ahead of you, out of sight, always toward the
+  path.
+- **The final stretch grows stranger:** twisted dark trees, dead saplings and grave-pale stones,
+  thicker fog, fewer ordinary Pokémon and more Ghosts, faint sounds (a music box, a door, a
+  laugh), silhouettes between the trees, footprints that lead nowhere.
+- The game's own 20-minute finale waits until the mansion's story is done.
+- **Co-op:** the host decides when and where it is placed and shares it; everyone gets the same
+  mansion and path.
+
+## Wildlife that lives by its biology (`63-wildlife.js`)
+
+Fewer Pokémon, living where they belong, doing what they do. *No forest full of randomly walking
+Pokémon.*
+
+- **Smaller numbers:** lower caps for roaming Pokémon, a separate small budget for tree
+  residents, and quiet stretches of forest where nothing spawns at all.
+- **Metapod, Kakuna, Silcoon and Cascoon never walk.** They live on trees, perfectly still, up on
+  the trunk or in the canopy. They twitch now and then and Harden when something comes close or
+  hits them. A loose one that turns up anywhere else goes to a tree, or doesn't appear.
+- **Caterpie, Weedle and Wurmple** crawl to a tree, climb the trunk where you can see it, feed in
+  the leaves, rest, and climb back down. They freeze and watch you when you come close (timid ones
+  climb higher instead).
+- **Birds perch in the canopy** and come down to forage; Spinarak hangs in its webs; Oddish
+  nestles in the ground by day.
+- **Residents belong to their tree:** which tree holds which Pokémon comes from the run's seed,
+  so you find the same Pokémon in the same trees when you come back. They're never pulled ahead
+  of you by the game's spawner, never float, and leave no shadow on the ground while up a tree.
+- Watching wildlife go about its life is worth a little EXP (see below), the first time per
+  species and habit.
+
+## Events and the forest's history (`86-events.js`)
+
+Now and then, ahead of the party and out of sight (never in a fight, never in the house, never
+the same thing twice in a row, most of them once a run), something happens:
+
+| | |
+|---|---|
+| **A lost Pokémon** | crying under a tree. Stay with it until it calms and its parent comes running to thank you (with something for your journey). Walk on, and the party remembers |
+| **Strange tracks** | a trail of large prints that leads somewhere and stops at something buried |
+| **Lights between the trees** | at night: Volbeat, or candle flames that giggle and go out |
+| **A sudden silence** | the forest's sounds really stop; the party grows uneasy; something passes, or doesn't |
+| **A fallen tree** | it crashes down across the way. Go around, or a Fire-type burns it clear (a Fire companion offers) |
+| **Distant voices** | a call for help from nowhere, from the direction of the old house; walk toward it and it stops |
+| **A campsite** | other explorers were here: a smouldering fire, a barrel, a note, supplies (lantern oil, a berry, coins) |
+
+The forest also keeps its history where you can find it: **stone markers, symbols cut into
+bark, broken signposts, overgrown statues and letters**. Stand at one for a moment to read it (a
+short note appears above the bar). The fragments speak of the family who lived in the house, the
+child, the clock, the mirror and the tall one, and some only make sense once you've been inside.
+
+## EXP for more than fighting (`91-exp.js`)
+
+Battles still pay as before; now discovery, kindness and teamwork level you up too. Rewards are
+measured in *a common wild Pokémon's worth at your level*, so they stay in proportion as you grow.
+
+- **Exploring:** new ground reached on foot (never twice; standing still, walking in circles or
+  being teleported earns nothing), distance milestones, each kind of place the first time (a
+  sunlit clearing, an ancient grove, the wetwood, the deep forest, the lake shore), special
+  places, the mansion's route and its door.
+- **Treasure:** chests by rarity (a big chest more than a small one), half again for a chest
+  hidden off the beaten path; each chest pays once. (The chests' own EXP drop is unchanged.)
+- **Pokémon:** befriending a wild Pokémon, sparing a beaten one, watching wildlife.
+- **Teamwork:** helping a fallen companion up, saving a hurt one, the companions' own rescues and
+  berries.
+- **The world:** journal clues, sightings, confirmed mysteries, the old lanterns and fences on the
+  way, forest events, the forest's history.
+- **No farming:** past a rolling limit (about 40 battles' worth in 5 minutes) every reward shrinks
+  to a quarter.
+
 ## Quiet wilds
 
 Wild and NPC Pokémon keep their HP, but no health bars float over them. Wild evolutions, shinies,
@@ -178,6 +257,10 @@ pauses while you read. In co-op it can't pause the world for everyone, so it sta
 | `enemyBars` | off | health bars over wild Pokémon |
 | `announce` | off | banners for wild events (evolutions, shinies, arrivals) |
 | `forestTraps` | off | the game's hidden floor traps in the Shady Forest |
+| `mansionAfter` | 1200 s | active forest time before the mansion is placed |
+| `forestEvents` | on | the forest's events and its history |
+| `exploreExp` | on | EXP for exploring, treasure, kindness and teamwork |
+| `maxNpcs` / `maxResidents` | 24 / 10 | roaming Pokémon / tree residents at once |
 | `treeDensity` | 1 | how many trees grow |
 
 ### Console helpers
@@ -189,6 +272,10 @@ PSXAI.Forest.locomotion(dex)         // 'fly' | 'swim' | 'amphi' | 'surface' | '
 PSXAI.Mysteries.run.sites            // where each mystery is this run
 PSXAI.Mysteries.toggle()             // open / close the journal
 PSXAI.Mysteries.resetJournal()       // forget everything written in them
+PSXAI.Journey.establishNow()         // skip the 20 minutes: place the mansion now
+PSXAI.Journey.st                     // phase, elapsed time, where it stands
+PSXAI.Events.start('lost')           // lost | tracks | lights | silence | fallen | voices | campsite
+PSXAI.Exp.st.log                     // what you were rewarded for, and how much
 ```
 
 ## Performance
