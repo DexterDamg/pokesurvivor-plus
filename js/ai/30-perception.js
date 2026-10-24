@@ -60,9 +60,9 @@
     const tr = s.pers.tr;
     let r = 310 * s.p.sight * (0.8 + tr.alertness * 0.4);
     if (s.beh && s.beh.distracting) r *= 0.75;
-    const W = AI.R.Weather && AI.R.Weather.current;
-    const w = typeof W === 'function' ? W() : W;
-    if (w && (w === 'fog' || w.id === 'fog')) r *= 0.6;
+    // fog, rain and darkness shorten sight (night species keep their night vision)
+    if (AI.Sky) r *= AI.Sky.visibility(AI.Areas && AI.Areas.active(s.p.dex) === 'night');
+    else { const w = AI.R.Weather && AI.R.Weather.current; if (w && w.kind === 'fog') r *= 0.6; }
     return r;
   }
 
@@ -91,7 +91,9 @@
         // a light sleeper may notice someone right next to it
         seen = c.pd < 55 && Math.random() < s.pers.tr.alertness * 0.25;
       } else {
-        const range = sightRange(s) + (p.walking ? 60 : 0);
+        // a lit lantern is easy to spot in the dark
+        const lit = AI.Light && AI.Sky && AI.Sky.darkness() > 0.4 && AI.Light.lanternOn() ? 1.35 : 1;
+        const range = (sightRange(s) + (p.walking ? 60 : 0)) * lit;
         if (c.pd < 85 * s.p.hearing) seen = true;
         else if (c.pd < range) {
           if (AI.time - c.losT > 0.35) { c.losT = AI.time; c.losOk = los(e.x, e.y, p.x, p.y); }

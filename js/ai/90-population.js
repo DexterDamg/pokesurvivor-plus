@@ -46,10 +46,13 @@
     if (AI.R.EnemyMgr.queryCircle(e.x, e.y, AI.cfg.localRadius).length >= AI.cfg.localCap) { AI.stats.spawnVetoed++; return false; }
     if (!bursting) {
       if (tokens < 1) { AI.stats.spawnVetoed++; return false; }
+      // the time of day and the weather thin out who's around
+      if (AI.Areas && Math.random() > AI.Areas.spawnRate()) { AI.stats.spawnVetoed++; return false; }
       tokens -= 1;
     }
     batch.push(e);
     placeByHabitat(e);
+    if (AI.Areas) AI.Areas.place(e);
     return true;
   }
 

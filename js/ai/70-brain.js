@@ -55,6 +55,7 @@
     AI.Combat.init(e, s);
     switchTo(e, s, AI.Behaviors.BY.idle);
     if (s.returning) AI.Mind.say(s, rp.a > 0.3 ? 'love' : rp.g > 0.3 ? 'anger' : 'surprise', 2.2, 2);
+    if (AI.EnvBeh) try { AI.EnvBeh.onInit(e, s); } catch (err) { AI.warn('env-init', err); }
     return s;
   }
 

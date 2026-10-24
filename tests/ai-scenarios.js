@@ -25,6 +25,10 @@ function installHelpers() {
     AI.stats.dodges = 0; AI.stats.combatUpdates = 0;
     R.Hazards.clear(); R.Projectiles.clear();
     p.hp = p.maxHp;
+    // a calm, frozen midday unless a scenario asks for other weather
+    AI.Sky.set({ hour: 12, day: 0, fog: 0, rain: 0, storm: 0, wind: 0.1, cloud: 0.1, snow: 0, wet: 0, snowCover: 0, season: 'summer', freeze: true });
+    AI.Lore.reset();
+    AI.Player.lanternToggle = null;
     return true;
   };
   T.dist = (e) => { const p = R.Game.player; return Math.hypot(e.x - p.x, e.y - p.y); };
@@ -448,6 +452,251 @@ async function sample(h, ms, every, fn, arg) {
     await h.R(() => { __PSX_REG__.Game.debugSpeed(1); PSXAI.resetCfg(); });
     const max = Math.max(...s.map((x) => x.wild));
     return { pass: max <= 20 && max >= 10, detail: { maxWild: max, vetoed: s[s.length - 1].vetoed } };
+  });
+
+  // =========================================================== living environment
+  await scenario(h, 'the starting woodland only brings out its own beginner Pokémon', async () => {
+    await h.R(() => { PSXAI.Debug.freeze(false); __PSX_REG__.Game.debugSpeed(2); window.SEEN = new Set(); });
+    const r = await h.R(async () => {
+      const R = __PSX_REG__;
+      const ro = PSXAI.Areas.roster();
+      const early = new Set([...ro.tiers[0], ...ro.tiers[1]]);
+      const cast0 = R.Enemies.cast[0].list.map((d) => d.dex);
+      return { biome: PSXAI.Env.biome(), cast0, castOk: cast0.every((d) => early.has(d)), maxBst: Math.max(...cast0.map((d) => R.DEX_BY[d].bst)) };
+    });
+    const s = await sample(h, 9000, 500, () => { for (const e of __PSX_REG__.EnemyMgr.all()) if (e.psx && !e.boss) SEEN.add(e.dex); return SEEN.size; });
+    const seen = await h.R(() => [...SEEN]);
+    const ok = await h.R((seen) => { const ro = PSXAI.Areas.roster(); const early = new Set([...ro.tiers[0], ...ro.tiers[1]]); return seen.every((d) => early.has(d)); }, seen);
+    await h.R(() => { __PSX_REG__.Game.debugSpeed(1); PSXAI.Debug.freeze(true); });
+    return { pass: r.biome === 0 && r.castOk && r.maxBst <= 360 && seen.length >= 2 && ok, detail: { cast0: r.cast0, maxBst: r.maxBst, spawned: seen } };
+  });
+
+  await scenario(h, 'night thins out the forest and brings out the nocturnal Pokémon', async () => {
+    const r = await h.R(() => {
+      const A = PSXAI.Areas, S = PSXAI.Sky, R = __PSX_REG__;
+      const noct = (bag) => bag.filter((d) => A.active(d.dex) === 'night').length / Math.max(1, bag.length);
+      const bag = R.Enemies.cast[0].list.flatMap((d) => Array(10).fill(d));
+      S.set({ hour: 12 }); const day = { rate: A.spawnRate(), noct: noct(A.weightBag(bag)) };
+      S.set({ hour: 0.5 }); const night = { rate: A.spawnRate(), noct: noct(A.weightBag(bag)) };
+      S.set({ hour: 12 });
+      return { day, night };
+    });
+    return { pass: r.night.rate < r.day.rate * 0.6 && r.night.noct > 0.6 && r.day.noct < 0.25, detail: r };
+  });
+
+  await scenario(h, 'day Pokémon fall asleep at night while night Pokémon stay up', async () => {
+    await h.R(() => {
+      PSXAI.Sky.set({ hour: 0.5 });
+      window.A = PSXAI.Debug.spawn(16, { temp: 'neutral', dx: 200, energy: 0.45 });
+      window.B = PSXAI.Debug.spawn(163, { temp: 'neutral', dx: -200, energy: 0.45 });
+    });
+    const s = await sample(h, 14000, 500, () => ({ a: A.psx.lock ? 'LOCK' : A.psx.beh.id, b: B.psx.lock ? 'LOCK' : B.psx.beh.id }));
+    const aSlept = s.some((x) => x.a === 'sleep'), bSlept = s.some((x) => x.b === 'sleep');
+    return { pass: aSlept && !bSlept, detail: { pidgey: [...new Set(s.map((x) => x.a))], hoothoot: [...new Set(s.map((x) => x.b))] } };
+  });
+
+  await scenario(h, 'a sleeping Pokémon wakes up when you run right past it', async () => {
+    await h.R(() => { PSXAI.Sky.set({ hour: 1 }); window.A = PSXAI.Debug.spawn(19, { temp: 'neutral', dx: 260, energy: 0.05, trait: { laziness: 0.1 } }); });
+    await h.wait(5000);
+    const asleep = await h.R(() => A.psx.beh.id === 'sleep' && A.psx.bs.down);
+    let woke = false;
+    for (let i = 0; i < 6 && !woke; i++) {
+      await h.page.keyboard.down(i % 2 ? 'KeyA' : 'KeyD'); await h.wait(1500); await h.page.keyboard.up(i % 2 ? 'KeyA' : 'KeyD');
+      woke = await h.R(() => !!A.psx.wokeAt);
+    }
+    const r = await h.R(() => ({ beh: A.psx.beh.id, icon: (PSXAI.Mind.bubbleFor(A.psx) || {}).icon }));
+    return { pass: asleep && woke, detail: { wasAsleep: asleep, woke, after: r } };
+  });
+
+  await scenario(h, 'rain soaks the ground: puddles, footprints, and mud where you keep walking', async () => {
+    await h.R(() => PSXAI.Sky.set({ rain: 1, cloud: 1, wet: 1 }));
+    for (let i = 0; i < 28; i++) { const k = ['KeyW', 'KeyD', 'KeyS', 'KeyA'][i % 4]; await h.page.keyboard.down(k); await h.wait(260); await h.page.keyboard.up(k); }
+    const r = await h.R(() => {
+      const D = PSXAI.Decor, p = __PSX_REG__.Game.player;
+      let mud = 0;
+      for (let y = -120; y <= 120; y += 11) for (let x = -120; x <= 120; x += 11) mud = Math.max(mud, D.mudAt(p.x + x, p.y + y));
+      return { puddles: D.puddleAmt(), prints: D.prints.length, mud: +mud.toFixed(2) };
+    });
+    return { pass: r.puddles > 0.5 && r.prints >= 6 && r.mud > 0.3, detail: r };
+  });
+
+  await scenario(h, 'rain sends Pidgey under the trees and Caterpie under the leaves', async () => {
+    await h.R(() => {
+      window.A = PSXAI.Debug.spawn(16, { temp: 'neutral', dx: 150, dy: 60 });
+      window.B = PSXAI.Debug.spawn(10, { temp: 'neutral', dx: -150, dy: 60 });
+      PSXAI.Sky.set({ rain: 0.95, cloud: 1, wet: 0.8 });
+    });
+    const s = await sample(h, 8000, 500, () => ({ a: A.psx.beh.id, b: B.psx.beh.id, at: A.psx.bs.a && A.psx.bs.a.kind, bt: B.psx.bs.a && B.psx.bs.a.kind }));
+    const last = s[s.length - 1];
+    return { pass: s.some((x) => x.a === 'shelter') && s.some((x) => x.b === 'shelter') && (last.at === 'tree' || !last.at) && last.bt !== 'tree', detail: last };
+  });
+
+  await scenario(h, 'deep fog: Pokémon stop roaming and few new ones appear', async () => {
+    await h.R(() => {
+      window.G = [16, 19, 161, 10].map((d, i) => PSXAI.Debug.spawn(d, { temp: 'neutral', dx: -180 + i * 120, dy: 90 }));
+    });
+    await h.wait(2500);
+    await h.R(() => { PSXAI.Sky.set({ fog: 0.97, wind: 0.02 }); window.P0 = G.map((e) => [e.x, e.y]); });
+    await h.wait(1500);
+    await h.R(() => { window.P0 = G.map((e) => [e.x, e.y]); });
+    await h.wait(5000);
+    const r = await h.R(() => ({ moved: G.map((e, i) => Math.round(Math.hypot(e.x - P0[i][0], e.y - P0[i][1]))), behs: G.map((e) => e.psx.beh.id), rate: +PSXAI.Areas.spawnRate().toFixed(2), sight: +PSXAI.Sky.visibility(false).toFixed(2) }));
+    const still = r.moved.filter((m) => m < 60).length;
+    return { pass: still >= 3 && r.rate < 0.35 && r.sight < 0.3, detail: r };
+  });
+
+  await scenario(h, 'a gale sends a small bird tumbling away, crying', async () => {
+    await h.R(() => { window.A = PSXAI.Debug.spawn(16, { temp: 'neutral', dx: 120 }); PSXAI.Sky.set({ wind: 1 }); });
+    await h.wait(600);
+    await h.R(() => { window.X0 = [A.x, A.y]; PSXAI.Bus.emit({ type: 'gust', x: 0, y: 0, loud: 0, power: 1.4 }); PSXAI.Bus.emit({ type: 'gust', x: 0, y: 0, loud: 0, power: 1.4 }); PSXAI.Bus.emit({ type: 'gust', x: 0, y: 0, loud: 0, power: 1.4 }); });
+    await h.wait(400);
+    const mid = await h.R(() => ({ lock: !!A.psx.lock, fear: +A.psx.mind.emo.fear.toFixed(2), icon: (PSXAI.Mind.bubbleFor(A.psx) || {}).icon }));
+    await h.wait(2600);
+    const r = await h.R(() => ({ gone: A.dead || __PSX_REG__.EnemyMgr.get(A.id) !== A, moved: Math.round(Math.hypot(A.x - X0[0], A.y - X0[1])) }));
+    return { pass: mid.lock && mid.fear > 0.5 && (r.gone || r.moved > 150), detail: { ...mid, ...r } };
+  });
+
+  await scenario(h, 'thunder: the flash comes first, the rumble later, and Pokémon are frightened', async () => {
+    await h.R(() => {
+      window.A = PSXAI.Debug.spawn(19, { temp: 'timid', dx: 140 });
+      window.EV = [];
+      PSXAI.Bus.on('lightning', (e) => EV.push(['flash', PSXAI.time]));
+      PSXAI.Bus.on('boom', (e) => { if (e.thunder) EV.push(['thunder', PSXAI.time]); });
+    });
+    await h.wait(400);
+    await h.R(() => { window.F0 = PSXAI.Sky.flash; PSXAI.Sky.bolt(1.2); window.F1 = PSXAI.Sky.flash; });
+    await h.wait(4800);
+    const r = await h.R(() => ({ ev: EV.slice(-2), flash: +F1.toFixed(2), fear: +A.psx.mind.emo.fear.toFixed(2) }));
+    const f = r.ev.find((x) => x[0] === 'flash'), t = r.ev.find((x) => x[0] === 'thunder');
+    const delay = f && t ? +(t[1] - f[1]).toFixed(1) : null;
+    return { pass: r.flash > 0.4 && delay != null && delay > 2 && r.fear > 0.2, detail: { flash: r.flash, delay, fear: r.fear } };
+  });
+
+  await scenario(h, 'nights are dark, and lanterns light up the darkness', async () => {
+    const lum = () => h.R(() => {
+      const cv = document.getElementById('game'), g = cv.getContext('2d');
+      const avg = (x, y, w, hh) => { const d = g.getImageData(x, y, w, hh).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]; return s / (d.length / 4) / 3; };
+      const w = cv.width, hh = cv.height;
+      return { center: Math.round(avg(w / 2 - 40, hh / 2 - 60, 80, 80)), corner: Math.round(avg(20, 120, 120, 120)) };
+    });
+    await h.R(() => PSXAI.Sky.set({ hour: 12 }));
+    await h.wait(700);
+    const day = await lum();
+    await h.R(() => { PSXAI.Sky.set({ hour: 0.5, day: 4 }); PSXAI.Player.lanternToggle = true; });
+    await h.wait(700);
+    const night = await lum();
+    return { pass: night.corner < day.corner * 0.55 && night.center > night.corner * 1.4, detail: { day, night } };
+  });
+
+  await scenario(h, 'trees and undergrowth use the new varied art', async () => {
+    await h.wait(400);
+    const r = await h.R(() => {
+      const R = __PSX_REG__;
+      const props = R.World.visibleProps(R.Camera);
+      const trees = props.filter((p) => p.type === 'tree'), grass = props.filter((p) => p.type === 'grass'), decor = props.filter((p) => p.type === 'psx');
+      return { art: PSXAI.Art.ready, trees: trees.length, treeArt: new Set(trees.map((p) => p._psxArt)).size, styled: trees.filter((p) => p._psxArt).length, grass: grass.length, decor: decor.length, decorKinds: [...new Set(decor.map((p) => p.item.k))] };
+    });
+    return { pass: r.art && r.styled === r.trees && (r.trees < 3 || r.treeArt >= 2) && r.decor > 0, detail: r };
+  });
+
+  await scenario(h, 'Pokémon tell each other different versions of the mansion rumour', async () => {
+    await h.R(() => {
+      PSXAI.Sky.set({ hour: 21 });
+      window.G = [161, 19, 16, 263].map((d, i) => PSXAI.Debug.spawn(d, { temp: i % 2 ? 'neutral' : 'playful', dx: 90 + (i % 2) * 70, dy: -40 + i * 26, trait: { sociability: 0.9, bravery: 0.3 } }));
+    });
+    await h.wait(800);
+    const r = await h.R(async () => {
+      const L = PSXAI.Lore;
+      const told = L.tellStory();
+      const text = L.says.length ? L.says[L.says.length - 1].text : null;
+      const versions = new Set(G.map((e) => L.T.rumor.en[(PSXAI.U.hash(e.id, PSXAI.Decor.seed, 77) * 10) | 0]));
+      return { told, text, versions: versions.size };
+    });
+    await h.wait(3600);
+    const react = await h.R(() => G.map((e) => (PSXAI.Mind.bubbleFor(e.psx) || {}).icon).filter(Boolean));
+    return { pass: r.told && !!r.text && r.versions >= 2 && react.length >= 1, detail: { text: r.text, versions: r.versions, reactions: react } };
+  });
+
+  await scenario(h, 'the abandoned trail: clues, a lantern that flickers without wind, and a frightened Hoothoot', async () => {
+    const info = await h.R(() => {
+      const t = PSXAI.Decor.trail;
+      if (!t) return null;
+      const kinds = [...new Set(t.items.map((i) => i.k))];
+      const lan = t.items.find((i) => i.k === 'gallows');
+      PSXAI.Sky.set({ hour: 22.5, wind: 0, rain: 0, wet: 0.5 });
+      let min = 1;
+      for (let i = 0; i < 400; i++) { PSXAI.time += 0.05; min = Math.min(min, PSXAI.Decor.flame(lan)); }
+      const p = __PSX_REG__.Game.player;
+      p.x = t.start[0] - 240; p.y = t.start[1] + 60;
+      PSXAI.Lore.st.allowHoot = true;
+      return { kinds, minFlame: +min.toFixed(2) };
+    });
+    if (!info) return { pass: false, detail: 'no trail in this area' };
+    await h.wait(2000);
+    const spawned = await h.R(() => !!PSXAI.Lore.st.hoot);
+    await h.R(() => { const p = __PSX_REG__.Game.player, t = PSXAI.Decor.trail; p.x = t.start[0] - 80; p.y = t.start[1] + 40; });
+    await h.wait(5000);
+    const r = await h.R(() => ({ warned: PSXAI.Lore.says.some((s) => s.e === PSXAI.Lore.st.hoot) || PSXAI.Lore.st.hoot && PSXAI.Lore.st.hoot.psx.mind.emo.fear > 0.5, fear: PSXAI.Lore.st.hoot ? +PSXAI.Lore.st.hoot.psx.mind.emo.fear.toFixed(2) : null }));
+    await h.R(() => { PSXAI.Lore.st.allowHoot = false; const p = __PSX_REG__.Game.player; p.x = 0; p.y = 0; });
+    const need = ['sign', 'gallows', 'fence', 'wraith', 'path'];
+    return { pass: need.every((k) => info.kinds.includes(k)) && info.minFlame < 0.3 && spawned && r.warned, detail: { ...info, hoothoot: spawned, ...r } };
+  });
+
+  await scenario(h, 'in thick fog, Pokémon refuse to go near the old trail', async () => {
+    const r0 = await h.R(() => {
+      const t = PSXAI.Decor.trail;
+      const p = __PSX_REG__.Game.player;
+      p.x = t.pts[5][0] + 300; p.y = t.pts[5][1];
+      window.A = PSXAI.Debug.spawn(161, { temp: 'neutral', x: t.pts[6][0], y: t.pts[6][1] + 20 });
+      PSXAI.Sky.set({ fog: 0.9, hour: 15 });
+      return PSXAI.Decor.trailZone(A.x, A.y);
+    });
+    await h.wait(5000);
+    const r = await h.R(() => ({ zone: +PSXAI.Decor.trailZone(A.x, A.y).toFixed(2), fear: +A.psx.mind.emo.fear.toFixed(2) }));
+    await h.R(() => { const p = __PSX_REG__.Game.player; p.x = 0; p.y = 0; });
+    return { pass: r0 > 0.2 && r.zone < r0 * 0.6 && r.fear > 0.2, detail: { start: +r0.toFixed(2), ...r } };
+  });
+
+  await scenario(h, 'new arrivals emerge naturally instead of popping up in plain view', async () => {
+    await h.R(() => {
+      const R = __PSX_REG__;
+      window.ARR = [];
+      const oa = R.EnemyMgr.add;
+      if (!R.EnemyMgr._t) { R.EnemyMgr._t = true; R.EnemyMgr.add = function (e) { const r = oa.apply(this, arguments); if (window.ARR && e.psxNative !== undefined) ARR.push({ vis: R.Camera.sees(e.x, e.y, -10), emerge: e.psxEmerge ? e.psxEmerge.kind : null }); return r; }; }
+      PSXAI.Debug.freeze(false); R.Game.debugSpeed(3);
+    });
+    await h.wait(9000);
+    const r = await h.R(() => { __PSX_REG__.Game.debugSpeed(1); PSXAI.Debug.freeze(true); const a = ARR; window.ARR = null; return a; });
+    const inView = r.filter((x) => x.vis);
+    return { pass: r.length >= 3 && inView.every((x) => x.emerge), detail: { arrivals: r.length, inView: inView.length, emerged: [...new Set(r.map((x) => x.emerge).filter(Boolean))] } };
+  });
+
+  await scenario(h, 'disturbing a habitat makes its Pokémon settle elsewhere', async () => {
+    const r = await h.R(() => {
+      const A = PSXAI.Areas, p = __PSX_REG__.Game.player;
+      const list = A.anchors(p.x, p.y, 500, ['log', 'bush', 'tree', 'burrow']);
+      const a = list[0];
+      if (!a) return null;
+      const before = A.disturbed(a);
+      for (let i = 0; i < 6; i++) A.bump(a, 0.4);
+      const after = A.disturbed(a);
+      const stillListed = A.anchors(a.x, a.y, 20, [a.kind]).length;
+      return { before, after, stillListed };
+    });
+    if (!r) return { pass: false, detail: 'no habitat nearby' };
+    return { pass: !r.before && r.after && r.stillListed === 0, detail: r };
+  });
+
+  await scenario(h, 'the full atmosphere (night storm, lights, fog) keeps the frame rate', async () => {
+    const fps = () => h.R(() => new Promise((res) => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 2000) requestAnimationFrame(f); else res(n / ((performance.now() - t0) / 1000)); }; requestAnimationFrame(f); }));
+    await h.R(() => { for (let i = 0; i < 20; i++) PSXAI.Debug.spawn([16, 19, 161, 10, 13][i % 5], { temp: 'neutral', dx: Math.cos(i) * 260, dy: Math.sin(i) * 180 }); PSXAI.setCfg('atmosphere', false); PSXAI.setCfg('newArt', false); });
+    await h.wait(500);
+    const base = await fps();
+    await h.R(() => { PSXAI.setCfg('atmosphere', true); PSXAI.setCfg('newArt', true); PSXAI.Sky.set({ hour: 23, rain: 0.9, storm: 0.8, fog: 0.4, wind: 0.6, wet: 1 }); PSXAI.Player.lanternToggle = true; });
+    await h.wait(500);
+    const full = await fps();
+    await h.R(() => PSXAI.resetCfg());
+    return { pass: full > base * 0.6 || full > 40, detail: { baseFps: Math.round(base), fullFps: Math.round(full) } };
   });
 
   await h.close();
