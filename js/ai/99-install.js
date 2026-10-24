@@ -197,6 +197,9 @@
       if (prop && (prop.psxMansion || prop.psxDraw)) { try { AI.Mansion.drawProp(ctx, prop); } catch (e) { AI.warn('mansion-prop', e); } return; }
       return oDP.apply(this, arguments);
     };
+    // story scenes can point the camera elsewhere
+    const oFollow = R.Camera.follow;
+    R.Camera.follow = function (x, y, dt) { const c = AI.enabled && AI.Story && AI.Story.cam; return c ? oFollow.call(this, c[0], c[1], dt * 0.35) : oFollow.apply(this, arguments); };
     // story scenes hold the player still
     const oAxis = R.Input.axis;
     R.Input.axis = function () { if (AI.enabled && AI.Story && AI.Story.lockInput()) return [0, 0]; return oAxis.apply(this, arguments); };
@@ -236,7 +239,7 @@
     R.HUD.draw = function (ctx, w, h) {
       const r = oHud.apply(this, arguments);
       if (AI.enabled) try { AI.Player.drawHud(ctx); AI.Light.drawClock(ctx); AI.Render.drawDebugHud(ctx, w, h); } catch (e) { AI.warn('hud', e); }
-      if (AI.enabled) try { AI.Haunt.drawScreen(ctx, w, h); AI.Story.drawScreen(ctx, w, h); AI.Mansion.drawScreen(ctx, w, h); } catch (e) { AI.warn('mansion-hud', e); }
+      if (AI.enabled) try { AI.Haunt.drawScreen(ctx, w, h); AI.Mansion.drawScreen(ctx, w, h); AI.Story.drawScreen(ctx, w, h); } catch (e) { AI.warn('mansion-hud', e); }
       return r;
     };
 

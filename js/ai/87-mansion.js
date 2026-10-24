@@ -204,7 +204,7 @@
     P({ n: 'm_candelabra', x: tx(41.5), y: ty(16.4), room: 'study', s: 0.7, kind: 'candles', lit: true, light: { r: 110, c: [255, 180, 100] }, onTable: true });
     P({ n: 'm_rubble', x: tx(39), y: ty(20.6), room: 'study', flat: true });
     // chandeliers (Chandelure's ballroom, the dining hall, the foyer)
-    I.chandeliers.push({ id: 'ballroom', x: tx(23.5), y: ty(10.2), lit: 0.25, sway: 0 }, { id: 'dining', x: tx(8), y: ty(9.6), lit: 0.5, sway: 0 }, { id: 'foyer', x: tx(23.5), y: ty(26.5), lit: 0.3, sway: 0 });
+    I.chandeliers.push({ id: 'ballroom', x: tx(23.5), y: ty(8.2), lit: 0.25, sway: 0 }, { id: 'dining', x: tx(8), y: ty(9.6), lit: 0.5, sway: 0 }, { id: 'foyer', x: tx(23.5), y: ty(26.5), lit: 0.3, sway: 0 });
     // portraits and sword plaques on the walls (their faces can change)
     const face = (room, x, kind, extra) => Object.assign({ room, x: tx(x), y: ty(ROOMS.find((r) => r.id === room).y0) - 66, kind, mood: 'calm' }, extra || {});
     I.portraits.push(face('gallery', 5.2, 'lady'), face('gallery', 10.8, 'lord'), face('foyer', 28.6, 'child'), face('dining', 11.5, 'lord'), face('study', 38.6, 'lady', { y: ty(12) - 70 }));
@@ -474,6 +474,7 @@
     if (!st.inside || !it) return;
     // chandeliers hang from the ceiling, above everything
     for (const c of it.chandeliers) {
+      if (c.hidden) continue;
       const sw = c.sway ? Math.sin(AI.time * 1.6) * c.sway : 0;
       const top = c.y - 150;
       ctx.save();
@@ -505,7 +506,7 @@
       const f = 0.82 + Math.sin(AI.time * 11 + p.id) * 0.06 + Math.sin(AI.time * 6.7 + p.id * 3) * 0.05;
       out.push({ x: p.x + p.ox, y: p.y + p.oy - h * p.s - 4, r: p.light.r, c: p.light.c, i: f * (st.dim == null ? 1 : st.dim), src: p });
     }
-    for (const c of it.chandeliers) if (c.lit > 0.05) out.push({ x: c.x, y: c.y, r: 150 + 120 * c.lit, c: [255, 196, 120], i: c.lit * (0.8 + Math.sin(AI.time * 7 + c.x) * 0.05) * (st.dim == null ? 1 : st.dim) });
+    for (const c of it.chandeliers) if (c.lit > 0.05 && !c.hidden) out.push({ x: c.x, y: c.y, r: 150 + 120 * c.lit, c: [255, 196, 120], i: c.lit * (0.8 + Math.sin(AI.time * 7 + c.x) * 0.05) * (st.dim == null ? 1 : st.dim) });
     const day = AI.Sky ? 1 - AI.Sky.darkness() : 0;
     for (const w of it.windows) out.push({ x: w.x, y: w.y + 90, r: 190, c: day > 0.5 ? [170, 180, 210] : [120, 140, 220], i: 0.35 + day * 0.35 });
     const p = AI.R.Game.player;
@@ -525,10 +526,12 @@
   function enter() {
     const R = AI.R;
     const it = I();
-    if (!it || st.inside || st.fadeTo === 1) return false;
+    if (!it || st.inside || st.transit) return false;
     if (R.Coop && R.Coop.active) { lockedMsg(); return false; }
     sfx('creak', 0, 0);
+    st.transit = true;
     fadeTo(1, () => {
+      st.transit = false;
       const p = R.Game.player;
       st.returnTo = [it.g.D[0], it.g.D[1] + 46];
       try { R.EnemyMgr.stash(); } catch (e) { AI.warn('mansion-stash', e); }
@@ -544,9 +547,11 @@
   }
   function exit(cb) {
     const R = AI.R;
-    if (!st.inside || st.fadeTo === 1) return false;
+    if (!st.inside || st.transit) return false;
     sfx('creak', 0, 0);
+    st.transit = true;
     fadeTo(1, () => {
+      st.transit = false;
       const p = R.Game.player;
       st.inside = false;
       try { R.EnemyMgr.restore(); } catch (e) { AI.warn('mansion-restore', e); }
@@ -571,8 +576,8 @@
     if (st.fade !== st.fadeTo) {
       const s = st.fadeSpeed * dt;
       st.fade = st.fadeTo > st.fade ? Math.min(st.fadeTo, st.fade + s) : Math.max(st.fadeTo, st.fade - s);
-      if (st.fade === st.fadeTo && st.fadeCb) { const cb = st.fadeCb; st.fadeCb = null; try { cb(); } catch (e) { AI.warn('mansion-fade', e); } }
     }
+    if (st.fade === st.fadeTo && st.fadeCb) { const cb = st.fadeCb; st.fadeCb = null; try { cb(); } catch (e) { AI.warn('mansion-fade', e); } }
     if (!on()) { if (st.inside) exit(); return; }
     const R = AI.R;
     const p = R.Game.player;
@@ -588,6 +593,8 @@
     }
     const it = st.built;
     if (!it) return;
+    // the weather outside doesn't reach in here
+    try { if (R.Weather.current && R.Weather.clear) R.Weather.clear(); } catch (e) { /* ignore */ }
     // a wild Pokémon that somehow got in is gently shown out
     for (const e of R.EnemyMgr.all()) if (!e.dead && inInterior(e.x, e.y) && !e.psxStory) { try { if (AI.EnvBeh) AI.EnvBeh.removeNpc(e); else e.dead = true; } catch (err) { e.dead = true; } }
     // the way out
@@ -613,7 +620,7 @@
 
   function reset() {
     if (st.inside) { st.inside = false; try { AI.R.EnemyMgr.restore(); } catch (e) { /* ignore */ } }
-    st.built = null; st.cache = null; st.fade = 0; st.fadeTo = 0; st.fadeCb = null; clearCache = null;
+    st.built = null; st.cache = null; st.fade = 0; st.fadeTo = 0; st.fadeCb = null; st.transit = false; st.dim = 1; clearCache = null;
   }
 
   AI.define('Mansion', {

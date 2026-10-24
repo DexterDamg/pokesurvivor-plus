@@ -34,7 +34,7 @@
     warn_fog: { es: 'No te acerques al camino viejo con esta niebla.', en: 'Don\'t go near the old road in this fog.', fr: 'Ne t\'approche pas du vieux chemin dans ce brouillard.', zh: '起這麼大的霧，別靠近那條舊路。' },
     warn_trail: { es: 'Aléjate del sendero viejo. Por favor.', en: 'Stay away from the old trail. Please.', fr: 'Reste loin du vieux sentier. S\'il te plaît.', zh: '離舊小路遠一點。拜託。' },
     hoot: { es: '…No.', en: '…Don\'t.', fr: '…Non.', zh: '……不要。' },
-    hint_trail: { es: 'Las piedras viejas empiezan hacia el {dir}. No vayas de noche.', en: 'The old stones start to the {dir}. Don\'t go at night.', fr: 'Les vieilles pierres commencent vers le {dir}. N\'y va pas la nuit.', zh: '舊石頭從{dir}方開始。晚上別去。' },
+    hint_trail: { es: 'El viejo camino de faroles empieza hacia el {dir}. Lleva a la mansión. No vayas de noche.', en: 'The old lantern path starts to the {dir}. It leads to the mansion. Don\'t go at night.', fr: 'Le vieux chemin aux lanternes commence vers le {dir}. Il mène au manoir. N\'y va pas la nuit.', zh: '舊燈籠小路從{dir}方開始，通往洋館。晚上別去。' },
     hint_patch: { es: 'Hay bayas dulces escondidas tras los arbustos, hacia el {dir}.', en: 'There are sweet berries hidden behind the bushes to the {dir}.', fr: 'Il y a des baies sucrées cachées derrière les buissons, vers le {dir}.', zh: '{dir}方的灌木叢後面藏著甜甜的樹果。' },
     hint_cave: { es: 'Hay una cueva tapada con rocas hacia el {dir}. Algo vive dentro.', en: 'There\'s a cave sealed with boulders to the {dir}. Something lives inside.', fr: 'Il y a une grotte bouchée par des rochers vers le {dir}. Quelque chose vit dedans.', zh: '{dir}方有個被岩石封住的洞窟。裡面住著什麼。' },
     dirs: {

@@ -3,6 +3,9 @@
  * rain that sounds different on leaves, open ground and stone, thunder that rolls in late and
  * muffled when the storm is far away, rustling bushes, splashes, squelching mud, snoring Pokémon.
  * In deep fog the ordinary sounds fade away; now and then a branch creaks somewhere unseen.
+ * Inside the haunted mansion the forest falls away: the house settles and creaks, a clock ticks in
+ * the foyer, and the hauntings knock, bang, whisper and scratch behind the walls. Something much
+ * older brings a low drone and a silence nothing else can.
  * Follows the game's sound-effect volume and mute setting.
  */
 (function () {
@@ -40,6 +43,8 @@
       layers.open = loop('highpass', 1400, 0.5);
       layers.stone = loop('highpass', 4200, 0.7);
       layers.bed = loop('lowpass', 900, 0.5);
+      layers.house = loop('lowpass', 140, 0.7);
+      layers.drone = droneLayer();
       crickets();
       // paused, in a menu, or the run is over: fade out
       setInterval(() => {
@@ -74,6 +79,14 @@
     o.connect(am).connect(f).connect(g).connect(master);
     o.start(); lfo.start();
     layers.crickets = { g, am };
+  }
+  // a low, beating drone: two sine waves a hair apart, felt more than heard
+  function droneLayer() {
+    const g = ctx.createGain(); g.gain.value = 0;
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 160;
+    for (const hz of [36, 38.2, 54.5]) { const o = ctx.createOscillator(); o.type = hz > 50 ? 'triangle' : 'sine'; o.frequency.value = hz; o.connect(f); o.start(); }
+    f.connect(g).connect(master);
+    return { g };
   }
   function vol() {
     const A = AI.R && AI.R.Audio;
@@ -174,6 +187,96 @@
   }
   function branch() { if (!ok()) return; tone('sawtooth', 120, 85, 0.7, 0.015, U.rand(-1, 1), true); }
 
+  // ---------------------------------------------------------------- the haunted mansion
+  let houseLevel = 1, droneLevel = 0, tickT = 0, settleT = 6;
+  function knock(pan, wet, at, gain) { burst('lowpass', 260, 1.4, 0.16, gain || 0.12, pan, wet, at, 0.004); tone('sine', 120, 70, 0.12, (gain || 0.12) * 0.5, pan, wet, at); }
+  function mansion(name, x, y, o) {
+    if (name === 'blip') { if (!ctx || vol() <= 0) return; tone('square', o || 520, (o || 520) * 0.98, 0.04, 0.018, 0, false); return; }
+    if (!ok()) return;
+    const [pan0, v0] = x != null && x !== 0 ? where(x, y) : [U.rand(-0.4, 0.4), 1];
+    const pan = pan0, v = Math.max(0.25, v0);
+    switch (name) {
+      case 'creak': {
+        const t = ctx.currentTime;
+        const os = ctx.createOscillator(); os.type = 'sawtooth';
+        os.frequency.setValueAtTime(130, t);
+        for (let i = 1; i < 6; i++) os.frequency.linearRampToValueAtTime(95 + Math.random() * 70, t + i * 0.16);
+        const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1100; f.Q.value = 9;
+        const g = out(pan, true);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.07 * v, t + 0.12); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+        os.connect(f).connect(g); os.start(t); os.stop(t + 1.2);
+        break;
+      }
+      case 'slam': burst('lowpass', 500, 0.8, 0.5, 0.3 * v, pan, true, 0, 0.003); tone('sine', 90, 40, 0.4, 0.25 * v, pan, true); break;
+      case 'rattle': for (let i = 0; i < 6; i++) burst('bandpass', 2400, 3, 0.05, 0.06 * v, pan, false, i * 0.07 + Math.random() * 0.02); break;
+      case 'knock': { const n = o || 3; for (let i = 0; i < n; i++) knock(pan, true, i * 0.32 + (i === n - 1 ? 0.12 : 0), 0.13 * v); break; }
+      case 'bang': for (let i = 0; i < (o || 3); i++) { burst('lowpass', 150, 1, 0.5, 0.28, pan, true, i * 0.55, 0.005); tone('sine', 70, 34, 0.45, 0.22, pan, true, i * 0.55); } break;
+      case 'step': burst('lowpass', 380, 1.2, 0.14, 0.07 * v, pan, true, 0, 0.004); break;
+      case 'whisper':
+        for (let i = 0; i < 7; i++) {
+          const fq = U.rand(1400, 3800);
+          burst('bandpass', fq, 7, U.rand(0.18, 0.4), 0.035 * v, pan + U.rand(-0.2, 0.2), true, i * U.rand(0.12, 0.3), 0.05);
+        }
+        break;
+      case 'scratch': for (let i = 0; i < 10; i++) burst('bandpass', U.rand(1800, 3200), 4, 0.09, 0.04 * v, pan, false, i * 0.11 + Math.random() * 0.05, 0.02); break;
+      case 'draft': {
+        const t = ctx.currentTime;
+        const src = ctx.createBufferSource(); src.buffer = noise; src.loop = true;
+        const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.4;
+        f.frequency.setValueAtTime(220, t); f.frequency.exponentialRampToValueAtTime(1600, t + 1.2); f.frequency.exponentialRampToValueAtTime(300, t + 2.4);
+        const g = out(pan, true);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.09, t + 0.8); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.5);
+        src.connect(f).connect(g); src.start(t); src.stop(t + 2.6);
+        break;
+      }
+      case 'chime': for (let i = 0; i < (o || 3); i++) { tone('sine', 523.3, 520, 2.2, 0.05, pan, true, i * 1.4); tone('sine', 1046.5, 1040, 1.6, 0.02, pan, true, i * 1.4); tone('sine', 659.3, 655, 2, 0.025, pan, true, i * 1.4 + 0.02); } break;
+      case 'laugh':
+        for (let i = 0; i < 5; i++) {
+          const f0 = (o || 420) * (1 - i * 0.04);
+          tone('sawtooth', f0 * 1.15, f0, 0.11, 0.035 * v, pan, true, i * 0.14);
+          burst('bandpass', f0 * 3, 4, 0.1, 0.03 * v, pan, true, i * 0.14, 0.01);
+        }
+        break;
+      case 'clank': tone('triangle', 1650, 1500, 0.35, 0.05 * v, pan, true); tone('triangle', 2320, 2200, 0.25, 0.03 * v, pan, true, 0.02); burst('highpass', 3500, 1, 0.12, 0.05 * v, pan, false); break;
+      case 'swish': burst('bandpass', 1800, 1.2, 0.22, 0.07 * v, pan, false, 0, 0.06); break;
+      case 'snuff': burst('bandpass', 700, 1, 0.25, 0.05 * v, pan, false, 0, 0.02); break;
+      case 'ignite': burst('highpass', 2500, 0.8, 0.3, 0.04 * v, pan, false, 0, 0.01); tone('sine', 300, 600, 0.2, 0.02 * v, pan, false); break;
+      case 'chandelier': for (let i = 0; i < 8; i++) tone('sine', U.rand(2400, 4200), 2000, 0.4, 0.012, pan + U.rand(-0.2, 0.2), true, i * 0.09); tone('sawtooth', 70, 60, 1.4, 0.012, pan, true); break;
+      case 'boom': tone('sine', 60, 28, 1.6, 0.45, 0, true); burst('lowpass', 120, 1, 1.4, 0.3, 0, true, 0, 0.01); break;
+      case 'sting': {
+        // the jumpscare: a shrieking cluster over a falling sub-boom
+        for (const fq of [311, 329.6, 466, 493.9, 698.5, 740]) tone('sawtooth', fq, fq * 0.82, 1.3, 0.06, U.rand(-0.5, 0.5), true);
+        burst('highpass', 1800, 0.7, 0.9, 0.22, 0, true, 0, 0.003);
+        tone('sine', 110, 26, 1.8, 0.5, 0, true);
+        break;
+      }
+      case 'drone': droneLevel = o == null ? 0.8 : o; break;
+      case 'silence': houseLevel = o == null ? 0 : o; break;
+      default: break;
+    }
+  }
+  function mansionMix(dt, v) {
+    for (const k of ['wind', 'leaves', 'open', 'stone', 'bed']) set(layers[k].g.gain, 0, 0.5);
+    set(layers.crickets.g.gain, 0, 0.5);
+    set(layers.house.g.gain, 0.05 * houseLevel, 1.2);
+    set(layers.drone.g.gain, 0.22 * droneLevel, droneLevel > 0 ? 2.5 : 1.2);
+    if (houseLevel < 0.1) return;
+    // the house settles
+    settleT -= dt;
+    if (settleT <= 0) { settleT = U.rand(8, 22); if (Math.random() < 0.6) mansion('creak'); else burst('bandpass', 600, 2, 0.4, 0.02, U.rand(-1, 1), true); }
+    // the grandfather clock in the foyer
+    const it = AI.Mansion && AI.Mansion.st.built;
+    const p = AI.R.Game.player;
+    if (it && p) {
+      const clock = it.props.find((q) => q.kind === 'clock');
+      if (clock && !clock.stopped) {
+        const d = Math.hypot(p.x - clock.x, p.y - clock.y);
+        tickT -= dt;
+        if (tickT <= 0 && d < 700) { tickT = 1; const k = U.clamp(1 - d / 700, 0, 1); tone('square', (AI.time | 0) % 2 ? 1900 : 1600, 1500, 0.025, 0.012 * k * houseLevel, U.clamp((clock.x - p.x) / 450, -1, 1), true); }
+      }
+    }
+  }
+
   // the music box near the abandoned trail: an eerie little waltz in A minor
   const TUNE = [880, 1046.5, 1318.5, 1046.5, 987.8, 1174.7, 1568, 1174.7, 880, 1046.5, 1318.5, 1760, 1661.2, 1318.5, 987.8, 0];
   let tuneI = 0, tuneT = 0, musicLevel = 0;
@@ -186,9 +289,13 @@
     const R = AI.R;
     const playing = R && R.Game.state === 'playing' && AI.enabled && AI.cfg.atmosphere !== false;
     const S = AI.Sky;
-    const v = playing && S && !S.indoor() ? vol() : 0;
+    const inHouse = !!(AI.Mansion && AI.Mansion.inside);
+    const v = playing && S && (!S.indoor() || inHouse) ? vol() : 0;
     set(master.gain, v * 0.6, 0.6);
     if (!v) return;
+    if (inHouse) { mansionMix(dt, v); return; }
+    set(layers.house.g.gain, 0, 0.5);
+    set(layers.drone.g.gain, 0.22 * droneLevel, 1.5);
     const p = R.Game.player;
     const fog = S.fog, dark = S.darkness(), rain = S.rain;
     let trees = 0, stones = 0;
@@ -226,5 +333,5 @@
     } else tuneI = 0;
   }
 
-  AI.define('Ambience', { start, tick, chirp, hoot, thunder, rumble, rustle, splash, squelch, snore, cry, flutter, creak, branch, musicBox, get ctx() { return ctx; } });
+  AI.define('Ambience', { start, tick, chirp, hoot, thunder, rumble, rustle, splash, squelch, snore, cry, flutter, creak, branch, musicBox, mansion, get ctx() { return ctx; } });
 })();

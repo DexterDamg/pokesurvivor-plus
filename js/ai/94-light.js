@@ -466,6 +466,7 @@
       const k = AI.Sky.weatherKind();
       if (k && !HANDLED.has(k) && !(AI.Mansion && AI.Mansion.inside)) { try { orig.apply(this, arguments); } catch (e) { /* ignore */ } }
       try { draw(ctx, w, h); } catch (e) { AI.warn('light', e); }
+      if (AI.Haunt) try { AI.Haunt.drawPost(ctx, w, h); } catch (e) { AI.warn('haunt-post', e); }
     };
   }
   // the game's grey fog vignette is replaced by the visibility model above
