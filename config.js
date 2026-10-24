@@ -22,4 +22,12 @@
  *   databaseURL: 'https://your-project-default-rtdb.europe-west1.firebasedatabase.app'
  * };
  */
-window.PS_FIREBASE = null;
+window.PS_FIREBASE = {
+  apiKey: 'AIzaSyAsF3t8KQ4wOBUD09KFP550aDUvAOc3d4',
+  authDomain: 'pokesurvior-omega.firebaseapp.com',
+  projectId: 'pokesurvior-omega',
+  storageBucket: 'pokesurvior-omega.firebasestorage.app',
+  messagingSenderId: '16212894744',
+  appId: '1:16212894744:web:b257ade083dcae29a1cf6d',
+  databaseURL: 'https://pokesurvior-omega-default-rtdb.firebaseio.com'
+};
