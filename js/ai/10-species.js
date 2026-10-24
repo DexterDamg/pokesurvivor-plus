@@ -252,7 +252,10 @@
     if (quirks.has('stubborn')) { tr.forgiveness -= 0.25; tr.grudge += 0.2; }
     if (quirks.has('hothead')) tr.aggression += 0.15;
     for (const k of TRAIT_KEYS) tr[k] = U.clamp(tr[k], 0, 1);
-    return { temp, tr, quirks, seed };
+    const pers = { temp, tr, quirks, seed };
+    // its Nature leans on all of the above (15-natures.js)
+    if (AI.Natures) AI.Natures.apply(pers, e.psxNature || AI.Natures.pick(rnd), rnd);
+    return pers;
   }
 
   function relationOf(pa, pb, persA) {
@@ -294,6 +297,7 @@
     },
     // rough battle power used for intimidation & threat assessment
     power(e) {
+      if (e.psxCompanion) return AI.playerPower(e) * 0.85; // (a Pseudo Player is as strong as a player of its level)
       const p = profile(e.dex);
       let pw = p.bst;
       if (e.boss || e.legend) pw *= 1.8;

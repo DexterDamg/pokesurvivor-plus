@@ -19,7 +19,7 @@
   function init(e) {
     const S = AI.Species;
     const parent = e.psxParent && e.psxParent.psx ? e.psxParent : null;
-    const memo = !parent && !e.psxHorde ? AI.Memory.recall(e.dex) : null;
+    const memo = !parent && !e.psxHorde && !e.psxCompanion ? AI.Memory.recall(e.dex) : null;
     const seed = memo ? memo.seed : (Math.random() * 4294967296) >>> 0;
     let forceTemp = memo ? memo.temp : null;
     if (parent) forceTemp = parent.psx.pers.temp;
@@ -55,8 +55,8 @@
     AI.Combat.init(e, s);
     switchTo(e, s, AI.Behaviors.BY.idle);
     if (s.returning) AI.Mind.say(s, rp.a > 0.3 ? 'love' : rp.g > 0.3 ? 'anger' : 'surprise', 2.2, 2);
-    if (AI.EnvBeh) try { AI.EnvBeh.onInit(e, s); } catch (err) { AI.warn('env-init', err); }
-    if (AI.Wildlife) try { AI.Wildlife.onInit(e, s); } catch (err) { AI.warn('wildlife-init', err); }
+    if (AI.EnvBeh && !e.psxCompanion) try { AI.EnvBeh.onInit(e, s); } catch (err) { AI.warn('env-init', err); }
+    if (AI.Wildlife && !e.psxCompanion) try { AI.Wildlife.onInit(e, s); } catch (err) { AI.warn('wildlife-init', err); }
     return s;
   }
 
@@ -76,13 +76,19 @@
     AI.Perception.sense(e, s);
     AI.Perception.process(e, s);
     AI.Rel.tick(s, dt);
-    if (s.territory) territoryTick(e, s, dt);
-    mercy(e, s, dt);
-    updateStance(e, s);
-    selectFightTarget(e, s);
-    if (AI.Social) AI.Social.think(e, s);
-    if (AI.Legend) AI.Legend.think(e, s);
-    if (AI.Evolution) AI.Evolution.think(e, s, dt);
+    if (s.companion) {
+      // a Pseudo Player: on the party's side, picking its own fights (83-party.js)
+      AI.Companions.think(e, s, dt);
+      if (AI.Legend) AI.Legend.think(e, s);
+    } else {
+      if (s.territory) territoryTick(e, s, dt);
+      mercy(e, s, dt);
+      updateStance(e, s);
+      selectFightTarget(e, s);
+      if (AI.Social) AI.Social.think(e, s);
+      if (AI.Legend) AI.Legend.think(e, s);
+      if (AI.Evolution) AI.Evolution.think(e, s, dt);
+    }
     choose(e, s);
     const ms = performance.now() - t0;
     AI.stats.thinkMs[s.lod] += ms;
@@ -215,6 +221,8 @@
     // a sleeping Pokémon only stirs for survival (being hurt, real danger) until something wakes it
     const sleeping = cur && cur.id === 'sleep' && s.bs.down && !(s.wokeAt >= s.bs.t0);
     for (const b of B.LIST) {
+      if (b.party && !s.companion) continue;
+      if (s.companion && !AI.Companions.okFor(s, b)) continue;
       if (sleeping && b !== cur && b.tier > 3) continue;
       if (s.lod === 2 && b.tier >= 7 && b.id !== 'wander' && b.id !== 'idle') continue; // far away: simplified life
       if (b !== cur && s.cd[b.id] > AI.time) continue;

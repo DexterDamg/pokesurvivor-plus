@@ -597,6 +597,7 @@
   // hazards that went off this frame
   function resolveHazards(triggered) {
     const R = AI.R;
+    if (AI.Companions) try { AI.Companions.hazards(triggered); } catch (e) { AI.warn('party-hazards', e); }
     for (const h of triggered) {
       const owner = h.psxOwner;
       if (h.psxZapFrom && !h.psxZapFrom.dead) {

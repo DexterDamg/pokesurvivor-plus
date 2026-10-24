@@ -29,6 +29,11 @@ function installHelpers() {
     AI.Sky.set({ hour: 12, day: 0, fog: 0, rain: 0, storm: 0, wind: 0.1, cloud: 0.1, snow: 0, wet: 0, snowCover: 0, season: 'spring', freeze: true });
     AI.Lore.reset();
     AI.Light.reset();
+    // (no Pseudo Players unless a scenario is about them)
+    AI.cfg.pseudoPlayers = false;
+    for (const c of AI.Companions.list().slice()) AI.Companions.dismiss(c, true);
+    AI.Companions.st.humansOverride = 0;
+    AI.Talk.reset();
     return true;
   };
   T.dist = (e) => { const p = R.Game.player; return Math.hypot(e.x - p.x, e.y - p.y); };
@@ -765,6 +770,182 @@ async function sample(h, ms, every, fn, arg) {
     });
     const ok = !r.pidgeyInLegendBox && r.unknown && !!r.arrival && r.mid && r.mid !== r.arrival && r.low && r.low !== r.mid;
     return { pass: ok, detail: r };
+  });
+
+  // ------------------------------------------------------------------ Pseudo Players
+  const party = (fn, arg) => h.R(async (a) => {
+    const C = PSXAI.Companions, R = __PSX_REG__, p = R.Game.player;
+    PSXAI.cfg.pseudoPlayers = true;
+    C.st.allocT = 0;
+    for (let i = 0; i < 30 && C.alive().length < (a.want != null ? a.want : 3); i++) await new Promise((res) => setTimeout(res, 100));
+    return true;
+  }, arg || {}).then(() => h.R(fn, arg));
+
+  await scenario(h, 'Pseudo Players fill the party: alone you travel with Charmander, Froakie and Sprigatito, each with its own Nature, marked as AI', async () => {
+    const r = await party(async () => {
+      const C = PSXAI.Companions, p = __PSX_REG__.Game.player;
+      await new Promise((res) => setTimeout(res, 600));
+      const L = C.list();
+      return {
+        dex: L.map((c) => c.dex).sort((a, b) => a - b), natures: L.map((c) => c.pp.nature), players: PSXAI.players.length,
+        sameLevel: L.every((c) => c.level === p.level), hp: L.map((c) => c.maxHp), playerHp: p.maxHp,
+        inDraw: L.every((c) => __PSX_REG__.EnemyMgr.drawables({ sees: () => true }).includes(c)), notWild: L.every((c) => !__PSX_REG__.EnemyMgr.all().includes(c)),
+      };
+    });
+    const ok = r.dex.join() === '4,656,906' && new Set(r.natures).size === 3 && r.players === 4 && r.sameLevel && r.hp.every((v) => v > r.playerHp * 0.7 && v <= r.playerHp) && r.inDraw && r.notWild;
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'party places: 4 − humans companions, chosen to round out the party; one says goodbye when a human joins and one returns when they leave', async () => {
+    const r = await party(async () => {
+      const C = PSXAI.Companions;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const names = () => C.alive().map((c) => c.dex).sort((a, b) => a - b).join();
+      const solo = names();
+      C.st.humansOverride = 2; C.allocate(); await wait(3200);
+      const two = names(), leaving = C.list().length;
+      C.st.humansOverride = 3; C.allocate(); await wait(3200);
+      const three = names();
+      C.st.humansOverride = 4; C.allocate(); await wait(3200);
+      const four = names();
+      C.st.humansOverride = 1; C.allocate(); await wait(600);
+      const back = names();
+      // the picks for two places keep a light when the humans have none (Pikachu has no flame)
+      const pick2 = C.choose(2);
+      C.st.humansOverride = 0;
+      return { solo, two, three, four, back, pick2 };
+    });
+    const ok = r.solo === '4,656,906' && r.two.split(',').length === 2 && r.three.split(',').length === 1 && r.four === '' && r.back === '4,656,906' && r.pick2.includes(4);
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'companions fight what threatens the party, leave peaceful Pokémon alone, and never hit you', async () => {
+    const r = await party(async () => {
+      const C = PSXAI.Companions, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.Debug.freeze(false);
+      for (const c of C.list()) c.psx.pers.nx.impulsive = 0.3; // (no Rash surprises in this one)
+      const calm = PSXAI.Debug.spawn(16, { temp: 'neutral', dx: 120, dy: 60 });
+      await wait(3000);
+      const calmTargeted = C.list().some((c) => c.psx.combat && c.psx.combat.target === calm);
+      const foe = PSXAI.Debug.spawn(19, { temp: 'aggressive', dx: -150, hp: 160 });
+      const hurts0 = T.hurts.length;
+      let fought = 0;
+      const hp0 = foe.hp;
+      for (let i = 0; i < 35 && !foe.dead; i++) { await wait(400); fought = Math.max(fought, C.list().filter((c) => c.psx.combat && c.psx.combat.target === foe).length); }
+      PSXAI.Debug.freeze(true);
+      // (whatever hurt you came from the wild one: the companions' own shots are harmless to you)
+      const companionShotsAtYou = R.Projectiles.all().filter((q) => q.psxOwner && q.psxOwner.pp && !q.psxSafe).length;
+      return { calmTargeted, calmAlive: !calm.dead, fought, foeDown: foe.dead, foeLost: Math.round((1 - Math.max(0, foe.hp) / hp0) * 100), kills: p.kills, companionShotsAtYou };
+    });
+    return { pass: !r.calmTargeted && r.calmAlive && r.fought >= 2 && (r.foeDown || r.foeLost > 60) && r.companionShotsAtYou === 0, detail: r };
+  });
+
+  await scenario(h, 'a fallen companion is helped up by its teammates (or gets up later), and remembers who helped', async () => {
+    const r = await party(async () => {
+      const C = PSXAI.Companions;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const c = C.list().find((q) => q.dex === 656);
+      const p = __PSX_REG__.Game.player;
+      c.x = p.x + 220; c.y = p.y; // (away from you: it's the others who come)
+      const t0 = C.rel(c.pp.key, 'char').trust + C.rel(c.pp.key, 'spri').trust;
+      c.hurt(9999, 'normal', false, 'phys');
+      const down = !!c.pp.downed;
+      await wait(400);
+      const going = C.list().filter((o) => o !== c && o.psx.beh.id === 'party-revive').length;
+      for (let i = 0; i < 20 && c.pp.downed; i++) await wait(400);
+      const t1 = C.rel(c.pp.key, 'char').trust + C.rel(c.pp.key, 'spri').trust;
+      return { down, going, up: !c.pp.downed, hp: Math.round(c.hp / c.maxHp * 100), trustUp: +(t1 - t0).toFixed(2) };
+    });
+    return { pass: r.down && r.going >= 1 && r.up && r.hp >= 30 && r.trustUp > 0.1, detail: r };
+  });
+
+  await scenario(h, 'they keep up without marching in a line: spread around you, never stacked, never left behind', async () => {
+    const r = await party(async () => {
+      const C = PSXAI.Companions, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      let maxD = 0, minPair = 1e9;
+      const pos = [];
+      for (let i = 0; i < 40; i++) {
+        p.x += 18; p._vx = 120; await wait(100);
+        const L = C.alive();
+        for (const c of L) maxD = Math.max(maxD, Math.hypot(c.x - p.x, c.y - p.y));
+        for (let a = 0; a < L.length; a++) for (let b = a + 1; b < L.length; b++) minPair = Math.min(minPair, Math.hypot(L[a].x - L[b].x, L[a].y - L[b].y));
+      }
+      p._vx = 0;
+      await wait(2500);
+      const L = C.alive();
+      const ang = L.map((c) => Math.atan2(c.y - p.y, c.x - p.x));
+      const spread = Math.max(...ang) - Math.min(...ang);
+      const dist = L.map((c) => Math.round(Math.hypot(c.x - p.x, c.y - p.y)));
+      return { maxD: Math.round(maxD), minPair: Math.round(minPair), spread: +spread.toFixed(2), dist, behs: L.map((c) => c.psx.beh.id) };
+    });
+    return { pass: r.maxD < 650 && r.minPair > 10 && r.spread > 0.4 && r.dist.every((d) => d < 450), detail: r };
+  });
+
+  await scenario(h, 'Natures matter: a Timid companion hesitates in the dark and shelters behind a friend; a Brave one presses on', async () => {
+    const r = await h.R(async () => {
+      const C = PSXAI.Companions, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.cfg.pseudoPlayers = true; C.st.humansOverride = 3; // one place: we fill it by hand
+      for (const c of C.list().slice()) C.dismiss(c, true);
+      await wait(300);
+      const timid = C.spawn(4, { nature: 'timid', x: p.x + 60, y: p.y });
+      const brave = C.spawn(656, { nature: 'brave', x: p.x - 60, y: p.y });
+      PSXAI.Sky.set({ hour: 0.5, day: 0 });
+      PSXAI.Light.reset();
+      timid.psx.pers.tr.bravery = 0.15; brave.psx.pers.tr.bravery = 0.85;
+      const seen = { timid: new Set(), brave: new Set() };
+      // a ghost turns up
+      PSXAI.Debug.freeze(false);
+      const g = PSXAI.Debug.spawn(92, { temp: 'aggressive', dx: 200, hp: 400 });
+      let fearT = 0, fearB = 0;
+      for (let i = 0; i < 20; i++) { await wait(300); seen.timid.add(timid.psx.beh.id); seen.brave.add(brave.psx.beh.id); fearT = Math.max(fearT, timid.psx.mind.emo.fear); fearB = Math.max(fearB, brave.psx.mind.emo.fear); }
+      PSXAI.Debug.freeze(true);
+      g.dead = true;
+      C.st.humansOverride = 0;
+      return { timid: [...seen.timid], brave: [...seen.brave], fearT: +fearT.toFixed(2), fearB: +fearB.toFixed(2), natures: [timid.pp.nature, brave.pp.nature] };
+    });
+    const cautious = r.timid.some((b) => b === 'party-hesitate' || b === 'party-shelter' || b === 'retreat');
+    const ok = r.fearT > r.fearB + 0.15 && cautious && r.brave.includes('fight') && !r.brave.includes('party-shelter');
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'Natures shape wild Pokémon too: fear comes faster to a Timid one than a Brave one, anger to a Rash one', async () => {
+    const r = await h.R(() => {
+      const D = PSXAI.Debug, M = PSXAI.Mind;
+      const t = D.spawn(19, { temp: 'neutral', nature: 'timid', dx: 200 }), b = D.spawn(19, { temp: 'neutral', nature: 'brave', dx: -200 });
+      const ra = D.spawn(19, { temp: 'neutral', nature: 'rash', dy: 200 }), ca = D.spawn(19, { temp: 'neutral', nature: 'calm', dy: -200 });
+      for (const e of [t, b]) { e.psx.mind.emo.fear = 0; e.psx.pers.tr.bravery = 0.5; }
+      for (const e of [ra, ca]) { e.psx.mind.emo.anger = 0; e.psx.pers.tr.aggression = 0.5; }
+      M.feel(t.psx, 'fear', 0.3); M.feel(b.psx, 'fear', 0.3); M.feel(ra.psx, 'anger', 0.3); M.feel(ca.psx, 'anger', 0.3);
+      const out = { timid: +t.psx.mind.emo.fear.toFixed(2), brave: +b.psx.mind.emo.fear.toFixed(2), rash: +ra.psx.mind.emo.anger.toFixed(2), calm: +ca.psx.mind.emo.anger.toFixed(2), natures: [t.psx.pers.nature, b.psx.pers.nature, ra.psx.pers.nature, ca.psx.pers.nature], all25: PSXAI.Natures.IDS.length };
+      for (const e of [t, b, ra, ca]) e.dead = true;
+      return out;
+    });
+    return { pass: r.timid > r.brave * 1.8 && r.rash > r.calm * 1.8 && r.natures.join() === 'timid,brave,rash,calm' && r.all25 === 25, detail: r };
+  });
+
+  await scenario(h, 'party talk follows what happens: who notices first speaks first, others may answer, and it never chatters', async () => {
+    const r = await party(async () => {
+      const C = PSXAI.Companions, T2 = PSXAI.Talk;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.cfg.partyTalk = true;
+      T2.reset(); C.st.lastConvo = 0; C.st.convoAt = {};
+      for (const c of C.list()) c.psx.pers.nx.talk = 0.9;
+      C.convo('crumb_fence');
+      await wait(700);
+      const first = T2.boxes.left.map((b) => b.who.name);
+      const seen = new Map();
+      for (let i = 0; i < 26; i++) { await wait(300); for (const b of T2.boxes.left) seen.set(b.who.name, b.text); }
+      const lines = [...seen].map(([n, t]) => n + ': ' + t);
+      // right after, another remark is held back
+      C.convo('sound');
+      await wait(700);
+      const held = !T2.boxes.left.some((b) => /\b(hear|Quiet|ears|came from)\b/.test(b.text));
+      return { first, lines, held };
+    });
+    return { pass: r.first[0] === 'Sprigatito' && r.lines.length >= 2 && r.held, detail: r };
   });
 
   await scenario(h, 'trees and undergrowth use the new varied art', async () => {

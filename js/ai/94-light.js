@@ -88,8 +88,10 @@
     const t = AI.time, id = ent.id || 0;
     let i = b.i, r = b.r;
     if (b.f) {
-      // a living flame: it flickers, and rain makes it shrink
-      i *= (0.86 + Math.sin(t * 13 + id) * 0.08 + Math.sin(t * 31 + id * 3) * 0.05) * (1 - (AI.Sky ? AI.Sky.rain : 0) * 0.25);
+      // a living flame: it flickers (harder when its owner is nervous), and rain makes it shrink
+      const nerves = ent.psx && ent.psx.mind ? ent.psx.mind.emo.fear : 0;
+      const fl = 1 + nerves * 2.5;
+      i *= (0.86 + Math.sin(t * 13 + id) * 0.08 * fl + Math.sin(t * 31 + id * 3) * 0.05 * fl) * (1 - (AI.Sky ? AI.Sky.rain : 0) * 0.25);
       r *= 0.96 + Math.sin(t * 7 + id) * 0.04;
     } else if (b.zap) i *= Math.random() < 0.08 ? 1.35 : 0.9 + Math.sin(t * 9 + id) * 0.06;
     else i *= 0.88 + Math.sin(t * 1.6 + id) * 0.12; // a slow living glow

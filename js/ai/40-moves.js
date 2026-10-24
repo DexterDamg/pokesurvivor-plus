@@ -21,6 +21,7 @@
     447: ['aura-sphere', 'quick-attack', 'karate-chop', 'metal-claw'], 448: ['aura-sphere', 'dynamic-punch', 'metal-claw', 'quick-attack'],
     443: ['dragon-rage', 'bite', 'bulldoze', 'dragon-claw'], 444: ['dragon-claw', 'dragon-rage', 'bulldoze', 'bite'], 445: ['dragon-claw', 'dragon-rage', 'bulldoze', 'dragon-tail'],
     63: ['confusion', 'calm-mind', 'psybeam', 'psycho-cut'], 64: ['psybeam', 'confusion', 'psycho-cut', 'calm-mind'], 65: ['psychic', 'psybeam', 'confusion', 'calm-mind'],
+    906: ['razor-leaf', 'quick-attack', 'bite', 'giga-drain'], 907: ['razor-leaf', 'bite', 'quick-attack', 'giga-drain'], 908: ['leaf-storm', 'razor-leaf', 'bite', 'giga-drain'],
     4: ['ember', 'metal-claw', 'flamethrower', 'dragon-rage'], 5: ['flamethrower', 'metal-claw', 'ember', 'dragon-rage'], 6: ['flamethrower', 'heat-wave', 'dragon-claw', 'aerial-ace'],
     7: ['water-gun', 'bubble', 'aqua-jet', 'harden'], 8: ['water-gun', 'bubble-beam', 'aqua-jet', 'bite'], 9: ['hydro-pump', 'bubble-beam', 'bite', 'harden'],
     393: ['bubble', 'water-gun', 'aqua-jet', 'ice-shard'], 52: ['bite', 'metal-claw', 'quick-attack', 'nasty-plot'], 53: ['bite', 'metal-claw', 'dark-pulse', 'nasty-plot'],
@@ -169,9 +170,11 @@
       return before - victim.hp;
     }
     if (!AI.cfg.friendlyFire && accidental) return 0;
+    if (victim.pp) return 0; // (Pseudo Players are hit through the party's own path)
     const dmg = npcVsNpc(e, m, victim) * mult;
     const d = m.def;
-    AI.hurtNpc(victim, dmg, e, R.U.TYPE_COLOR[m.type] || '#fff', kx, ky, knock || d.knock || 30, accidental);
+    if (e.psxCompanion && AI.Companions) AI.Companions.hurtFoe(victim, dmg, e, R.U.TYPE_COLOR[m.type] || '#fff', kx, ky, knock || d.knock || 30);
+    else AI.hurtNpc(victim, dmg, e, R.U.TYPE_COLOR[m.type] || '#fff', kx, ky, knock || d.knock || 30, accidental);
     if (!victim.dead) {
       if (d.slow) victim.applySlow(Math.min(0.6, d.slow), 1.4);
       if (d.burn && Math.random() < 0.4) victim.applyBurn(1);

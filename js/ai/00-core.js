@@ -44,6 +44,8 @@
     areaSpawns: true, // each area has its own Pokémon (curated rosters, habitats)
     speech: true, // Pokémon speech bubbles (rumours, warnings)
     lantern: 'manual', // the lantern you carry: 'manual' (L lights it) | 'on' (kept lit while it has oil) | 'off'
+    pseudoPlayers: true, // AI companions fill the party's empty places (four in all): Charmander, Froakie and Sprigatito in the Shady Forest
+    partyTalk: true, // they talk among themselves and to you, now and then
     talkBoxes: true, // Mystery Dungeon dialogue boxes: the party on the left, important NPCs on the right, Legendaries in their own box
     nightVisibility: 0, // accessibility: 0 = nights as dark as intended … 1 = noticeably brighter nights (light sources still matter)
     ambientVol: 0.7, // ambient sound volume (relative to the game's sound effects volume)
