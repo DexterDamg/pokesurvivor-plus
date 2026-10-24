@@ -299,10 +299,8 @@
     if (!e || e.dead) return;
     const t = AI.time;
     ctx.save();
-    ctx.strokeStyle = '#ff5f6d';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 4]);
-    ctx.lineDashOffset = -t * 20;
+    ctx.strokeStyle = 'rgba(255,120,120,' + (0.45 + Math.sin(t * 4) * 0.15).toFixed(2) + ')';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.ellipse(e.x, e.y, e.r * 1.5, e.r * 0.6, 0, 0, 6.283);
     ctx.stroke();

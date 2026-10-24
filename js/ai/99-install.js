@@ -143,6 +143,7 @@
     R.Hazards.draw = function (ctx) {
       if (AI.enabled) try { AI.Ground.drawGround(ctx); } catch (e) { AI.warn('env-ground', e); }
       if (AI.enabled) try { AI.Render.drawGround(ctx); } catch (e) { AI.warn('ground', e); }
+      if (AI.enabled && AI.cfg.softTelegraphs !== false) { try { AI.Ground.drawHazards(ctx); return; } catch (e) { AI.warn('telegraph', e); } }
       return oHDraw.apply(this, arguments);
     };
 
@@ -237,6 +238,7 @@
     R.Enemies.rollRun = function () {
       const r = oRoll.apply(this, arguments);
       if (AI.enabled) try { AI.Areas.reset(); AI.Areas.rewriteCast(); } catch (e) { AI.warn('areas', e); }
+      try { AI.Progress.onRoll(); } catch (e) { AI.warn('progress', e); }
       return r;
     };
     const oHorde = R.Enemies.hordeDefs;
@@ -277,6 +279,7 @@
         AI.EnvBeh.tick(dt);
         AI.Lore.tick(dt);
         AI.Ambience.tick(dt);
+        AI.Progress.tick(dt);
         AI.Player.frame();
         AI.Legend.tick(dt);
         AI.Social.tick(dt);

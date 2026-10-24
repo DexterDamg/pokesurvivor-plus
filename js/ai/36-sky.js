@@ -147,9 +147,34 @@
 
   // ---------------------------------------------------------------- weather simulation
   function weatherKind() { try { const w = AI.R.Weather.current; return w ? w.kind : null; } catch (e) { return null; } }
+  // how long each kind of weather settles in (seconds), and what it usually turns into next
+  const HOLD = {
+    clear: [360, 720], fair: [300, 600], cloudy: [300, 600], drizzle: [240, 480], rain: [180, 420], storm: [240, 480],
+    mist: [180, 360], fog: [300, 540], deepfog: [180, 360], breezy: [240, 480], gale: [120, 240],
+  };
+  const NEXT = {
+    clear: { fair: 3, cloudy: 1, breezy: 1, mist: 0.5 },
+    fair: { clear: 2, cloudy: 2.5, breezy: 1, mist: 0.6 },
+    cloudy: { drizzle: 2.5, fair: 2, fog: 1, breezy: 0.8, clear: 0.5 },
+    drizzle: { rain: 2, cloudy: 2, mist: 0.6 },
+    rain: { storm: 1.2, drizzle: 2.4 },
+    storm: { rain: 1 },
+    mist: { fair: 2, fog: 1.5, clear: 1 },
+    fog: { deepfog: 1, mist: 2, cloudy: 1 },
+    deepfog: { fog: 1 },
+    breezy: { gale: 0.8, fair: 2, cloudy: 1.5 },
+    gale: { breezy: 1, cloudy: 0.5 },
+  };
+  function holdFor(name) {
+    const h = HOLD[name] || [240, 480];
+    return U.rand(h[0], h[1]) * Math.max(0.1, AI.cfg.weatherDuration == null ? 1 : AI.cfg.weatherDuration);
+  }
   function pickPattern() {
     const b = AI.Env.biome();
     const w = Object.assign({}, SEASON_W[season()]);
+    // weather grows out of the weather before it: clear → cloudy → drizzle → rain → storm → …
+    const chain = NEXT[st.pattern];
+    if (chain) for (const k in w) w[k] *= (chain[k] || 0);
     if (DRY_BIOMES.has(b)) { w.drizzle = 0.1; w.rain = 0.1; w.storm = 0.05; w.mist = 0.1; w.fog = 0.1; w.deepfog = 0; w.clear += 3; }
     if (b === 8) { w.breezy += 1; w.gale += 0.6; } // glacier
     if (b === 16 || b === 20) { w.mist += 1.5; w.fog += 1.5; w.deepfog += 0.8; } // graveyard, enchanted forest
@@ -164,12 +189,42 @@
   }
   function setPattern(name, hold) {
     st.pattern = name;
-    st.patternT = hold || U.rand(45, 110);
+    st.patternT = hold || holdFor(name);
     Object.assign(st.tgt, PATTERNS[name]);
     AI.Bus.emit({ type: 'weather', x: 0, y: 0, loud: 0, pattern: name });
   }
 
   // the game's own weather events: follow them so the sky agrees with the gameplay
+  /* The sky leads, the game's weather follows: when the sky turns to rain, storm, fog, snow or a
+   * gale, the matching gameplay weather is started (and kept going) for as long as it lasts; the
+   * game's own random atmospheric events, which only ran ~60 s, are replaced by this. Terrain
+   * fields (grassy, electric, misty, psychic) and other special weathers stay as they were.
+   * In co-op only the host leads; guests follow what they receive. */
+  const ATMOS = new Set(['rain', 'storm', 'fog', 'snow', 'winds', 'hail', 'sun', 'harsh', 'sand']);
+  let driveT = 0;
+  function wanted() {
+    const c = st.cur;
+    if (c.storm > 0.55) return 'storm';
+    if (c.snow > 0.5) return 'snow';
+    if (c.rain > 0.5) return 'rain';
+    if (c.fog > 0.6) return 'fog';
+    if (c.wind + st.gust * 0.3 > 0.85) return 'winds';
+    return null;
+  }
+  function drive(dt) {
+    const R = AI.R;
+    const C = R && R.Coop;
+    if (!R || !R.Weather || (C && C.active && !C.isHost) || indoor() || (R.Rift && R.Rift.inArena)) { followVanilla(); return; }
+    driveT -= dt;
+    if (driveT > 0) return;
+    driveT = 1;
+    const W = R.Weather;
+    const cur = W.current;
+    const k = cur ? cur.kind : null;
+    const want = wanted();
+    if (want && k !== want) { try { W.force(want, 900); if (C && C.isHost) C.broadcast(['wx', want, 900]); } catch (e) { /* ignore */ } }
+    else if (!want && k && ATMOS.has(k)) { try { W.clear(); } catch (e) { /* ignore */ } }
+  }
   function followVanilla() {
     const k = weatherKind();
     const t = st.tgt;
@@ -202,11 +257,12 @@
     st.tgt.snow = winter && st.tgt.rain > 0.2 ? 1 : 0;
     if (winter) st.tgt.rain *= 0.15;
     if (st.hour >= 4.5 && st.hour < 8.5 && !DRY_BIOMES.has(AI.Env.biome())) st.tgt.fog = Math.max(st.tgt.fog, 0.22 * (1 - Math.abs(st.hour - 6.3) / 2.2)); // dawn mist
-    followVanilla();
+    drive(dt);
     if (indoor()) { st.tgt.rain = 0; st.tgt.storm = 0; st.tgt.snow = 0; st.tgt.wind = Math.min(st.tgt.wind, 0.1); st.tgt.cloud = 0; }
     if (st.forced) Object.assign(st.tgt, st.forced);
     // believable transitions: fog creeps in, rain builds up, wind picks up faster than it dies
-    const RATE = { cloud: 0.03, rain: 0.035, fog: 0.022, wind: 0.06, storm: 0.04, snow: 0.03 };
+    // gradual: fog creeps in over minutes, rain builds and fades, a storm grows, peaks and weakens
+    const RATE = { cloud: 0.012, rain: 0.012, fog: 0.007, wind: 0.03, storm: 0.01, snow: 0.012 };
     for (const k in st.cur) {
       const r = (st.forced && k in st.forced ? 3 : 1) * RATE[k] * dt;
       const d = st.tgt[k] - st.cur[k];
@@ -280,7 +336,7 @@
     st.flash = 0; st.thunders.length = 0;
     st.forced = null;
     st.frozen = false;
-    setPattern(st.hour < 8 ? 'mist' : 'fair', U.rand(40, 80));
+    setPattern(st.hour < 8 ? 'mist' : 'fair');
     Object.assign(st.cur, st.tgt);
   }
 

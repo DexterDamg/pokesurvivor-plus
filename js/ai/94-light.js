@@ -298,13 +298,14 @@
     if (Sky.indoor()) { leaves.length = 0; return; }
     const autumn = Sky.season() === 'autumn';
     const wind = Sky.windNow();
-    const rate = (autumn ? 2.2 : 0.25) + wind * 3;
+    const rate = (autumn && (AI.Art && AI.Art.theme(AI.Env.biome())) !== 'forest' ? 2.2 : 0.25) + wind * 3;
     const th = AI.Art && AI.Art.theme(AI.Env.biome());
     if (th && Math.random() < rate / 60 && leaves.length < 90) {
       const props = R.World.visibleProps(cam).filter((p) => p.type === 'tree');
       const t = props[(Math.random() * props.length) | 0];
       if (t) {
-        const cols = autumn ? ['#d9822b', '#c4452a', '#e6b13a', '#9a5a2a'] : Sky.season() === 'winter' ? ['#e8f2ff', '#cfe0f0'] : ['#4c9a3f', '#7cc45a', '#2f7535'];
+        const green = th === 'forest';
+        const cols = autumn && !green ? ['#d9822b', '#c4452a', '#e6b13a', '#9a5a2a'] : Sky.season() === 'winter' && !green ? ['#e8f2ff', '#cfe0f0'] : ['#4c9a3f', '#7cc45a', '#2f7535'];
         leaves.push({ x: t.x + U.rand(-30, 30), y: t.y - U.rand(60, 120), vx: 0, vy: 0, z: U.rand(50, 110), c: U.pick(cols), r: Math.random() * 6, t: 0, drip: false });
       }
     }

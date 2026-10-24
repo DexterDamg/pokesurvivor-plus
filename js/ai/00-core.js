@@ -44,6 +44,25 @@
     speech: true, // Pokémon speech bubbles (rumours, warnings)
     lantern: 'auto', // player lantern: 'auto' (on at night) | 'on' | 'off'
     ambientVol: 0.7, // ambient sound volume (relative to the game's sound effects volume)
+    // world generation & forest
+    naturalTerrain: true, // forests: no rectangular wall blocks, measured tree density
+    treeDensity: 1, // multiplier on forest tree density
+    treeSizes: true, // sapling → young → mature → large → ancient trees, by space and rarity
+    // progression (special encounters are earned, not timed)
+    earnedEvents: true, // bosses and rifts unlock through Pokémon defeated, not a timer
+    hordes: false, // the game's timed "Pokémon surge" hordes
+    bossKills: [35, 90, 160, 250, 360], // Pokémon defeated before each boss can appear
+    riftKills: [50, 130, 230, 350, 480], // … before each normal rift opens
+    goldenRiftKills: [200, 450], // … before each golden rift opens (rare)
+    eventCooldown: 75, // seconds between major encounters (boss, rift)
+    // weather pacing & storms
+    weatherDuration: 1, // multiplier on how long each kind of weather lasts
+    fogSpawns: 1, // how strongly fog suppresses wild Pokémon (0 = not at all)
+    lightningRate: 1, // how often lightning strikes in storms (and heavy rain)
+    flashIntensity: 1, // lightning screen flash strength (0 = no flashes, for comfort/accessibility)
+    // Pokémon size
+    softTelegraphs: true, // gentler attack warnings instead of blinking red dashed outlines
+    speciesScale: true, // size Pokémon by species (Pokédex height), with subtle individual variation
   };
   const CFG_KEY = 'psx.ai.cfg';
   AI.DEFAULTS = DEFAULTS;

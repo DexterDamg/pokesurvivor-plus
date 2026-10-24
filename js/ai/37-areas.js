@@ -184,12 +184,30 @@
     return out.length >= 3 ? out : bag;
   }
 
+  // fog keeps Pokémon in cover: light fog barely matters, moderate fog thins encounters out,
+  // dense fog makes the forest strangely quiet (some species still wander)
+  function fogFactor(base) {
+    const Sky = AI.Sky;
+    const f = Sky ? Sky.fog : 0;
+    const k = AI.cfg.fogSpawns == null ? 1 : AI.cfg.fogSpawns;
+    let m = 1;
+    if (f > 0.75) m = U.lerp(0.5, 0.18, U.clamp((f - 0.75) / 0.25, 0, 1));
+    else if (f > 0.45) m = U.lerp(0.85, 0.5, (f - 0.45) / 0.3);
+    else if (f > 0.2) m = U.lerp(1, 0.85, (f - 0.2) / 0.25);
+    return base * (1 - (1 - m) * k);
+  }
+  // how many wild Pokémon the area holds right now (a share of the configured cap)
+  function popScale() {
+    const Sky = AI.Sky;
+    if (!enabled() || !Sky || AI.cfg.atmosphere === false || Sky.indoor()) return 1;
+    return U.clamp(fogFactor(1) * 0.6 + 0.4, 0.45, 1) * (1 - Sky.darkness() * 0.25);
+  }
   // fewer Pokémon roam at night, in deep fog or in a storm
   function spawnRate() {
     const Sky = AI.Sky;
     if (!enabled() || !Sky || AI.cfg.atmosphere === false || Sky.indoor()) return 1;
     let r = 1 - Sky.darkness() * 0.55;
-    if (Sky.fog > 0.5) r *= U.lerp(1, 0.22, (Sky.fog - 0.5) / 0.5);
+    r *= fogFactor(1);
     r *= 1 - Sky.storm * 0.4 - Math.max(0, Sky.rain - 0.5) * 0.4;
     if (Sky.windNow() > 0.85) r *= 0.7;
     return U.clamp(r, 0.12, 1);
@@ -290,6 +308,6 @@
   function reset() { disturb.clear(); rewritten = null; }
 
   AI.define('Areas', {
-    ROSTERS, ACTIVE, HABITAT, roster, active, habitat, activity, rewriteCast, weightBag, spawnRate, anchors, place, disturbed, bump, tick, reset, defFor, classify,
+    ROSTERS, ACTIVE, HABITAT, fogFactor, popScale, roster, active, habitat, activity, rewriteCast, weightBag, spawnRate, anchors, place, disturbed, bump, tick, reset, defFor, classify,
   });
 })();

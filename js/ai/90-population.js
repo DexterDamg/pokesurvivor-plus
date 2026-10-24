@@ -42,6 +42,8 @@
     if (exempt(e)) return true;
     // the global cap applies to every source of wild Pokémon (spawner, event bursts, summoned allies…)
     if (aliveWild() >= AI.cfg.maxNpcs) { AI.stats.spawnVetoed++; return false; }
+    // fog and night keep the population down (only for ambient spawns)
+    if (inSpawner && AI.Areas && aliveWild() >= AI.cfg.maxNpcs * AI.Areas.popScale()) { AI.stats.spawnVetoed++; return false; }
     if (!inSpawner || AI.summoning) return true;
     if (AI.R.EnemyMgr.queryCircle(e.x, e.y, AI.cfg.localRadius).length >= AI.cfg.localCap) { AI.stats.spawnVetoed++; return false; }
     if (!bursting) {
