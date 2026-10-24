@@ -218,6 +218,7 @@
   }
   function drive(dt) {
     const R = AI.R;
+    if (AI.cfg.gameWeather !== true) return; // the game's weather events are off: the sky is atmosphere only
     const C = R && R.Coop;
     if (!R || !R.Weather || (C && C.active && !C.isHost) || indoor() || (R.Rift && R.Rift.inArena)) { followVanilla(); return; }
     driveT -= dt;

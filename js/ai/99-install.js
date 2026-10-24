@@ -152,6 +152,18 @@
     R.World.drawProp = AI.Ground.wrapDrawProp(R.World.drawProp);
     R.World.visibleProps = AI.Ground.wrapVisibleProps(R.World.visibleProps);
     R.Weather.draw = AI.Light.wrapWeatherDraw(R.Weather.draw);
+    // the game's own weather & terrain events (type boosts, banners, the HUD pill) are switched off;
+    // the living sky above is purely atmospheric
+    const noGameWeather = () => AI.enabled && AI.cfg.gameWeather !== true;
+    const oWU = R.Weather.update;
+    R.Weather.update = function () {
+      if (noGameWeather()) { if (R.Weather.current) try { R.Weather.clear(); } catch (e) { /* ignore */ } return; }
+      return oWU.apply(this, arguments);
+    };
+    for (const k of ['force', 'onEvent', 'debugStart']) {
+      const o = R.Weather[k];
+      if (typeof o === 'function') R.Weather[k] = function () { if (noGameWeather()) return; return o.apply(this, arguments); };
+    }
     AI.Light.patchVignette(R.Weather);
 
     // ------------------------------------------------------------ the haunted mansion
@@ -163,14 +175,14 @@
     W.collide = function (ent) {
       if (ent && insideAt(ent.x, ent.y)) return AI.Mansion.collide(ent);
       const r = oCollide.apply(this, arguments);
-      if (AI.enabled && ent) try { AI.Mansion.collideExterior(ent); } catch (e) { AI.warn('mansion-collide', e); }
+      if (AI.enabled && ent) try { AI.Mansion.collideExterior(ent); AI.Decor.collide(ent); } catch (e) { AI.warn('mansion-collide', e); }
       return r;
     };
     const oFree = W.isFree;
     W.isFree = function (x, y, r) {
       if (insideAt(x, y)) return AI.Mansion.freeAt(x, y, r);
       const f = oFree.apply(this, arguments);
-      return f && !(AI.enabled && AI.Mansion.blockedExterior(x, y, r || 12));
+      return f && !(AI.enabled && (AI.Mansion.blockedExterior(x, y, r || 12) || AI.Decor.blocked(x, y, r || 12)));
     };
     const inHouse = {
       kindAt: (x, y) => (AI.Mansion.freeAt(x, y, 2) ? 'floor' : 'wall'), isWall: (x, y) => !AI.Mansion.freeAt(x, y, 2), isLiquid: () => false,

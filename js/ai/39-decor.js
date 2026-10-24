@@ -278,6 +278,66 @@
     }
     return best;
   }
+  // ---------------------------------------------------------------- weight: things you can't walk through
+  /* Fallen logs, stumps, gravestones, statues, gargoyles, gate pillars, lamp and sign posts and the
+   * sealed cave are solid. Bushes, ferns, grass and flowers aren't: they part as you brush through. */
+  function solidOf(it) {
+    if (it._solid !== undefined) return it._solid;
+    let sh = null;
+    const s = it.s || 1;
+    switch (it.k) {
+      case 'log': {
+        const w = AI.Art && AI.Art.ready ? AI.Art.size(it.n)[0] * s : 60 * s;
+        sh = { rect: [it.x - w * 0.42, it.y - 12 * Math.min(1.4, s), it.x + w * 0.42, it.y + 2] };
+        break;
+      }
+      case 'stump': sh = { r: 11 * s }; break;
+      case 'grave': case 'gargoyle': case 'gpillar': sh = it.r ? { r: Math.max(7, it.r) } : null; break;
+      case 'cave': sh = { r: 30 }; break;
+      case 'lamp': case 'sign': sh = { r: 6 }; break;
+      default: sh = null;
+    }
+    if (sh && sh.r) sh.c = [it.x, it.y - 2];
+    if (AI.Art && AI.Art.ready) it._solid = sh; // sizes are only known once the art has loaded
+    return sh;
+  }
+  const solidBuf = [];
+  function solidsIn(x0, y0, x1, y1) {
+    solidBuf.length = 0;
+    for (const it of inRect(x0 - 60, y0 - 30, x1 + 60, y1 + 30, [])) { const sh = solidOf(it); if (sh) solidBuf.push(sh); }
+    return solidBuf;
+  }
+  function collide(ent) {
+    if (!AI.cfg.newArt || !ent) return false;
+    const r = ent.r || 12;
+    let hit = false;
+    for (const sh of solidsIn(ent.x - r, ent.y - r, ent.x + r, ent.y + r)) {
+      if (sh.rect) {
+        const b = sh.rect;
+        const cx = U.clamp(ent.x, b[0], b[2]), cy = U.clamp(ent.y, b[1], b[3]);
+        const dx = ent.x - cx, dy = ent.y - cy, d2 = dx * dx + dy * dy;
+        if (d2 >= r * r) continue;
+        hit = true;
+        if (d2 > 1e-4) { const d = Math.sqrt(d2); ent.x = cx + dx / d * r; ent.y = cy + dy / d * r; }
+        else { const up = ent.y - b[1], dn = b[3] - ent.y; if (up < dn) ent.y = b[1] - r; else ent.y = b[3] + r; }
+      } else {
+        const dx = ent.x - sh.c[0], dy = ent.y - sh.c[1], d = Math.hypot(dx, dy), m = r + sh.r;
+        if (d >= m) continue;
+        hit = true;
+        if (d > 1e-4) { ent.x = sh.c[0] + dx / d * m; ent.y = sh.c[1] + dy / d * m; } else ent.y = sh.c[1] + m;
+      }
+    }
+    return hit;
+  }
+  function blocked(x, y, r) {
+    if (!AI.cfg.newArt) return false;
+    for (const sh of solidsIn(x - r, y - r, x + r, y + r)) {
+      if (sh.rect) { const b = sh.rect; if (x + r > b[0] && x - r < b[2] && y + r > b[1] && y - r < b[3]) return true; }
+      else if (Math.hypot(x - sh.c[0], y - sh.c[1]) < r + sh.r) return true;
+    }
+    return false;
+  }
+
   function lights(x0, y0, x1, y1) { return inRect(x0, y0, x1, y1, []).filter((it) => it.light); }
 
   // ---------------------------------------------------------------- environmental memory
@@ -408,6 +468,6 @@
   AI.define('Decor', {
     reset, ensure, tick, chunk, inRect, near, lights, trailZone, footprint, mudAt, trample, puddleAmt, puddlesIn, puddleAt,
     ripple, ripples, prints, rustle, shakeOf, shakeProp, nibble, isNibbled, addDyn, removeDyn, flame, checkPatch,
-    mansionGeom, get trail() { return trail; }, get cave() { return cave; }, get seed() { return seed; },
+    mansionGeom, solidOf, solidsIn, collide, blocked, get trail() { return trail; }, get cave() { return cave; }, get seed() { return seed; },
   });
 })();

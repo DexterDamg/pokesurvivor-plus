@@ -527,14 +527,16 @@
     const R = AI.R;
     const it = I();
     if (!it || st.inside || st.transit) return false;
-    if (R.Coop && R.Coop.active) { lockedMsg(); return false; }
     sfx('creak', 0, 0);
     st.transit = true;
     fadeTo(1, () => {
       st.transit = false;
       const p = R.Game.player;
       st.returnTo = [it.g.D[0], it.g.D[1] + 46];
-      try { R.EnemyMgr.stash(); } catch (e) { AI.warn('mansion-stash', e); }
+      // solo: the Pokémon outside wait for you (the game's own stash, as rifts use); in co-op they
+      // stay with whoever is still outside, and simply can't follow you in
+      st.stashed = !(R.Coop && R.Coop.active);
+      if (st.stashed) try { R.EnemyMgr.stash(); } catch (e) { AI.warn('mansion-stash', e); st.stashed = false; }
       try { R.Projectiles.clear(); R.Hazards.clear(); R.Combat.clearFields && R.Combat.clearFields(); } catch (e) { /* ignore */ }
       st.inside = true;
       p.x = it.entrance[0]; p.y = it.entrance[1] - 20;
@@ -554,7 +556,8 @@
       st.transit = false;
       const p = R.Game.player;
       st.inside = false;
-      try { R.EnemyMgr.restore(); } catch (e) { AI.warn('mansion-restore', e); }
+      if (st.stashed) try { R.EnemyMgr.restore(); } catch (e) { AI.warn('mansion-restore', e); }
+      st.stashed = false;
       const g = geom();
       const back = st.returnTo || (g ? [g.D[0], g.D[1] + 46] : [0, 0]);
       p.x = back[0]; p.y = back[1];
@@ -566,10 +569,6 @@
     }, 2.2);
     return true;
   }
-  const MSG = {
-    locked: { es: 'La puerta no cede.', en: 'The door won\'t budge.', fr: 'La porte ne bouge pas.', zh: '門紋絲不動。' },
-  };
-  function lockedMsg() { if (AI.time - st.lockMsgT < 3) return; st.lockMsgT = AI.time; try { AI.R.Spawner.say(MSG.locked[AI.lang ? AI.lang() : 'en'] || MSG.locked.en, 2.4); } catch (e) { /* ignore */ } }
 
   function tick(dt) {
     // fades
@@ -595,8 +594,8 @@
     if (!it) return;
     // the weather outside doesn't reach in here
     try { if (R.Weather.current && R.Weather.clear) R.Weather.clear(); } catch (e) { /* ignore */ }
-    // a wild Pokémon that somehow got in is gently shown out
-    for (const e of R.EnemyMgr.all()) if (!e.dead && inInterior(e.x, e.y) && !e.psxStory) { try { if (AI.EnvBeh) AI.EnvBeh.removeNpc(e); else e.dead = true; } catch (err) { e.dead = true; } }
+    // a wild Pokémon that somehow got in is gently shown out (the host decides, in co-op)
+    if (!(R.Coop && R.Coop.active && !R.Coop.isHost)) for (const e of R.EnemyMgr.all()) if (!e.dead && inInterior(e.x, e.y) && !e.psxStory) { try { if (AI.EnvBeh) AI.EnvBeh.removeNpc(e); else e.dead = true; } catch (err) { e.dead = true; } }
     // the way out
     if (tileAt(p.x, p.y + 14) === 'E' || p.y > it.oy + 33.9 * TS) {
       const ay = (R.Input && R.Input._rawAxis) ? (R.Input._rawAxis() || [0, 0])[1] : 1;
@@ -619,7 +618,7 @@
   }
 
   function reset() {
-    if (st.inside) { st.inside = false; try { AI.R.EnemyMgr.restore(); } catch (e) { /* ignore */ } }
+    if (st.inside) { st.inside = false; if (st.stashed) try { AI.R.EnemyMgr.restore(); } catch (e) { /* ignore */ } st.stashed = false; }
     st.built = null; st.cache = null; st.fade = 0; st.fadeTo = 0; st.fadeCb = null; st.transit = false; st.dim = 1; clearCache = null;
   }
 
