@@ -23,18 +23,20 @@
   function sky() { return AI.cfg.atmosphere !== false && AI.Sky && !AI.Sky.indoor() ? AI.Sky : null; }
   function lovesRain(s) { return s.p.types.includes('water') || s.p.lovesWater || s.p.types.includes('grass') && s.pers.tr.playfulness > 0.6; }
   function small(s) { return s.p.size === 0 || s.p.bst < 330; }
+  function flyer(s) { return s.p.flying || s.p.types.includes('flying'); }
   function removeNpc(e) {
     e.psxSkip = true; e.dead = true; e.fade = 0;
     const all = AI.R.EnemyMgr.all();
     const i = all.indexOf(e);
     if (i >= 0) all.splice(i, 1);
   }
-  function shelterFor(e, s) {
-    const kinds = s.p.flying ? ['tree'] : s.p.types.includes('bug') ? ['bush', 'tree'] : ['tree', 'log', 'bush', 'burrow'];
-    const list = AI.Areas.anchors(e.x, e.y, 300, kinds);
+  function shelterFor(e, s, maxR) {
+    const hab = AI.Areas.habitat(e.dex);
+    const kinds = flyer(s) || hab[0] === 'tree' ? ['tree', 'bush'] : s.p.types.includes('bug') ? ['bush', 'tree'] : ['tree', 'log', 'bush', 'burrow'];
+    const list = AI.Areas.anchors(e.x, e.y, maxR || 300, kinds);
     let best = null, bd = Infinity;
     for (const a of list) {
-      const d = U.dist2(e.x, e.y, a.x, a.y) * (a.kind === kinds[0] ? 1 : 1.6);
+      const d = U.dist2(e.x, e.y, a.x, a.y) * (a.kind === kinds[0] ? 1 : 4);
       if (d < bd) { bd = d; best = a; }
     }
     return best;
@@ -97,7 +99,12 @@
       if (S.snow > 0.5 && !s.p.types.includes('ice')) need = Math.max(need, S.snow * 0.5);
       return need > 0.15 ? 0.25 + need : 0;
     },
-    start(e, s) { s.bs.a = shelterFor(e, s); s.bs.spot = spotAt(s.bs.a); s.bs.there = false; s.bs.t = 0; },
+    start(e, s) {
+      const S = sky();
+      const fogOnly = S && S.fog > 0.82 && S.rain < 0.45 && S.storm < 0.4 && S.windNow() < 0.8;
+      s.bs.a = shelterFor(e, s, fogOnly ? 140 : 300);
+      s.bs.spot = spotAt(s.bs.a); s.bs.there = false; s.bs.t = 0;
+    },
     update(e, s, dt, it) {
       const S = sky();
       s.bs.t += dt;
@@ -375,7 +382,7 @@
         if (p) {
           const d = Math.hypot(p.x - e.x, p.y - e.y);
           let wake = 0;
-          if (d < 110 && pv > 150) wake += 0.35 * (1 - d / 110) * (1 - s.pers.tr.laziness * 0.6);
+          if (d < 110 && pv > 80) wake += (d < 70 ? 0.7 : 0.3) * (1 - s.pers.tr.laziness * 0.5);
           if (lantern && d < 140) wake += 0.12 * (1 - d / 140);
           if (Math.random() < wake * step * 2) {
             s.wokeAt = AI.time;
@@ -401,7 +408,7 @@
     const cam = R.Camera;
     for (const e of R.EnemyMgr.all()) {
       const s = e.psx;
-      if (!s || e.dead || !s.p.flying || !small(s) || !cam.sees(e.x, e.y, 80)) continue;
+      if (!s || e.dead || !flyer(s) || !small(s) || !cam.sees(e.x, e.y, 80)) continue;
       if (Math.random() < 0.45 * (ev.power - 0.6)) blowAway(e, s, ev.power);
     }
   });

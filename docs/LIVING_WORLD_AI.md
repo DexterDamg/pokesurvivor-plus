@@ -22,6 +22,7 @@ original bundle is untouched apart from one line that exposes its module registr
 | **Click / tap a Pokémon** | Marks it as your target (red dashed reticle). Auto-attacks will lock onto it even if it's peaceful. Click it again to clear. |
 | **F7**, or **🧠 Wild life** in the pause menu | Opens the Living World settings panel. |
 | **F8** | Debug overlay: behavior, stance, emotions, LOD and combat role above each Pokémon, plus a perf HUD. |
+| **L** | Lantern on/off (see [Living Environment](LIVING_ENVIRONMENT.md)). |
 
 By default auto-attacks only lock onto Pokémon that are **hostile**, already fighting you, or your
 marked target. Peaceful Pokémon are never invulnerable: area moves, orbit moves and manual aim
@@ -244,7 +245,7 @@ PSXAI.Debug.clear(true)                             // remove everything (bosses
 
 ## Tests
 
-`tests/ai-scenarios.js` boots the real game in headless Chromium (Playwright) and checks 31
+`tests/ai-scenarios.js` boots the real game in headless Chromium (Playwright) and checks 48
 end-to-end scenarios: peaceful wandering, timid fleeing, emotional reactions, NPC↔NPC
 interactions, friendly-fire retargeting, protective intervention, Giratina + Lake Trio
 reactions, injured retreat, reactions to a kill, the move toggle (keys and HUD clicks),
@@ -253,7 +254,10 @@ cost, vanilla combat and progression, ranged/melee/hybrid spacing, use of all fo
 dodging with failures, no dog-piling, imperfect predictive aim, danger-zone escapes, no combat
 math for peaceful Pokémon, mercy, combat performance, species-shaped temperaments and movesets,
 Magikarp→Gyarados rage evolution, mid-battle Machop evolution, environmental Leafeon
-evolution, population limits, and Groudon's war on puddles.
+evolution, population limits, and Groudon's war on puddles. 17 more cover the
+[Living Environment](LIVING_ENVIRONMENT.md): area rosters, day/night spawning, sleeping and waking,
+rain, fog, gales, thunder, lighting, the new art, rumours, the old trail, emergence, habitat
+disturbance and frame rate.
 
 Requirements: Node 18+ and Playwright with Chromium, installed in the repo folder (`npm i --no-save playwright && npx playwright install chromium`).
 

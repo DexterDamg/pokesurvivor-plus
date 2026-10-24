@@ -474,6 +474,8 @@
     score(e, s, c) {
       const n = s.mind.needs;
       if (s.inCombat || c.threatV > 0.15 || s.mind.emo.fear > 0.25 || s.stance === 'hostile') return 0;
+      // once asleep, stay asleep until rested (or woken)
+      if (s.beh === this && s.bs.down) return n.energy < 0.95 ? 0.7 : 0;
       const sleepy = s.pers.quirks.has('sleepy');
       const th = sleepy ? 0.5 : 0.28 + s.pers.tr.laziness * 0.1;
       if (n.energy > th) return 0;

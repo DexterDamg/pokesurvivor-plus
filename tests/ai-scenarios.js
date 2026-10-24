@@ -499,13 +499,19 @@ async function sample(h, ms, every, fn, arg) {
     await h.R(() => { PSXAI.Sky.set({ hour: 1 }); window.A = PSXAI.Debug.spawn(19, { temp: 'neutral', dx: 260, energy: 0.05, trait: { laziness: 0.1 } }); });
     await h.wait(5000);
     const asleep = await h.R(() => A.psx.beh.id === 'sleep' && A.psx.bs.down);
-    let woke = false;
-    for (let i = 0; i < 6 && !woke; i++) {
-      await h.page.keyboard.down(i % 2 ? 'KeyA' : 'KeyD'); await h.wait(1500); await h.page.keyboard.up(i % 2 ? 'KeyA' : 'KeyD');
+    let woke = false, vmax = 0;
+    for (let i = 0; i < 4 && !woke; i++) {
+      // line up with the sleeper, then dash right past it
+      const dir = i % 2 ? -1 : 1;
+      await h.R((dir) => { const p = __PSX_REG__.Game.player; p.x = A.x - dir * 160; p.y = A.y + 6; p._psxLastPrint = null; }, dir);
+      const key = dir > 0 ? 'KeyD' : 'KeyA';
+      await h.page.keyboard.down(key);
+      for (let k = 0; k < 6; k++) { await h.wait(250); vmax = Math.max(vmax, await h.R(() => Math.hypot(__PSX_REG__.Game.player._vx || 0, __PSX_REG__.Game.player._vy || 0))); }
+      await h.page.keyboard.up(key);
       woke = await h.R(() => !!A.psx.wokeAt);
     }
     const r = await h.R(() => ({ beh: A.psx.beh.id, icon: (PSXAI.Mind.bubbleFor(A.psx) || {}).icon }));
-    return { pass: asleep && woke, detail: { wasAsleep: asleep, woke, after: r } };
+    return { pass: asleep && woke, detail: { wasAsleep: asleep, woke, playerSpeed: Math.round(vmax), after: r } };
   });
 
   await scenario(h, 'rain soaks the ground: puddles, footprints, and mud where you keep walking', async () => {
@@ -541,8 +547,9 @@ async function sample(h, ms, every, fn, arg) {
     await h.R(() => { window.P0 = G.map((e) => [e.x, e.y]); });
     await h.wait(5000);
     const r = await h.R(() => ({ moved: G.map((e, i) => Math.round(Math.hypot(e.x - P0[i][0], e.y - P0[i][1]))), behs: G.map((e) => e.psx.beh.id), rate: +PSXAI.Areas.spawnRate().toFixed(2), sight: +PSXAI.Sky.visibility(false).toFixed(2) }));
-    const still = r.moved.filter((m) => m < 60).length;
-    return { pass: still >= 3 && r.rate < 0.35 && r.sight < 0.3, detail: r };
+    // nobody roams: they huddle where they are or slip into the nearest shelter
+    const settled = r.behs.every((b) => b === 'huddle' || b === 'shelter');
+    return { pass: settled && Math.max(...r.moved) < 160 && r.rate < 0.35 && r.sight < 0.3, detail: r };
   });
 
   await scenario(h, 'a gale sends a small bird tumbling away, crying', async () => {

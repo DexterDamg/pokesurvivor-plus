@@ -95,9 +95,13 @@
 
   // decor that stands up gets sorted with Pokémon, like the game's own props
   const decorProps = [];
+  const vpCache = { frame: -1, x: NaN, y: NaN, list: null, on: false };
   function wrapVisibleProps(orig) {
     return function (cam) {
+      // several passes ask for the on-screen props every frame: build the list once
+      if (cam === AI.R.Camera && vpCache.frame === AI.frame && vpCache.x === cam.x && vpCache.y === cam.y && vpCache.on === artOn()) return vpCache.list;
       const list = orig.apply(this, arguments);
+      if (cam === AI.R.Camera) { vpCache.frame = AI.frame; vpCache.x = cam.x; vpCache.y = cam.y; vpCache.list = list; vpCache.on = artOn(); }
       if (!artOn() || cam !== AI.R.Camera || !AI.Decor) return list;
       AI.Decor.ensure();
       decorProps.length = 0;

@@ -234,7 +234,7 @@
       });
       const a = list.length ? list[(Math.random() * list.length) | 0] : null;
       if (a) {
-        let kind = a.kind === 'tree' ? (prof.flying ? 'branch' : 'trunk') : a.kind === 'grass' ? (e.dex === 43 || e.dex === 69 ? 'ground' : 'edge') : a.kind === 'mush' ? 'ground' : a.kind;
+        let kind = a.kind === 'tree' ? (prof.flying || prof.types.includes('flying') ? 'branch' : 'trunk') : a.kind === 'grass' ? (e.dex === 43 || e.dex === 69 ? 'ground' : 'edge') : a.kind === 'mush' ? 'ground' : a.kind;
         if (kind !== 'edge') {
           let x = a.x, y = a.y;
           if (kind === 'trunk') { x += (Math.random() < 0.5 ? -1 : 1) * 24; y += 4; }
