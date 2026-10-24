@@ -23,7 +23,7 @@
  * };
  */
 window.PS_FIREBASE = {
-  apiKey: 'AIzaSyAsF3t8KQ4wOBUD09KFP550aDUvAOc3d4',
+  apiKey: "AIzaSyAsF3t8KQ4wOBUD09KFP550aDUuYAOc3d4",
   authDomain: 'pokesurvior-omega.firebaseapp.com',
   projectId: 'pokesurvior-omega',
   storageBucket: 'pokesurvior-omega.firebasestorage.app',
