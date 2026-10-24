@@ -183,7 +183,7 @@
       return hurt ? 0.4 + hurt * 0.2 : -1;
     }
     if (m.cls === 'role-shield') return s.ctx.near.length ? 0.45 : 0.2;
-    if (m.cls === 'role-summon') return (e.minions || []).filter((x) => !x.dead).length < 3 ? 0.55 : -1;
+    if (m.cls === 'role-summon') return (e.minions || []).filter((x) => !x.dead).length < 3 && !AI.Population.full() ? 0.55 : -1;
     if (m.cls === 'role-fuse') return dist < 50 && (tr.aggression > 0.5 || hpf < 0.3) ? 1.4 : -1;
     if (m.cls === 'splash') return 0.3 + Math.random() * 0.4;
     if (dist > m.range + (t.r || 12)) return -1;

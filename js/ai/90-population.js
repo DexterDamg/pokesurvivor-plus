@@ -39,10 +39,10 @@
 
   // return false to veto a spawn
   function allowAdd(e) {
-    if (exempt(e) || AI.summoning) return true;
-    // the global cap applies to every source of wild Pokémon (spawner, event bursts…)
+    if (exempt(e)) return true;
+    // the global cap applies to every source of wild Pokémon (spawner, event bursts, summoned allies…)
     if (aliveWild() >= AI.cfg.maxNpcs) { AI.stats.spawnVetoed++; return false; }
-    if (!inSpawner) return true;
+    if (!inSpawner || AI.summoning) return true;
     if (AI.R.EnemyMgr.queryCircle(e.x, e.y, AI.cfg.localRadius).length >= AI.cfg.localCap) { AI.stats.spawnVetoed++; return false; }
     if (!bursting) {
       if (tokens < 1) { AI.stats.spawnVetoed++; return false; }
@@ -96,7 +96,8 @@
   }
 
   function noteNpcKill(e) { npcKills.add(e); }
+  function full() { return aliveWild() >= AI.cfg.maxNpcs; }
   function clear() { managed.clear(); npcKills.clear(); tokens = AI.cfg.spawnBurst; }
 
-  AI.define('Population', { beginSpawner, endSpawner, allowAdd, weightBag, afterUpdate, noteNpcKill, clear, aliveWild, managed, inSpawner: () => inSpawner });
+  AI.define('Population', { beginSpawner, endSpawner, allowAdd, weightBag, afterUpdate, noteNpcKill, clear, aliveWild, full, managed, inSpawner: () => inSpawner });
 })();

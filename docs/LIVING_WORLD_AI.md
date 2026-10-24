@@ -178,7 +178,8 @@ evolve in the moment:
 
 - Global cap on wild Pokémon (`maxNpcs`), local density cap (`localCap` within `localRadius`),
   and a spawn token bucket (`spawnInterval`, `spawnBurst`) so surges can still burst. Bosses,
-  legends, elites, shinies and thieves never count against the caps.
+  legends, elites, shinies and thieves never count against the caps. Allies called in by a
+  summoner skip the local limits but still respect the global cap.
 - Habitat-weighted spawning per biome. Fish and water lovers appear at the water's edge, just
   off-screen. Hordes become packs, migrations or mixed groups.
 - **Level of detail.** Full-rate thinking near you (`nearLod`), slower in the middle, and
@@ -243,10 +244,11 @@ PSXAI.Debug.clear(true)                             // remove everything (bosses
 
 ## Tests
 
-`tests/ai-scenarios.js` boots the real game in headless Chromium (Playwright) and checks 30
+`tests/ai-scenarios.js` boots the real game in headless Chromium (Playwright) and checks 31
 end-to-end scenarios: peaceful wandering, timid fleeing, emotional reactions, NPC↔NPC
 interactions, friendly-fire retargeting, protective intervention, Giratina + Lake Trio
-reactions, injured retreat, reactions to a kill, the move toggle, bubbles matching behavior, LOD
+reactions, injured retreat, reactions to a kill, the move toggle (keys and HUD clicks),
+click-to-mark targeting, bubbles matching behavior, LOD
 cost, vanilla combat and progression, ranged/melee/hybrid spacing, use of all four moves,
 dodging with failures, no dog-piling, imperfect predictive aim, danger-zone escapes, no combat
 math for peaceful Pokémon, mercy, combat performance, species-shaped temperaments and movesets,

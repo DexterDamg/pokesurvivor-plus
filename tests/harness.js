@@ -7,7 +7,7 @@ const BASE = process.env.PSX_URL || 'http://127.0.0.1:8123/index.html';
 
 async function boot(opts = {}) {
   const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
-  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: opts.dpr || 1 });
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e && e.stack || e)));
   page.on('console', (m) => {
