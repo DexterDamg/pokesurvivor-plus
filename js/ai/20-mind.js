@@ -118,6 +118,8 @@
     if (!emo) emo = dominant(s, 0.55);
     if (!emo) return null;
     const v = emo === 'sleepy' ? 0.8 : emo === 'hunger' ? 0.7 : s.mind.emo[emo] || 0.5;
+    // "zzz" only once it's actually lying down asleep; on the way there it just looks drowsy
+    if (emo === 'sleepy' && !(s.beh && s.beh.id === 'sleep' && s.bs.down)) return { icon: 'dots', prio: v * 0.6, fresh: false, emo };
     return { icon: ICON[emo] || emo, prio: v, fresh: false, emo };
   }
 

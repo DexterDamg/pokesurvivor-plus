@@ -266,6 +266,7 @@
       for (const it of D.inRect(x0, y0, x1, y1, flat)) {
         if (!it.flat) continue;
         if (it.k === 'path') drawPath(ctx, it);
+        else if (it.k === 'scorch') drawScorch(ctx, it);
         else if (it.k === 'burrow') drawBurrow(ctx, it);
         else AI.Art.draw(ctx, it.n, it.x, it.y, { flip: it.f, scale: it.s, sway: swayAt(it.x, 0.12) + parting(it.x, it.y) });
       }
@@ -339,6 +340,15 @@
       ctx.fillRect(Math.round(x - 6 + h * 6), Math.round(y - 5), 6, 4);
     }
     if (it.over > 0.4) AI.Art.draw(ctx, 'tuft_' + (U.hash(it.id, 1, 1) < 0.5 ? 1 : 5), it.x + 8, it.y + 4, { sway: swayAt(it.x, 0.1) });
+  }
+  function drawScorch(ctx, it) {
+    const a = U.clamp(1 - (AI.time - it.t) / 60, 0, 1);
+    if (a <= 0) { AI.Decor.removeDyn(it); return; }
+    ctx.fillStyle = 'rgba(28,20,14,' + (0.55 * a).toFixed(3) + ')';
+    ctx.beginPath(); ctx.ellipse(it.x, it.y, 22, 11, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = 'rgba(60,40,24,' + (0.4 * a).toFixed(3) + ')';
+    for (let i = 0; i < 6; i++) { const an = i * 1.05 + it.id; ctx.fillRect(Math.round(it.x + Math.cos(an) * 24), Math.round(it.y + Math.sin(an) * 12), 3, 2); }
+    if (AI.time - it.t < 6 && Math.random() < 0.2) AI.R.FX.px(it.x + U.rand(-8, 8), it.y - 4, '#9a9a9a', { vy: -25, life: 0.9 });
   }
   function drawBurrow(ctx, it) {
     ctx.fillStyle = '#7d5c3a';
@@ -415,7 +425,7 @@
       sg.ellipse(e.x + lx, e.y + ly, (e.r || 14) * 0.85 + Math.abs(lx) * 0.6, (e.r || 14) * 0.38 + Math.abs(ly) * 0.5, Math.atan2(ly, lx || 0.001), 0, 6.283);
       sg.fill();
     };
-    for (const e of R.EnemyMgr.drawables(cam)) if (!e.dead && !(e.psx && e.psx.vis && e.psx.vis.alpha < 0.3)) ent(e, e.bodyH || 30);
+    for (const e of R.EnemyMgr.drawables(cam)) if (!e.dead && !(e.psx && e.psx.vis && e.psx.vis.alpha < 0.3)) ent(e, AI.Scale.top(e));
     const pl = R.Game.player;
     if (pl && !pl.dead) ent(pl, pl.bodyH || 40);
     ctx.save();

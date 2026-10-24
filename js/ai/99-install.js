@@ -98,7 +98,8 @@
       return r;
     };
 
-    P.draw = AI.Render.wrapDraw(P.draw);
+    P.draw = AI.Render.wrapDraw(AI.Scale.wrapEnemyDraw(P.draw));
+    if (R.Player.prototype.draw) R.Player.prototype.draw = AI.Scale.wrapPlayerDraw(R.Player.prototype.draw);
 
     for (const k of ['applyBurn', 'applyPoison']) {
       const o = P[k];
@@ -205,6 +206,7 @@
     R.EnemyMgr.add = function (e) {
       if (AI.enabled && !AI.Population.allowAdd(e)) return e;
       const r = oAdd.apply(this, arguments);
+      if (AI.enabled) try { AI.Scale.apply(e); } catch (err) { AI.warn('scale', err); }
       if (AI.enabled && (e.boss || e.legend)) AI.Bus.emit({ type: 'legend', x: e.x, y: e.y, loud: 760, dex: e.dex, kind: 'boss', power: 1.1 });
       return r;
     };

@@ -211,7 +211,10 @@
     const B = AI.Behaviors;
     const cur = s.beh;
     let best = null, bv = -1;
+    // a sleeping Pokémon only stirs for survival (being hurt, real danger) until something wakes it
+    const sleeping = cur && cur.id === 'sleep' && s.bs.down && !(s.wokeAt >= s.bs.t0);
     for (const b of B.LIST) {
+      if (sleeping && b !== cur && b.tier > 3) continue;
       if (s.lod === 2 && b.tier >= 7 && b.id !== 'wander' && b.id !== 'idle') continue; // far away: simplified life
       if (b !== cur && s.cd[b.id] > AI.time) continue;
       let sc;
@@ -265,6 +268,8 @@
     // relocated by the spawner (recycled ahead of the player): it's somewhere new now
     if (Math.abs(e.x - s.px) + Math.abs(e.y - s.py) > 260) onTeleport(e, s);
     AI.Mind.tick(e, s, dt);
+    // stunned or put to sleep by a move: the game holds it in place; no AI movement meanwhile
+    if (e.stunT > 0) { s.px = e.x; s.py = e.y; return orig.call(e, dt, vtgt); }
     s.lure = vtgt && !AI.isPlayer(vtgt) ? vtgt : null;
     s.thinkT -= dt;
     s.acc += dt;
@@ -363,6 +368,12 @@
   }
 
   function post(e, s, dt) {
+    // asleep: it stays exactly where it lay down (neighbours can't shove it around)
+    if (s.beh && s.beh.id === 'sleep' && s.bs.down && !s.lock) {
+      if (!s.bs.pin) s.bs.pin = [e.x, e.y];
+      else if (Math.hypot(e.x - s.bs.pin[0], e.y - s.bs.pin[1]) < 40) { e.x = s.bs.pin[0]; e.y = s.bs.pin[1]; }
+      else s.bs.pin = [e.x, e.y]; // knocked away by a hit: that wakes it anyway
+    }
     // velocity estimate (used by other NPCs' predictive aiming)
     const k = Math.min(1, dt * 6);
     if (dt > 0) { s.vx += ((e.x - s.px) / dt - s.vx) * k; s.vy += ((e.y - s.py) / dt - s.vy) * k; }

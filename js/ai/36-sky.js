@@ -53,7 +53,7 @@
     pattern: 'fair', patternT: 50,
     windAng: 0.3, gust: 0, gustT: 4, gustPow: 0,
     wet: 0, snowCover: 0,
-    flash: 0, boltT: 8, thunders: [],
+    flash: 0, boltT: 8, thunders: [], pulses: [], strikes: [], next: null,
     phase: 'dawn', lastPhase: null,
     forced: null, // debug overrides {channel: value}
     seasonOverride: null,
@@ -132,8 +132,12 @@
     const moon = 0.78 + 0.32 * moonLight() * (1 - st.cur.cloud * 0.8);
     const k = d > 0 ? U.lerp(1, moon, d) : 1;
     const w = st.cur;
-    const dim = 1 - w.cloud * 0.16 - w.rain * 0.14 - w.storm * 0.12 + st.flash * 1.4;
+    // heavy storm clouds swallow the light; a nighttime storm is nearly black
+    const dim = 1 - w.cloud * 0.18 - w.rain * 0.16 - w.storm * 0.24;
     const out = [c[0] * k * dim, c[1] * k * dim, c[2] * k * dim];
+    // lightning: for an instant the whole forest stands out in cold white light
+    const fl = Math.min(1, st.flash) * (AI.cfg.flashIntensity == null ? 1 : AI.cfg.flashIntensity);
+    if (fl > 0) { out[0] = U.lerp(out[0], 228, fl); out[1] = U.lerp(out[1], 234, fl); out[2] = U.lerp(out[2], 255, fl); }
     // fog lifts the darks toward grey, rain and night shift to blue
     if (w.fog > 0) for (let i = 0; i < 3; i++) out[i] = U.lerp(out[i], 196 - d * 90, w.fog * 0.35);
     out[2] += w.rain * 10;
@@ -285,14 +289,32 @@
     if (c.snow > 0.2) st.snowCover = Math.min(1, st.snowCover + dt * c.snow * 0.02);
     else st.snowCover = Math.max(0, st.snowCover - dt * (season() === 'winter' ? 0.001 : 0.01));
     // lightning & delayed thunder
-    st.flash = Math.max(0, st.flash - dt * 3.2);
-    if (c.storm > 0.45) {
-      st.boltT -= dt * c.storm;
-      if (st.boltT <= 0) {
-        st.boltT = U.rand(4, 13);
-        bolt();
-      }
+    st.flash = Math.max(0, st.flash - dt * 4.5);
+    for (let i = st.pulses.length - 1; i >= 0; i--) {
+      const pu = st.pulses[i];
+      pu.t -= dt;
+      if (pu.t <= 0) { st.flash = Math.max(st.flash, pu.i); st.pulses.splice(i, 1); }
     }
+    for (let i = st.strikes.length - 1; i >= 0; i--) { st.strikes[i].t += dt; if (st.strikes[i].t > 0.7) st.strikes.splice(i, 1); }
+    // storms (and now and then heavy rain) build tension, then strike
+    const rate = Math.max(0, AI.cfg.lightningRate == null ? 1 : AI.cfg.lightningRate);
+    const active = rate > 0 && !indoor() && (c.storm > 0.35 || c.rain > 0.65);
+    if (active) {
+      if (!st.next) {
+        const storm = c.storm > 0.35;
+        const gap = storm ? U.rand(5, 18) / (0.4 + c.storm) : U.rand(45, 110);
+        st.next = { at: AI.time + gap / rate, storm, warned: Math.random() < 0.45 ? false : null };
+      }
+      const nx = st.next;
+      if (nx.warned === false && AI.time > nx.at - U.rand(2.5, 5)) { nx.warned = true; if (AI.Ambience) AI.Ambience.rumble(); st.gustPow = Math.max(st.gustPow, c.wind + 0.25); }
+      if (AI.time >= nx.at) {
+        st.next = null;
+        // distant flickers are common; close, blinding strikes are rarer (and rarer still in plain rain)
+        const r = Math.random();
+        const dist = nx.storm ? (r < 0.45 ? U.rand(2, 4) : r < 0.8 ? U.rand(0.8, 2) : U.rand(0.15, 0.8)) : (r < 0.7 ? U.rand(2.2, 4) : U.rand(0.9, 2.2));
+        bolt(dist);
+      }
+    } else st.next = null;
     for (let i = st.thunders.length - 1; i >= 0; i--) {
       const th = st.thunders[i];
       th.t -= dt;
@@ -305,12 +327,29 @@
   }
 
   function bolt(distKm) {
-    const p = AI.R.Game.player;
+    const R = AI.R;
+    const p = R.Game.player;
     const dist = distKm != null ? distKm : U.rand(0.25, 3.2);
-    st.flash = U.clamp(1.1 - dist * 0.25, 0.25, 1);
-    const a = Math.random() * 6.283;
-    const x = (p ? p.x : 0) + Math.cos(a) * dist * 600, y = (p ? p.y : 0) + Math.sin(a) * dist * 600;
-    AI.Bus.emit({ type: 'lightning', x, y, loud: 0, dist });
+    const peak = U.clamp(1.15 - dist * 0.28, 0.16, 1);
+    st.flash = Math.max(st.flash, peak);
+    // a double flash, or a nervous flicker for the close ones
+    if (Math.random() < 0.35) { st.pulses.push({ t: 0.09, i: peak * 0.45 }, { t: 0.2, i: peak * 0.9 }); }
+    if (dist < 0.8) for (let k = 0; k < 2 + ((Math.random() * 3) | 0); k++) st.pulses.push({ t: 0.05 + k * 0.07 + Math.random() * 0.04, i: peak * U.rand(0.35, 0.8) });
+    let x, y;
+    if (dist < 0.8 && p) {
+      // close enough to see it touch down
+      const cam = R.Camera;
+      for (let k = 0; k < 10; k++) {
+        const a = Math.random() * 6.283, rr = U.rand(160, 520);
+        x = p.x + Math.cos(a) * rr; y = p.y + Math.sin(a) * rr * 0.7;
+        if (cam.sees(x, y, -40)) break;
+      }
+      st.strikes.push({ x, y, t: 0, seed: (Math.random() * 1e9) | 0, power: peak });
+    } else {
+      const a = Math.random() * 6.283;
+      x = (p ? p.x : 0) + Math.cos(a) * dist * 600; y = (p ? p.y : 0) + Math.sin(a) * dist * 600;
+    }
+    AI.Bus.emit({ type: 'lightning', x, y, loud: dist < 0.8 ? 500 : 0, dist, near: dist < 0.8 });
     // sound travels slower than light: ~3 s per km
     st.thunders.push({ t: dist * 2.9, x: p ? p.x : x, y: p ? p.y : y, dist, loud: Math.round(600 - dist * 120) });
   }
@@ -333,7 +372,7 @@
     st.day = 0;
     st.phase = phaseOf(st.hour);
     st.wet = 0; st.snowCover = season() === 'winter' ? 0.6 : 0;
-    st.flash = 0; st.thunders.length = 0;
+    st.flash = 0; st.thunders.length = 0; st.pulses.length = 0; st.strikes.length = 0; st.next = null;
     st.forced = null;
     st.frozen = false;
     setPattern(st.hour < 8 ? 'mist' : 'fair');
