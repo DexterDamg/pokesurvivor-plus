@@ -154,6 +154,56 @@
     R.Weather.draw = AI.Light.wrapWeatherDraw(R.Weather.draw);
     AI.Light.patchVignette(R.Weather);
 
+    // ------------------------------------------------------------ the haunted mansion
+    /* Inside the house the forest's terrain doesn't apply: collision, ground and props come from
+     * the mansion. Outside, its walls, fence and gates are solid. */
+    const W = R.World;
+    const insideAt = (x, y) => AI.enabled && AI.Mansion.inside && AI.Mansion.inInterior(x, y);
+    const oCollide = W.collide;
+    W.collide = function (ent) {
+      if (ent && insideAt(ent.x, ent.y)) return AI.Mansion.collide(ent);
+      const r = oCollide.apply(this, arguments);
+      if (AI.enabled && ent) try { AI.Mansion.collideExterior(ent); } catch (e) { AI.warn('mansion-collide', e); }
+      return r;
+    };
+    const oFree = W.isFree;
+    W.isFree = function (x, y, r) {
+      if (insideAt(x, y)) return AI.Mansion.freeAt(x, y, r);
+      const f = oFree.apply(this, arguments);
+      return f && !(AI.enabled && AI.Mansion.blockedExterior(x, y, r || 12));
+    };
+    const inHouse = {
+      kindAt: (x, y) => (AI.Mansion.freeAt(x, y, 2) ? 'floor' : 'wall'), isWall: (x, y) => !AI.Mansion.freeAt(x, y, 2), isLiquid: () => false,
+      walkable: (x, y) => AI.Mansion.freeAt(x, y, 2), projectileBlock: () => null, underCanopy: () => false, clearance: () => null,
+      reachable: () => true, propsInCircle: () => [], specialsNear: () => [], nearestBreakable: () => null, obstacleNear: () => false,
+      breakAt: () => undefined, useAltarAt: () => undefined, damageProp: () => false,
+    };
+    for (const k of Object.keys(inHouse)) {
+      const o = W[k];
+      if (typeof o !== 'function') continue;
+      W[k] = function (x, y) { return insideAt(x, y) ? inHouse[k].apply(null, arguments) : o.apply(this, arguments); };
+    }
+    const oDG = W.drawGround;
+    W.drawGround = function (ctx) {
+      if (AI.enabled && AI.Mansion.inside) { try { AI.Mansion.drawInterior(ctx); } catch (e) { AI.warn('mansion-draw', e); } return; }
+      return oDG.apply(this, arguments);
+    };
+    const oDL = W.drawLiquid;
+    W.drawLiquid = function () { if (AI.enabled && AI.Mansion.inside) return; return oDL.apply(this, arguments); };
+    const oVP = W.visibleProps;
+    W.visibleProps = function (cam) { if (AI.enabled && AI.Mansion.inside && cam === R.Camera) return AI.Mansion.visibleProps(cam); return oVP.apply(this, arguments); };
+    const oDP = W.drawProp;
+    W.drawProp = function (ctx, prop) {
+      if (prop && (prop.psxMansion || prop.psxDraw)) { try { AI.Mansion.drawProp(ctx, prop); } catch (e) { AI.warn('mansion-prop', e); } return; }
+      return oDP.apply(this, arguments);
+    };
+    // story scenes can point the camera elsewhere
+    const oFollow = R.Camera.follow;
+    R.Camera.follow = function (x, y, dt) { const c = AI.enabled && AI.Story && AI.Story.cam; return c ? oFollow.call(this, c[0], c[1], dt * 0.35) : oFollow.apply(this, arguments); };
+    // story scenes hold the player still
+    const oAxis = R.Input.axis;
+    R.Input.axis = function () { if (AI.enabled && AI.Story && AI.Story.lockInput()) return [0, 0]; return oAxis.apply(this, arguments); };
+
     // ------------------------------------------------------------ combat resolution
     const tracked = new Map(); // NPC shot → { move, target } for hit/miss learning
     const oRes = R.Combat.resolve;
@@ -189,6 +239,7 @@
     R.HUD.draw = function (ctx, w, h) {
       const r = oHud.apply(this, arguments);
       if (AI.enabled) try { AI.Player.drawHud(ctx); AI.Light.drawClock(ctx); AI.Render.drawDebugHud(ctx, w, h); } catch (e) { AI.warn('hud', e); }
+      if (AI.enabled) try { AI.Haunt.drawScreen(ctx, w, h); AI.Mansion.drawScreen(ctx, w, h); AI.Story.drawScreen(ctx, w, h); } catch (e) { AI.warn('mansion-hud', e); }
       return r;
     };
 
@@ -196,6 +247,7 @@
     R.Training.drawAir = function (ctx) {
       const r = oAir.apply(this, arguments);
       if (AI.enabled) try { AI.Light.drawAir(ctx); } catch (e) { AI.warn('env-air', e); }
+      if (AI.enabled) try { AI.Mansion.drawAir(ctx); } catch (e) { AI.warn('mansion-air', e); }
       if (AI.enabled) try { AI.Render.drawAir(ctx); } catch (e) { AI.warn('air', e); }
       if (AI.enabled) try { AI.Lore.drawSpeech(ctx); } catch (e) { AI.warn('speech', e); }
       return r;
@@ -282,6 +334,9 @@
         AI.Lore.tick(dt);
         AI.Ambience.tick(dt);
         AI.Progress.tick(dt);
+        AI.Mansion.tick(dt);
+        AI.Haunt.tick(dt);
+        AI.Story.tick(dt);
         AI.Player.frame();
         AI.Legend.tick(dt);
         AI.Social.tick(dt);
@@ -305,7 +360,7 @@
     // ------------------------------------------------------------ new run → fresh world
     const oWR = R.World.reset;
     R.World.reset = function (seed) {
-      try { resetWorld(); AI.Decor.reset(seed); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Player.lanternToggle = null; } catch (e) { AI.warn('reset', e); }
+      try { resetWorld(); AI.Decor.reset(seed); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); AI.Player.lanternToggle = null; } catch (e) { AI.warn('reset', e); }
       return oWR.apply(this, arguments);
     };
     function resetWorld() {

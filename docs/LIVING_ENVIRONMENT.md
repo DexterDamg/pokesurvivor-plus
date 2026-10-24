@@ -146,7 +146,7 @@ storm, fog, wind, snow), so the gameplay effects and the look always agree.
   scaled by whole pixel multiples so they stay crisp. Setting: `treeSizes`.
 - Each area is dressed with deterministic decor: fallen logs, stumps, bushes and berry bushes,
   ferns, saplings, wildflower clusters, grass tufts, mushrooms and burrows. Bushes keep clear of
-  tree trunks. The only lamp post stands at the entrance of the old trail.
+  tree trunks. Lamp posts stand only along the old path to the haunted mansion, in neat pairs.
 - Vegetation reacts. Grass and bushes part as Pokémon or you brush through, bushes shake and
   rustle (a rustling bush can give away a hiding Pokémon), and canopies fade when you walk
   behind them.
@@ -186,7 +186,11 @@ Area attacks are announced with a soft glow that fills in as the attack approach
 rim that pulses briefly just before it lands, instead of blinking red dashed outlines. Warnings
 from Pokémon that aren't after you are fainter still. Setting: `softTelegraphs`.
 
-## The old mansion (`86-lore.js`, `39-decor.js`)
+## The old mansion
+
+*(The mansion itself, its hauntings and its story are described in
+[HAUNTED_MANSION.md](HAUNTED_MANSION.md). This section covers the rumours and clues in the forest.)*
+ (`86-lore.js`, `39-decor.js`)
 
 Some Pokémon talk. In the evening and at night a sociable one gathers the others and tells them
 about an old mansion hidden deep in the woods. Every storyteller has its own version: the clock

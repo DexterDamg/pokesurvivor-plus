@@ -266,6 +266,8 @@
       for (const it of D.inRect(x0, y0, x1, y1, flat)) {
         if (!it.flat) continue;
         if (it.k === 'path') drawPath(ctx, it);
+        else if (it.k === 'dirt') AI.Art.draw(ctx, it.n, it.x, it.y, { flip: it.f, scale: it.s });
+        else if (it.k === 'mwin') continue;
         else if (it.k === 'scorch') drawScorch(ctx, it);
         else if (it.k === 'burrow') drawBurrow(ctx, it);
         else AI.Art.draw(ctx, it.n, it.x, it.y, { flip: it.f, scale: it.s, sway: swayAt(it.x, 0.12) + parting(it.x, it.y) });

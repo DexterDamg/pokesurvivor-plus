@@ -63,6 +63,9 @@
     // Pokémon size
     softTelegraphs: true, // gentler attack warnings instead of blinking red dashed outlines
     speciesScale: true, // size Pokémon by species (Pokédex height), with subtle individual variation
+    mansion: true, // the haunted mansion at the end of the old path, its hauntings and its story
+    jumpscare: true, // the mirror's full-screen jumpscare (off: a gentler fade instead)
+    hauntRate: 1, // how often the mansion's hauntings happen
   };
   const CFG_KEY = 'psx.ai.cfg';
   AI.DEFAULTS = DEFAULTS;

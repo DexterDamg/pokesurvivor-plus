@@ -66,6 +66,13 @@
     fogSpawns: { es: 'La niebla reduce apariciones', en: 'Fog reduces spawns', fr: 'Le brouillard réduit les apparitions', zh: '霧減少出現' },
     lightningRate: { es: 'Frecuencia de rayos', en: 'Lightning frequency', fr: 'Fréquence des éclairs', zh: '閃電頻率' },
     flashIntensity: { es: 'Destellos de rayos (accesibilidad)', en: 'Lightning flashes (accessibility)', fr: 'Flashs d\'éclairs (accessibilité)', zh: '閃電閃光（無障礙）' },
+    mansionTitle: { es: 'La mansión encantada', en: 'The haunted mansion', fr: 'Le manoir hanté', zh: '鬼屋洋館' },
+    mansion: { es: 'Mansión, sustos e historia', en: 'Mansion, hauntings & story', fr: 'Manoir, hantises et histoire', zh: '洋館、靈異事件與劇情' },
+    jumpscare: { es: 'Susto del espejo a pantalla completa', en: 'Full-screen mirror jumpscare', fr: 'Jumpscare du miroir en plein écran', zh: '全螢幕鏡子驚嚇' },
+    hauntRate: { es: 'Frecuencia de sucesos', en: 'Haunting frequency', fr: 'Fréquence des hantises', zh: '靈異事件頻率' },
+    replay: { es: 'Ver de nuevo', en: 'Replay', fr: 'Revoir', zh: '重播' },
+    noScenes: { es: 'Aún no has visto ninguna escena.', en: 'No scenes seen yet.', fr: 'Aucune scène vue pour l\'instant.', zh: '尚未看過任何場景。' },
+    resetStory: { es: 'Reiniciar la historia', en: 'Reset story progress', fr: 'Réinitialiser l\'histoire', zh: '重設劇情進度' },
   };
   AI.lang = function () {
     const l = (AI.R && AI.R.I18n && AI.R.I18n.lang) || (navigator.language || 'es');
@@ -83,6 +90,7 @@
   const ENV_SELECTS = [['season', ['auto', 'spring', 'summer', 'autumn', 'winter']], ['lightQuality', ['auto', 'low', 'medium', 'high']], ['lantern', ['auto', 'on', 'off']]];
   const WORLD_TOGGLES = ['naturalTerrain', 'treeSizes', 'speciesScale', 'softTelegraphs', 'earnedEvents', 'hordes'];
   const WORLD_SLIDERS = [['treeDensity', 0.3, 2, 0.1], ['eventCooldown', 20, 240, 5], ['weatherDuration', 0.3, 3, 0.1], ['fogSpawns', 0, 1.5, 0.05], ['lightningRate', 0, 3, 0.1], ['flashIntensity', 0, 1, 0.05]];
+  const MANSION_TOGGLES = ['mansion', 'jumpscare'];
   let el = null;
 
   function build() {
@@ -116,11 +124,21 @@
     for (const [k, min, max, step] of WORLD_SLIDERS) {
       h += row('<div style="display:flex;justify-content:space-between"><span>' + AI.tr(k) + '</span><b data-v="' + k + '">' + c[k] + '</b></div><input type="range" style="width:100%" min="' + min + '" max="' + max + '" step="' + step + '" value="' + c[k] + '" data-k="' + k + '">');
     }
+    h += '<h4 style="margin:14px 0 6px;color:#c9a0f0">' + AI.tr('mansionTitle') + '</h4>';
+    for (const k of MANSION_TOGGLES) h += row('<label><input type="checkbox" data-k="' + k + '"' + (c[k] ? ' checked' : '') + '> ' + AI.tr(k) + '</label>');
+    h += row('<div style="display:flex;justify-content:space-between"><span>' + AI.tr('hauntRate') + '</span><b data-v="hauntRate">' + c.hauntRate + '</b></div><input type="range" style="width:100%" min="0" max="3" step="0.1" value="' + c.hauntRate + '" data-k="hauntRate">');
+    const jr = AI.Story ? AI.Story.journal() : [];
+    if (!jr.length) h += '<div style="opacity:.7;font-size:12px">' + AI.tr('noScenes') + '</div>';
+    for (const j of jr) h += '<div style="display:flex;justify-content:space-between;align-items:center;margin:4px 0"><span>' + j.title + '</span><button class="btn" data-replay="' + j.id + '">▶ ' + AI.tr('replay') + '</button></div>';
+    if (jr.length) h += '<div style="text-align:right;margin-top:6px"><button class="btn" data-a="resetStory">' + AI.tr('resetStory') + '</button></div>';
     h += '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn" data-a="reset">' + AI.tr('reset') + '</button><button class="btn gold" data-a="close">' + AI.tr('close') + '</button></div>';
     box.innerHTML = h;
     box.querySelectorAll('input,select').forEach((inp) => inp.addEventListener('input', onInput));
     box.querySelector('[data-a=reset]').onclick = () => { AI.resetCfg(); render(); };
     box.querySelector('[data-a=close]').onclick = close;
+    box.querySelectorAll('[data-replay]').forEach((b) => { b.onclick = () => { close(); if (AI.Story) AI.Story.replay(b.dataset.replay); }; });
+    const rs = box.querySelector('[data-a=resetStory]');
+    if (rs) rs.onclick = () => { if (AI.Story) AI.Story.resetProgress(); render(); };
   }
   function row(inner) { return '<div style="margin:8px 0">' + inner + '</div>'; }
   function onInput(ev) {

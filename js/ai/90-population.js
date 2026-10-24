@@ -39,6 +39,8 @@
 
   // return false to veto a spawn
   function allowAdd(e) {
+    // nothing wild ever comes into the haunted mansion
+    if (AI.Mansion && AI.Mansion.inside && !e.psxStory) { AI.stats.spawnVetoed++; return false; }
     if (exempt(e)) return true;
     // the global cap applies to every source of wild Pokémon (spawner, event bursts, summoned allies…)
     if (aliveWild() >= AI.cfg.maxNpcs) { AI.stats.spawnVetoed++; return false; }

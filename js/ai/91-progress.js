@@ -70,6 +70,8 @@
     // the game's own timed rifts don't open any more
     const rf = Rift.rift;
     if (rf && rf !== st.ours) { try { Rift.onEvent(['riftx']); } catch (e) { /* ignore */ } }
+    // nothing interrupts the haunted mansion or a story scene
+    if ((AI.Mansion && AI.Mansion.inside) || (AI.Story && AI.Story.busy())) return;
     const now = AI.time;
     const busy = R.EnemyMgr.bossAlive() || Rift.inArena || Rift.open || (R.Judgment && R.Judgment.active) || now - st.lastEvent < (AI.cfg.eventCooldown || 75);
     const k = kills();

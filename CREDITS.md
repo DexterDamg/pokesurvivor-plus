@@ -142,6 +142,19 @@ bosque encantado del "entorno vivo" (`assets/env/atlas.png`) salen de estas hoja
   pueblo y bosque encantado: material aportado por DexterDamg para PokéSurvivor+.
 - Hoja de rayos (fotogramas de relámpago e impacto): material aportado por
   DexterDamg para PokéSurvivor+.
+- **Cementerio** de **TóbalCR** (créditos en la propia hoja): pilares de piedra
+  con faroles, verja de hierro, gárgola, estatua, lápidas, calaveras, vela y el
+  camino de tierra de la mansión encantada.
+- Interior de la mansión (paredes de madera, ventanas, suelos, alfombras,
+  barandillas, mesas, sillas, reloj de pie, telarañas): material aportado por
+  DexterDamg para PokéSurvivor+. La fachada de la mansión se ha compuesto con
+  tejados, paredes, ventanas y puertas de la hoja del pueblo del bosque oscuro.
+- Espejo, retratos, lámpara de araña, estantería, armadura, escudo con espadas,
+  candelabro, puertas y barricada: dibujados para PokéSurvivor+ con la paleta
+  de la hoja del interior.
+- El susto del espejo usa un fotograma de la escena del Mundo Distorsión de
+  *Pokémon Platino* (Nintendo / Creatures Inc. / GAME FREAK), aportado por
+  DexterDamg; la silueta del espejo y del final está recortada de ese fotograma.
   *(Falta indicar aquí el autor original de cada una de estas hojas.)*
 
 Los sonidos de ambiente (pájaros, grillos, lluvia, viento, truenos, caja de

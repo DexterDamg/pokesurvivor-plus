@@ -42,6 +42,13 @@
     L.length = 0;
     const R = AI.R;
     const Sky = AI.Sky;
+    if (AI.Mansion && AI.Mansion.inside) {
+      // inside the mansion: candles, chandeliers, moonlight through the windows
+      AI.Mansion.lights(L);
+      const pl = R.Game.player;
+      if (pl && !pl.dead && lanternOn()) L.push({ x: pl.x, y: pl.y - (pl.bodyH || 40) * 0.5, r: 170, c: [255, 214, 150], i: 0.8, player: true });
+      return L;
+    }
     const x0 = cam.left() - 200, y0 = cam.top() - 200, x1 = cam.left() + cam.w + 200, y1 = cam.top() + cam.h + 260;
     if (AI.Decor && AI.cfg.newArt) {
       for (const it of AI.Decor.lights(x0, y0, x1, y1)) {
@@ -50,6 +57,13 @@
         let lx = it.x, ly = it.y - 20;
         if (it.k === 'lamp' && AI.Art) { const [w, h] = AI.Art.size(it.n); lx = it.x + (it.n === 'lamppost_r' ? -0.19 : 0.2) * w; ly = it.y - h * 0.67; }
         else if (it.k === 'gallows') { lx = it._lx || it.x; ly = it._ly || it.y - 60; }
+        else if (it.k === 'gpillar') ly = it.y - AI.Art.size(it.n)[1] * (it.s || 1) * 0.8;
+        else if (it.k === 'hanglamp') {
+          // two lanterns hang from the beam
+          const w = AI.Art.size(it.n)[0] * (it.s || 1), h = AI.Art.size(it.n)[1] * (it.s || 1);
+          L.push({ x: it.x - w * 0.09, y: it.y - h * 0.55, r: it.light.r, c: it.light.c, i: f, src: it });
+          lx = it.x + w * 0.09; ly = it.y - h * 0.55;
+        } else if (it.k === 'mwin') ly = it.y;
         else if (it.k === 'mush') ly = it.y - 8;
         else if (it.k === 'candle') ly = it.y - 14;
         L.push({ x: lx, y: ly, r: it.light.r * (0.85 + f * 0.15), c: it.light.c, i: f, src: it });
@@ -450,8 +464,9 @@
     return function (ctx, w, h) {
       if (!on()) return orig.apply(this, arguments);
       const k = AI.Sky.weatherKind();
-      if (k && !HANDLED.has(k)) { try { orig.apply(this, arguments); } catch (e) { /* ignore */ } }
+      if (k && !HANDLED.has(k) && !(AI.Mansion && AI.Mansion.inside)) { try { orig.apply(this, arguments); } catch (e) { /* ignore */ } }
       try { draw(ctx, w, h); } catch (e) { AI.warn('light', e); }
+      if (AI.Haunt) try { AI.Haunt.drawPost(ctx, w, h); } catch (e) { AI.warn('haunt-post', e); }
     };
   }
   // the game's grey fog vignette is replaced by the visibility model above

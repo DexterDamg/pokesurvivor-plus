@@ -1,8 +1,8 @@
 /* PokéSurvivor+ — Living World AI · forest decor & environmental memory
  * Fills each area with deterministic, varied decor (fallen logs, stumps, bushes, berry bushes,
  * ferns, wildflowers, grass tufts, mushrooms, burrows, old lanterns) that doubles as Pokémon
- * habitat. In the starting woodland it also lays out the clues of the abandoned trail to the
- * rumoured mansion. And the world remembers, for a while: footprints, mud where you keep walking
+ * habitat. In the starting woodland it also lays out the old dirt path, lined with lamp posts, that
+ * leads to the gates of the haunted mansion. And the world remembers, for a while: footprints, mud where you keep walking
  * in the rain, puddles in the low spots, shaking bushes, nibbled leaves, freshly dug burrows.
  */
 (function () {
@@ -26,7 +26,7 @@
   function CH() { return TS() * 16; }
   function floorAt(x, y) { try { return W().kindAt(x, y) === 'floor'; } catch (e) { return false; } }
   function free(x, y, r) { try { return W().isFree(x, y, r); } catch (e) { return false; } }
-  function ok(x, y, r) { return floorAt(x, y) && free(x, y, r) && Math.hypot(x, y) > 230; }
+  function ok(x, y, r) { return floorAt(x, y) && free(x, y, r) && Math.hypot(x, y) > 230 && !(AI.Mansion && AI.Mansion.clearAt(x, y)); }
   function rnd(cx, cy, i) { return U.hash(cx * 73 + seed, cy * 151 - seed, i); }
   function themeNow() { return AI.Art ? AI.Art.theme(AI.Env.biome()) : null; }
   function season() { return AI.Sky ? AI.Sky.season() : 'summer'; }
@@ -137,51 +137,110 @@
     return c;
   }
 
-  // ---------------------------------------------------------------- the abandoned trail (starting woodland)
+  // ---------------------------------------------------------------- the old trail and the mansion (starting woodland)
+  /* A shady dirt path leaves the woodland about 1450 px from the start, lined with neat pairs of old
+   * lamp posts, and curves north to the iron gates of the haunted mansion. Behind the gates: a
+   * courtyard with a small family plot, gargoyles by the door, and the house itself. The layout
+   * depends only on the run's seed, so the forest can be cleared for it before it is ever seen. */
+  function mansionGeom(sd) {
+    const a = -0.5 - U.hash(sd, 7, 1) * (Math.PI - 1); // always somewhere to the north
+    const S = [Math.cos(a) * 1450, Math.sin(a) * 1450];
+    const D = [Math.round(Math.cos(a) * 2650), Math.round(Math.sin(a) * 2650)];
+    const G = [D[0], D[1] + 330];
+    const C = [G[0], G[1] + 420];
+    // sample the curve S → C → G evenly
+    const fine = [];
+    for (let i = 0; i <= 240; i++) {
+      const t = i / 240, u = 1 - t;
+      fine.push([u * u * S[0] + 2 * u * t * C[0] + t * t * G[0], u * u * S[1] + 2 * u * t * C[1] + t * t * G[1]]);
+    }
+    const even = (step) => {
+      const out = [fine[0]];
+      let acc = 0;
+      for (let i = 1; i < fine.length; i++) {
+        acc += Math.hypot(fine[i][0] - fine[i - 1][0], fine[i][1] - fine[i - 1][1]);
+        if (acc >= step) { out.push(fine[i]); acc = 0; }
+      }
+      if (out[out.length - 1] !== fine[fine.length - 1]) out.push(fine[fine.length - 1]);
+      return out;
+    };
+    const SW = 290; // the grounds' half width
+    return { a, S, D, G, C, SW, pts: even(110), dense: even(16), interior: [D[0], D[1] + 60000] };
+  }
   function buildTrail() {
     trail = null; cave = null;
     if (AI.Env.biome() !== 0 || !AI.cfg.newArt) return;
-    const a = U.hash(seed, 7, 1) * Math.PI * 2;
-    const pts = [];
-    let x = Math.cos(a) * 1450, y = Math.sin(a) * 1450, dir = a;
-    for (let k = 0; k < 10; k++) {
-      pts.push([x, y]);
-      dir += (U.hash(seed, k, 2) - 0.5) * 0.7;
-      x += Math.cos(dir) * 120; y += Math.sin(dir) * 120;
-    }
+    const g = mansionGeom(seed);
+    const { pts, dense, D, G, SW } = g;
     const items = [];
     const side = (p, q, d) => { const dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1; return [p[0] - dy / l * d, p[1] + dx / l * d]; };
-    // mossy paving stones, more and more overgrown, then gone
-    for (let k = 0; k < pts.length - 1; k++) {
+    // the dirt path: overlapping patches of trodden earth, ragged at the edges
+    const dirtAlong = (list, from) => {
+      for (let k = from; k < list.length; k++) {
+        const p = list[k], q = list[Math.min(list.length - 1, k + 1)];
+        const j = U.hash(k, seed, 11), jj = U.hash(k, seed, 12);
+        const nx = q === p ? list[k - 1] : q;
+        for (const off of [-13, 13]) {
+          const o = side(p, nx, off + (j - 0.5) * 10);
+          items.push(item({ k: 'dirt', n: (jj + off) % 2 < 1 ? 'g_dirt_s1' : 'g_dirt_s2', x: o[0], y: o[1] + 15, s: 0.5 + j * 0.12, f: jj > 0.5, flat: true }));
+        }
+        if (k % 4 === 0) {
+          const e = side(p, nx, (jj < 0.5 ? -1 : 1) * (52 + j * 10));
+          items.push(item({ k: 'tuft', n: jj < 0.3 ? 'tuft_1' : jj < 0.6 ? 'tuft_5' : 'tuftlow_1', x: e[0], y: e[1] + 4, s: 0.9, f: j < 0.5, flat: true }));
+        }
+      }
+    };
+    dirtAlong(dense, 0);
+    // into the courtyard, up to the door
+    const court = [];
+    for (let y = G[1]; y >= D[1] + 6; y -= 16) court.push([D[0], y]);
+    dirtAlong(court, 0);
+    // neat pairs of lamp posts, every third stretch
+    for (let k = 1; k < pts.length - 1; k += 3) {
       const p = pts[k], q = pts[k + 1];
-      for (let s = 0; s < 3; s++) {
-        const t = s / 3;
-        const px = p[0] + (q[0] - p[0]) * t, py = p[1] + (q[1] - p[1]) * t;
-        items.push(item({ k: 'path', x: px, y: py, flat: true, over: Math.min(1, k / 7 + U.hash(k, s, 3) * 0.25), ang: Math.atan2(q[1] - p[1], q[0] - p[0]) }));
+      if (Math.hypot(p[0] - G[0], p[1] - G[1]) < 170) continue; // the gate has its own lanterns
+      for (const sd of [-1, 1]) {
+        const o = side(p, q, sd * 58);
+        const left = o[0] < p[0];
+        items.push(item({ k: 'lamp', n: left ? 'lamppost' : 'lamppost_r', x: o[0], y: o[1], r: 8, light: { r: 150, c: [255, 196, 120], kind: 'lamp' }, lit: true, protected: true }));
       }
     }
-    const ent = side(pts[0], pts[1], -40);
-    items.push(item({ k: 'lamp', n: 'lamppost', x: ent[0] - 30, y: ent[1] + 10, r: 8, light: { r: 150, c: [255, 196, 120], kind: 'lamp' }, lit: true, protected: true }));
-    const sgn = side(pts[0], pts[1], 46);
+    // the old sign and the hanging lantern where the path leaves the woods
+    const sgn = side(pts[0], pts[1], 70);
     items.push(item({ k: 'sign', n: 'sign', x: sgn[0], y: sgn[1], r: 8, vines: true, lore: 'sign' }));
-    const lan = side(pts[1], pts[2], -54);
+    const lan = side(pts[1], pts[2], -78);
     items.push(item({ k: 'gallows', n: 'gallows', x: lan[0], y: lan[1], r: 8, light: { r: 130, c: [255, 186, 110], kind: 'lantern' }, lit: true, haunt: true, lore: 'lantern' }));
-    for (let k = 3; k < 7; k++) {
-      const d = side(pts[k], pts[k + 1], (k % 2 ? 1 : -1) * (60 + U.hash(k, 9, 4) * 40));
+    // the woods die off as you near the house
+    for (let k = pts.length - 6; k < pts.length - 1; k++) {
+      if (k < 3) continue;
+      const d = side(pts[k], pts[k + 1], (k % 2 ? 1 : -1) * (100 + U.hash(k, 9, 4) * 50));
       items.push(item({ k: 'plant', n: k % 2 ? 'deadsapling_a' : 'deadsapling_b', x: d[0], y: d[1], r: 8 }));
     }
-    for (let k = 6; k < 9; k++) for (const sd of [-1, 1]) {
-      const d = side(pts[k], pts[k + 1], sd * 70);
-      items.push(item({ k: 'fence', x: d[0], y: d[1], r: 10, ang: Math.atan2(pts[k + 1][1] - pts[k][1], pts[k + 1][0] - pts[k][0]), broken: U.hash(k, sd, 5) }));
+    for (const sd of [-1, 1]) items.push(item({ k: 'wraith', x: G[0] + sd * (SW + 110), y: G[1] + 70, r: 16, frame: sd > 0 ? 3 : 0 }));
+    // the gates: iron fence between stone pillars, lanterns on the gate posts
+    for (const sd of [-1, 1]) {
+      for (let x = 56 + 40; x < SW - 20; x += 78) items.push(item({ k: 'fence_h', n: 'g_fence', x: G[0] + sd * Math.min(SW - 40, x), y: G[1] + 4, r: 0, s: 0.5 }));
+      items.push(item({ k: 'gpillar', n: 'g_pillar_lamp', x: G[0] + sd * 56, y: G[1] + 8, r: 10, s: 0.6, light: { r: 140, c: [255, 190, 110], kind: 'lamp' }, lit: true, protected: true }));
+      items.push(item({ k: 'gpillar', n: 'g_pillar_lamp', x: G[0] + sd * SW, y: G[1] + 8, r: 10, s: 0.6, light: { r: 120, c: [255, 190, 110], kind: 'lamp' }, lit: true, protected: true }));
+      for (let y = G[1] - 34; y > D[1] - 20; y -= 60) items.push(item({ k: 'fence_v', n: 'g_fence_v', x: G[0] + sd * SW, y, r: 0, s: 0.5 }));
+      items.push(item({ k: 'gargoyle', n: 'g_gargoyle', x: D[0] + sd * 64, y: D[1] + 14, r: 10, s: 0.5 }));
+      items.push(item({ k: 'gargoyle', n: 'g_pillar', x: D[0] + sd * (SW - 10), y: D[1] - 2, r: 10, s: 0.6 }));
     }
-    const end = pts[pts.length - 1];
-    for (let k = 0; k < 3; k++) {
-      const aa = dir + (k - 1) * 0.9;
-      items.push(item({ k: 'wraith', x: end[0] + Math.cos(aa) * 90, y: end[1] + Math.sin(aa) * 90, r: 16, frame: k * 2 }));
-    }
-    trail = { pts, items, start: pts[0], end, dir };
+    // a small family plot in the courtyard, and a statue no one remembers
+    const plot = [['g_grave_tall', -200, -120], ['g_grave_cross', -150, -140], ['g_grave_emb', -230, -60], ['g_grave_a', -170, -40], ['g_grave_pale', -120, -90]];
+    for (const [n, dx, dy] of plot) items.push(item({ k: 'grave', n, x: D[0] + dx, y: G[1] + dy, r: 8, s: 0.5 }));
+    items.push(item({ k: 'candle', n: 'candles', x: D[0] - 186, y: G[1] - 104, r: 6, light: { r: 70, c: [255, 190, 110], kind: 'candle' }, lit: true }));
+    items.push(item({ k: 'grave', n: 'g_skull_b', x: D[0] - 140, y: G[1] - 66, r: 0, s: 0.5 }));
+    items.push(item({ k: 'grave', n: 'g_statue', x: D[0] + 190, y: G[1] - 110, r: 12, s: 0.6 }));
+    items.push(item({ k: 'hanglamp', n: 'g_gallows2', x: D[0] + 140, y: G[1] - 30, r: 8, s: 0.6, light: { r: 110, c: [255, 186, 110], kind: 'lantern' }, lit: true, haunt: true }));
+    items.push(item({ k: 'plant', n: 'deadsapling_a', x: D[0] + 230, y: G[1] - 40, r: 8 }));
+    // the house: dark windows, a few glowing violet, one warm candle up in the gable
+    items.push(item({ k: 'mansion', n: 'mansion_front', x: D[0], y: D[1], r: 0 }));
+    for (const [dx, dy, c] of [[-68, 96, [190, 120, 255]], [112, 32, [190, 120, 255]], [190, 94, [190, 120, 255]], [52, 96, [255, 200, 120]], [0, 200, [255, 200, 120]]])
+      items.push(item({ k: 'mwin', x: D[0] + dx, y: D[1] - dy + 12, r: 0, flat: true, light: { r: 70, c, kind: 'glow' } }));
+    trail = { pts, items, start: pts[0], end: G.slice(), dir: -Math.PI / 2, mansion: g };
     // a cave sealed by boulders, for later
-    const ca = a + Math.PI * (0.7 + U.hash(seed, 3, 3) * 0.6);
+    const ca = g.a + Math.PI * (0.7 + U.hash(seed, 3, 3) * 0.6);
     cave = item({ k: 'cave', x: Math.cos(ca) * 1900, y: Math.sin(ca) * 1900, r: 30 });
   }
   // how deep inside the trail's haunted stretch a point is (0 outside … 1 at the end)
@@ -349,6 +408,6 @@
   AI.define('Decor', {
     reset, ensure, tick, chunk, inRect, near, lights, trailZone, footprint, mudAt, trample, puddleAmt, puddlesIn, puddleAt,
     ripple, ripples, prints, rustle, shakeOf, shakeProp, nibble, isNibbled, addDyn, removeDyn, flame, checkPatch,
-    get trail() { return trail; }, get cave() { return cave; }, get seed() { return seed; },
+    mansionGeom, get trail() { return trail; }, get cave() { return cave; }, get seed() { return seed; },
   });
 })();
