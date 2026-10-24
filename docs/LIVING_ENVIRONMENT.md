@@ -22,7 +22,7 @@ be switched off in the settings panel (**F7**).
 | Input | What it does |
 | --- | --- |
 | **L** | Turn your lantern on or off. By default it lights itself at night and in thick fog. |
-| **F7** | Settings → *Environment*: day length, starting hour, season, weather frequency, light quality, ambient volume, and switches for each system. |
+| **F7** | Settings → *Environment*: day length, starting hour, season, weather frequency, light quality, ambient volume, and switches for each system. *World & encounters*: terrain, tree sizes, Pokémon sizes, attack warnings, earned bosses/rifts, hordes, weather duration, fog, lightning and flash strength. |
 
 A small pill in the top-left corner shows the time of day, the sun or moon (with its phase) and
 the current weather.
@@ -89,8 +89,13 @@ dwellers instead of random picks:
 ## Weather with consequences (`36-sky.js`, `39-decor.js`, `62-envbeh.js`)
 
 The sky drifts between patterns (clear, fair, cloudy, drizzle, rain, storm, mist, fog, dense fog,
-breezy, gale) through gradual transitions, and it follows the game's own weather events so the
-gameplay effects and the look agree.
+breezy, gale) through gradual transitions. The sky drives the game's own weather events (rain,
+storm, fog, wind, snow), so the gameplay effects and the look always agree.
+
+- **Weather lasts.** Each pattern settles in for minutes: clear 6–12 min, cloudy 5–10, drizzle
+  4–8, heavy rain 3–7, fog 5–9, storm 4–8 (setting `weatherDuration` scales them all). It changes
+  step by step: clear → fair/cloudy → drizzle → rain → storm → rain → … A storm never comes out of
+  a clear sky, and storms don't follow storms.
 
 - **Rain.** The ground darkens, puddles form in low spots and reflect the sky, rain ripples the
   puddles, and walking through them splashes. Walk in circles on wet ground and it turns to mud
@@ -99,29 +104,87 @@ gameplay effects and the look agree.
   water afterwards, water-types splash in puddles, and fire-types hate it. The branches keep
   dripping after the rain stops.
 - **Fog** ranges from faint mist to dense fog that closes in around you. In thick fog Pokémon stop
-  roaming and huddle in shelter, few new ones appear, sight ranges shrink, and the birdsong fades.
-  Now and then a branch creaks somewhere unseen.
+  roaming and huddle in shelter, sight ranges shrink, and the birdsong fades. Now and then a branch
+  creaks somewhere unseen. Fog really thins out the wild Pokémon, in three tiers that feed the
+  spawn chance and the population cap: light fog (about −5 to −15%), moderate fog (−15 to −50%)
+  and dense fog (−50 to −80%). Setting: `fogSpawns`.
 - **Wind** sways trees and grass in visible waves, swings lanterns and makes flames flicker.
   Unprotected lanterns can blow out (and fire-type Pokémon sometimes relight them). A strong gust
   can send a small flying Pokémon tumbling through the air, crying, until it escapes off-screen
   or lands dazed far away.
-- **Thunderstorms.** Lightning lights up the whole forest, thunder follows later and quieter the
-  farther away the strike was, and frightened Pokémon dive for cover. A long severe storm can
-  bring down a tree, which you then have to clamber over.
+- **Thunderstorms.** The sky goes dark and the rain gets heavy and gusty, while the birds and
+  insects fall quiet. Lightning comes at irregular intervals: sometimes a distant rumble builds the
+  tension first, most flashes are small and far away, and now and then a close strike lights up
+  the whole forest with a double flash or a nervous flicker. Close strikes are drawn as a glowing,
+  branching bolt that touches down with a burst of sparks and leaves a scorch mark. Thunder follows
+  later and quieter the farther away the strike was (about 3 s per km). Heavy rain can bring the
+  occasional distant flash too. Setting `flashIntensity` tones the screen flashes down (0 = none)
+  for comfort and accessibility; `lightningRate` makes strikes rarer or more frequent.
+- **Reactions to thunder vary.** Some Pokémon freeze on the spot, some run for shelter, some stop
+  wandering for a while, and others just flinch. Brave Pokémon are less affected, electric types
+  aren't scared at all (some love it), and sleepers only wake for close, loud thunder or a strike
+  right next to them. A long severe storm can bring down a tree, which you then have to clamber
+  over.
+- **Sleep is real.** A sleeping Pokémon doesn't move: no wandering, no gusts blowing it around, no
+  weather shuffling it to shelter. It wakes up first (noise, being bumped, close thunder), then
+  acts.
 
 ## The forest itself (`38-art.js`, `39-decor.js`, `93-ground.js`)
 
-- Trees and undergrowth come from the supplied sprite sheets (`assets/env/atlas.png`): dozens of
-  shapes and sizes (oaks, pines, firs, cypresses, gnarled and broad trees, rare huge ancient
-  trees) with palettes per season. Haunted, jungle and icy areas get their own looks.
+- **Natural terrain** (`33-gen.js`). The game used to fill forests with rectangular blocks of
+  solid "wall" tiles. Forest biomes no longer generate them: the forest is open ground with trees
+  spread at a measured density (setting `treeDensity`).
+- Trees and undergrowth come from the supplied sprite sheets (`assets/env/atlas.png`): oaks,
+  pines, firs, cypresses, gnarled and broad trees. The Shady Forest stays green all year (seasons
+  show in flowers, light and snow, not in autumn-coloured trees). Haunted, jungle and icy areas
+  get their own looks.
+- **Trees grow in stages:** sapling → young → mature → large → ancient. A tree's stage depends on
+  how much room it has and on rarity: crowded spots grow saplings and young trees, open ground
+  mature ones, a few spacious spots large trees, and very rarely an ancient giant stands as a
+  landmark with open ground around it. Large trees get small ferns at their base, shadows and
+  ambient occlusion scale with the canopy, collision stays at the trunk, and sprites are only ever
+  scaled by whole pixel multiples so they stay crisp. Setting: `treeSizes`.
 - Each area is dressed with deterministic decor: fallen logs, stumps, bushes and berry bushes,
-  ferns, saplings, wildflower clusters, grass tufts, mushrooms, burrows and the occasional old
-  lamp post.
+  ferns, saplings, wildflower clusters, grass tufts, mushrooms and burrows. Bushes keep clear of
+  tree trunks. The only lamp post stands at the entrance of the old trail.
 - Vegetation reacts. Grass and bushes part as Pokémon or you brush through, bushes shake and
   rustle (a rustling bush can give away a hiding Pokémon), and canopies fade when you walk
   behind them.
 - **Memory.** Footprints, mud, ripples, nibbled leaves (Caterpie at work), freshly dug burrows
   (Rattata at work) and storm-felled trees stay for a while.
+
+## Pokémon sizes (`14-scale.js`, `12-sizes.js`)
+
+The game's sprites come in roughly standard sizes, so a Joltik, a Pikachu and a Snorlax could end
+up about as big as each other. Each species is now scaled toward its real size, using its Pokédex
+height (stature) and weight (bulk):
+
+- The difference is compressed: tiny Pokémon shrink gently so they stay visible, and enormous ones
+  grow only so far so they don't swallow the screen. Evolutions grow consistently
+  (Charmander < Charmeleon < Charizard), and an evolving Pokémon takes its new size.
+- Individuals vary a little (about ±6%), bosses and Legendaries are a touch larger (×1.12), and
+  your partner is scaled more gently (visual only).
+- Collision grows moderately with size (between ×0.8 and ×1.35), so combat stays fair.
+  Shadows, bubbles, health bars and name tags follow the scaled body.
+- Setting: `speciesScale`.
+
+## Encounters you earn (`91-progress.js`)
+
+- The game's timed "Pokémon surge" hordes are switched off (setting `hordes`).
+- Bosses come once you've defeated enough Pokémon (setting `bossKills`, default 35, 90, 160, 250,
+  360), one at a time, with a notice ("Something powerful is approaching…") a few seconds before.
+- Rifts open at their own milestones (`riftKills`, default 50, 130, 230, 350, 480); golden rifts
+  are much rarer (`goldenRiftKills`, default 280, 650). They open on open ground roughly 700–1150 px away
+  from you, never on top of you or inside a wall. The game's own timed rifts are cancelled.
+- Major encounters never overlap: no rift while a boss is out, no boss while a rift is open, and a
+  pause (`eventCooldown`, 75 s) between them. Past the last milestone the gaps keep growing.
+- Rewards and fights are the game's own; only *when* they happen changed.
+
+## Attack warnings (`93-ground.js`)
+
+Area attacks are announced with a soft glow that fills in as the attack approaches and a thin
+rim that pulses briefly just before it lands, instead of blinking red dashed outlines. Warnings
+from Pokémon that aren't after you are fainter still. Setting: `softTelegraphs`.
 
 ## The old mansion (`86-lore.js`, `39-decor.js`)
 
@@ -184,6 +247,19 @@ fades out in menus.
 | `newArt` | on | new trees, plants, decor and the trail |
 | `areaSpawns` | on | curated area rosters, habitats, natural arrivals |
 | `speech` | on | Pokémon speech bubbles |
+| `naturalTerrain` | on | forests without rectangular wall blocks |
+| `treeDensity` | 1 | forest tree density |
+| `treeSizes` | on | trees in growth stages, from saplings to rare ancient giants |
+| `speciesScale` | on | Pokémon sized by species |
+| `softTelegraphs` | on | soft attack warnings |
+| `earnedEvents` | on | bosses and rifts unlock through Pokémon defeated |
+| `hordes` | off | the game's timed hordes |
+| `bossKills` / `riftKills` / `goldenRiftKills` | see above | defeat milestones |
+| `eventCooldown` | 75 s | pause between major encounters |
+| `weatherDuration` | 1 | how long each kind of weather lasts |
+| `fogSpawns` | 1 | how strongly fog thins out wild Pokémon (0 = not at all) |
+| `lightningRate` | 1 | how often lightning strikes |
+| `flashIntensity` | 1 | lightning screen flash strength (0 = no flashes) |
 
 ### Console helpers
 

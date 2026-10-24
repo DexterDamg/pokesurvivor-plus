@@ -33,7 +33,9 @@
   function shelterFor(e, s, maxR) {
     const hab = AI.Areas.habitat(e.dex);
     const kinds = flyer(s) || hab[0] === 'tree' ? ['tree', 'bush'] : s.p.types.includes('bug') ? ['bush', 'tree'] : ['tree', 'log', 'bush', 'burrow'];
-    const list = AI.Areas.anchors(e.x, e.y, maxR || 300, kinds);
+    let list = AI.Areas.anchors(e.x, e.y, maxR || 300, kinds);
+    // birds and tree-dwellers go for a tree whenever one is in reach
+    if (kinds[0] === 'tree' && kinds[1] === 'bush') { const trees = list.filter((a) => a.kind === 'tree'); if (trees.length) list = trees; }
     let best = null, bd = Infinity;
     for (const a of list) {
       const d = U.dist2(e.x, e.y, a.x, a.y) * (a.kind === kinds[0] ? 1 : 4);
@@ -97,6 +99,7 @@
       if (S.windNow() > 0.8 && small(s)) need = Math.max(need, (S.windNow() - 0.6) * 1.2);
       if (S.fog > 0.82) need = Math.max(need, (S.fog - 0.7) * 2.2 * (1 - s.pers.tr.bravery * 0.5));
       if (S.snow > 0.5 && !s.p.types.includes('ice')) need = Math.max(need, S.snow * 0.5);
+      if (s.shelterUntil > AI.time) need = Math.max(need, 0.7);
       return need > 0.15 ? 0.25 + need : 0;
     },
     start(e, s) {
@@ -108,7 +111,7 @@
     update(e, s, dt, it) {
       const S = sky();
       s.bs.t += dt;
-      const calm = !S || (S.rain < 0.25 && S.storm < 0.2 && S.windNow() < 0.65 && S.fog < 0.7 && S.snow < 0.3);
+      const calm = (!S || (S.rain < 0.25 && S.storm < 0.2 && S.windNow() < 0.65 && S.fog < 0.7 && S.snow < 0.3)) && !(s.shelterUntil > AI.time);
       if (calm && s.bs.t > 3) return false;
       if (s.bs.spot && !s.bs.there) {
         const d = Math.hypot(s.bs.spot[0] - e.x, s.bs.spot[1] - e.y);
@@ -149,13 +152,15 @@
     // deep fog: nobody roams; strangely quiet
     score(e, s, c) {
       const S = sky();
-      if (!S || S.fog < 0.78 || s.inCombat || s.stance === 'hostile') return 0;
+      if (!S || s.inCombat || s.stance === 'hostile') return 0;
+      if (s.huddleUntil > AI.time) return 0.6;
+      if (S.fog < 0.78) return 0;
       return 0.35 + (S.fog - 0.78) * 3;
     },
     start(e, s) { s.bs.t = 0; },
     update(e, s, dt, it) {
       const S = sky();
-      if (!S || S.fog < 0.7) return false;
+      if (!S || (S.fog < 0.7 && !(s.huddleUntil > AI.time))) return false;
       B().stay(it);
       if (Math.random() < dt * 0.12) it.face = Math.random() * 6.283;
       return true;
@@ -409,21 +414,57 @@
     for (const e of R.EnemyMgr.all()) {
       const s = e.psx;
       if (!s || e.dead || !flyer(s) || !small(s) || !cam.sees(e.x, e.y, 80)) continue;
+      if (s.beh && s.beh.id === 'sleep' && s.bs.down) continue; // tucked in on the ground
       if (Math.random() < 0.45 * (ev.power - 0.6)) blowAway(e, s, ev.power);
     }
   });
-  // thunder: small Pokémon dive for cover
+  // a close strike scorches the ground and terrifies whoever was standing next to it
+  AI.Bus.on('lightning', (ev) => {
+    if (!ev.near || !AI.Decor) return;
+    AI.Decor.addDyn({ k: 'scorch', x: ev.x, y: ev.y, flat: true, t: AI.time });
+    for (const e of AI.R.EnemyMgr.queryCircle(ev.x, ev.y, 240)) {
+      const s = e.psx;
+      if (!s || e.dead) continue;
+      if (s.p.types.includes('electric')) { M().feel(s, 'excitement', 0.6); M().say(s, 'sparkle', 1.6, 3); continue; }
+      if (s.beh && s.beh.id === 'sleep') s.wokeAt = AI.time;
+      M().feel(s, 'fear', 0.8, 'thunder'); M().feel(s, 'surprise', 0.9);
+      M().say(s, 'scared', 1.8, 4);
+    }
+  });
+  // thunder: reactions vary with distance, species, personality and what they were doing
   AI.Bus.on('boom', (ev) => {
     if (!ev.thunder) return;
     const R = AI.R;
+    const cam = R.Camera;
     for (const e of R.EnemyMgr.all()) {
       const s = e.psx;
-      if (!s || e.dead || s.lod > 1 || s.inCombat) continue;
-      const k = (1.6 - ev.dist * 0.35) * (1 - s.pers.tr.bravery * 0.6);
-      if (k <= 0.1) continue;
-      M().feel(s, 'fear', U.clamp(k * 0.5, 0, 0.8), 'thunder');
-      M().feel(s, 'surprise', 0.5);
-      if (Math.random() < 0.4) M().say(s, small(s) ? 'scared' : 'surprise', 1.4, 3);
+      if (!s || e.dead || s.lod > 1 || !cam.sees(e.x, e.y, 300)) continue;
+      const loud = U.clamp(1.4 - ev.dist * 0.35, 0, 1.2); // close thunder is a physical shock
+      if (loud < 0.15) continue;
+      // electric types shrug it off (some even love it)
+      if (s.p.types.includes('electric')) { if (Math.random() < 0.4) { M().feel(s, 'excitement', 0.4); M().say(s, 'sparkle', 1.2, 2); } continue; }
+      // sleepers only stir for close, loud thunder
+      if (s.beh && s.beh.id === 'sleep' && s.bs.down) {
+        if (Math.random() < (loud - 0.6) * 0.8) { s.wokeAt = AI.time; M().feel(s, 'surprise', 0.8); M().feel(s, 'fear', 0.4, 'thunder'); M().say(s, 'surprise', 1.4, 3); }
+        continue;
+      }
+      const brave = s.pers.tr.bravery;
+      if (brave < 0.8) M().feel(s, 'fear', loud * 0.35 * (1 - brave), 'thunder'); // a jolt of fright, the timid most of all
+      if (s.inCombat || brave > 0.8 || Math.random() > 0.35 + loud * 0.45) continue; // not everyone reacts every time
+      const r = Math.random() * (1 - brave * 0.4);
+      if (r < 0.3 && !s.lock) {
+        // freezes on the spot for a heartbeat
+        M().feel(s, 'surprise', 0.7); M().feel(s, 'fear', 0.25 + loud * 0.2, 'thunder'); M().say(s, 'surprise', 1.2, 3);
+        const dur = U.rand(0.6, 1.3);
+        s.lock = { t: 0, update(e2, s2, dt, it) { this.t += dt; it.stay = true; s2.vis.shake = this.t < 0.25 ? 1.5 : 0; return this.t < dur; } };
+      } else if (r < 0.55) {
+        // runs for shelter
+        M().feel(s, 'fear', 0.5 + loud * 0.3, 'thunder'); M().say(s, small(s) ? 'scared' : 'sweat', 1.4, 3);
+        s.shelterUntil = AI.time + U.rand(15, 30);
+      } else if (r < 0.75) {
+        // stops wandering for a while
+        M().feel(s, 'suspicion', 0.4); s.huddleUntil = AI.time + U.rand(6, 12);
+      } else { M().feel(s, 'surprise', 0.4); if (Math.random() < 0.5) M().say(s, 'surprise', 1, 2); }
     }
   });
 

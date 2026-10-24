@@ -145,6 +145,12 @@
     burst('lowpass', 1800 / (1 + dist), 0.7, 2.5 + dist * 0.6, 0.35 * near, U.rand(-0.6, 0.6), true, 0, 0.03 + dist * 0.04);
     tone('sine', 55, 38, 2.4, 0.12 * near, 0, false);
   }
+  // the storm clearing its throat somewhere far away
+  function rumble() {
+    if (!ok()) return;
+    burst('lowpass', 260, 0.8, 3.2, 0.12, U.rand(-0.7, 0.7), true, 0, 0.6);
+    tone('sine', 46, 34, 3, 0.05, 0, false);
+  }
   function rustle(x, y, k = 1) { if (!ok()) return; const [pan, v] = where(x, y); if (v > 0) burst('bandpass', 3200, 0.8, 0.18, 0.04 * k * v, pan, false); }
   function splash(x, y) { if (!ok()) return; const [pan, v] = where(x, y); burst('bandpass', 1300, 1.2, 0.22, 0.07 * v, pan, false); tone('sine', 300, 120, 0.12, 0.03 * v, pan, false); }
   function squelch(x, y) { if (!ok()) return; const [pan, v] = where(x, y); burst('lowpass', 420, 2, 0.25, 0.06 * v, pan, false); }
@@ -220,5 +226,5 @@
     } else tuneI = 0;
   }
 
-  AI.define('Ambience', { start, tick, chirp, hoot, thunder, rustle, splash, squelch, snore, cry, flutter, creak, branch, musicBox, get ctx() { return ctx; } });
+  AI.define('Ambience', { start, tick, chirp, hoot, thunder, rumble, rustle, splash, squelch, snore, cry, flutter, creak, branch, musicBox, get ctx() { return ctx; } });
 })();

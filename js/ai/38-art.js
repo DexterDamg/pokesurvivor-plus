@@ -96,8 +96,9 @@
   const GIANTS = ['giant_a', 'giant_b', 'giant_vine_a', 'giant_vine_b'];
   // 'grass' props (destructible undergrowth)
   const UNDER = {
-    spring: ['tallgrass_big', 'tuft_5', 'fern', 'bushball_01', 'bushball_02', 'bushtiny_01', 'sapling_01', 'cone_02', 'bush_wide', 'shrub', 'tuft_1', 'tuft_5'],
-    summer: ['tallgrass_big', 'tuft_5', 'fern', 'bushball_00', 'bushball_01', 'bushball_11', 'bushtiny_10', 'sapling_00', 'cone_01', 'bush_wide', 'shrub', 'tuft_1', 'tuft_5'],
+    // the undergrowth stays low so it never swallows the player
+    spring: ['tuft_5', 'tuft_1', 'fern', 'bushball_01', 'bushball_02', 'bushtiny_01', 'bushtiny_02', 'tuft_1', 'tuft_5', 'tuftlow_1', 'tuftlow_5'],
+    summer: ['tuft_5', 'tuft_1', 'fern', 'bushball_01', 'bushball_13', 'bushtiny_01', 'bushtiny_13', 'tuft_1', 'tuft_5', 'tuftlow_1', 'tuftlow_5'],
     autumn: ['tuft_3', 'tuft_0', 'tuftlow_3', 'bushball_03', 'bushball_05', 'bushball_15', 'bushtiny_14', 'cone_05', 'sapling_13', 'fern', 'tuft_0'],
     winter: ['tuft_4', 'tuft_7', 'bushball_08', 'bushtiny_08', 'cone_08', 'sapling_07', 'tuft_2'],
   };
@@ -111,24 +112,55 @@
     if (biome === 8) return 'ice';
     return null;
   }
-  function treeFor(prop, biome, season) {
+  // ---------------------------------------------------------------- forest hierarchy
+  // green woodland species sorted into growth stages by their natural sprite size
+  const GREEN = [...BROADLEAF, ...EVERGREEN, ...R1(0, [1, 2]), ...R1(1, [3]),
+    ...['sapling_', 'sapling2_', 'cone_'].flatMap((k) => ['01', '02', '13'].map((c) => k + c)), 'pine_s1', 'pine_s2'];
+  const STAGE = { sapling: [], young: [], mature: [], tall: [] };
+  function stages() {
+    if (STAGE.done) return STAGE;
+    for (const n of GREEN) {
+      const r = IDX[n];
+      if (!r) continue;
+      const h = r[3];
+      (h < 34 ? STAGE.sapling : h < 48 ? STAGE.young : h < 64 ? STAGE.mature : STAGE.tall).push(n);
+    }
+    STAGE.done = true;
+    return STAGE;
+  }
+  const pickFrom = (list, prop, salt) => list[(U.hash(prop.tx, prop.ty, salt) * list.length) | 0];
+  /* A tree's growth stage depends on how much room it has (dmin: distance to the nearest other
+   * tree) and on rarity: crowded spots grow saplings and young trees, open ground mature ones,
+   * a few spacious spots large trees, and very rarely an ancient giant becomes a landmark.
+   * Scales are whole multiples of the source pixels (2× normal, 3× for large/ancient). */
+  function treeFor(prop, biome, season, dmin) {
     const th = theme(biome);
     if (!th) return null;
-    const h = U.hash(prop.tx, prop.ty, 4242);
-    if (th === 'forest' && h > 0.985) return GIANTS[(h * 1000 | 0) % 2]; // a rare ancient tree
-    const T = TREES[th];
-    const list = T.all || T[season] || T.summer;
-    return list[(U.hash(prop.tx, prop.ty, 4243) * list.length) | 0];
+    if (th !== 'forest') {
+      const T = TREES[th];
+      const list = T.all || T[season] || T.summer;
+      return { n: pickFrom(list, prop, 4243), s: 1, stage: 'mature' };
+    }
+    const S = stages();
+    const d = dmin == null ? 999 : dmin;
+    const r = U.hash(prop.tx, prop.ty, 4242);
+    const sizes = AI.cfg.treeSizes !== false;
+    if (sizes && r < 0.022 && d > 170) return { n: pickFrom(GIANTS, prop, 4244), s: 1.5, stage: 'ancient' };
+    if (sizes && r < 0.2 && d > 110) return { n: pickFrom(r < 0.11 ? S.tall : S.mature, prop, 4245), s: 1.5, stage: 'large' };
+    if (!sizes || d > 64) return { n: pickFrom(r > 0.75 ? S.young : r > 0.45 ? S.tall : S.mature, prop, 4246), s: 1, stage: 'mature' };
+    if (d > 38) return { n: pickFrom(S.young, prop, 4247), s: 1, stage: 'young' };
+    return { n: pickFrom(S.sapling, prop, 4248), s: 1, stage: 'sapling' };
   }
   function underFor(prop, biome, season) {
     const th = theme(biome);
     if (!th || th === 'jungle' && false) return null;
-    const list = th === 'haunted' ? HAUNT_UNDER : th === 'ice' ? UNDER.winter : UNDER[season] || UNDER.summer;
+    // forests stay green whatever the calendar says; seasons show in flowers, light and snow
+    const list = th === 'haunted' ? HAUNT_UNDER : th === 'ice' ? UNDER.winter : th === 'forest' ? (season === 'spring' ? UNDER.spring : UNDER.summer) : UNDER[season] || UNDER.summer;
     return list[(U.hash(prop.tx, prop.ty, 5151) * list.length) | 0];
   }
 
   AI.define('Art', {
-    PX, img, IDX, has, size, draw, silhouette, theme, treeFor, underFor, TREES, UNDER, EVERGREEN, BROADLEAF,
+    PX, img, IDX, has, size, draw, silhouette, theme, treeFor, underFor, stages, GIANTS, GREEN, TREES, UNDER, EVERGREEN, BROADLEAF,
     get ready() { return ready; },
   });
 })();

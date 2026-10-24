@@ -107,13 +107,13 @@
       if (v.shake) ctx.translate((Math.random() - 0.5) * v.shake * 2, 0);
       if (v.alpha != null && v.alpha < 1) ctx.globalAlpha *= v.alpha;
       if (sub > 0.02) {
-        const depth = this.bodyH * sub * 0.55;
+        const depth = AI.Scale.top(this) * sub * 0.55;
         ctx.beginPath();
         ctx.rect(this.x - 300, this.y - 600, 600, 600 - depth);
         ctx.clip();
       }
       if (sx !== 1 || sy !== 1) { ctx.translate(this.x, this.y); ctx.scale(sx, sy); ctx.translate(-this.x, -this.y); }
-      if (v.rot) { const cy = this.y - this.bodyH * 0.45 - lift; ctx.translate(this.x, cy); ctx.rotate(v.rot); ctx.translate(-this.x, -cy); }
+      if (v.rot) { const cy = this.y - AI.Scale.top(this) * 0.45 - lift; ctx.translate(this.x, cy); ctx.rotate(v.rot); ctx.translate(-this.x, -cy); }
       orig.call(this, ctx);
       if (v.glow > 0.02) {
         ctx.globalAlpha *= Math.min(1, v.glow);
@@ -127,7 +127,7 @@
   }
 
   function ripple(ctx, e, sub) {
-    const y = e.y - e.bodyH * sub * 0.55;
+    const y = e.y - AI.Scale.top(e) * sub * 0.55;
     ctx.save();
     ctx.globalAlpha = 0.55;
     ctx.strokeStyle = '#d8f0ff';
@@ -144,12 +144,12 @@
     if (v.tears > 0) {
       const t = (AI.time * 2.4 + e.id) % 1;
       ctx.fillStyle = '#7fc8ff';
-      const fy = e.y - e.bodyH * 0.72 - lift + t * 12;
+      const fy = e.y - AI.Scale.top(e) * 0.72 - lift + t * 12;
       ctx.fillRect(Math.round(e.x - 5), Math.round(fy), 2, 3);
       ctx.fillRect(Math.round(e.x + 4), Math.round(fy + 4 - t * 4), 2, 3);
     }
     if (v.carry === 'rock') {
-      const y = e.y - e.bodyH - 10 - lift;
+      const y = e.y - AI.Scale.top(e) - 10 - lift;
       ctx.fillStyle = '#8a7f72'; ctx.beginPath(); ctx.ellipse(e.x, y, 13, 9, 0, 0, 6.283); ctx.fill();
       ctx.fillStyle = '#a89e90'; ctx.beginPath(); ctx.ellipse(e.x - 3, y - 3, 6, 4, 0, 0, 6.283); ctx.fill();
     }
@@ -254,7 +254,7 @@
       const { e, s, b } = cand[i];
       const v = s.vis;
       const lift = (v.lift || 0) + (v.hopLift || 0) + (e.jumpLift || 0);
-      const top = e.y - e.bodyH - lift - (e.hp < e.maxHp ? 16 : 8) + Math.sin(now * 3 + e.id) * 1.2;
+      const top = e.y - AI.Scale.top(e) - lift - (e.hp < e.maxHp ? 16 : 8) + Math.sin(now * 3 + e.id) * 1.2;
       const age = now - (s.bubbleAt || 0);
       const pop = b.fresh ? U.clamp(age / 0.12, 0.4, 1) : 1;
       bubble(ctx, e.x, top, b.icon, pop);

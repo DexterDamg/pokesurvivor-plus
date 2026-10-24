@@ -205,6 +205,7 @@
       case 'hit': witnessHit(e, s, ev, near); break;
       case 'death': witnessDeath(e, s, ev, near); break;
       case 'boom': {
+        if (ev.thunder) break; // thunder has its own, more varied reactions (62-envbeh)
         if (asleep(s) && ev.loud >= 300) wake(e, s, 'startled');
         const k = U.clamp(ev.power || 0.6, 0.2, 1.5) * near;
         Mind.feel(s, 'surprise', 0.6 * k);
@@ -224,8 +225,8 @@
             Mind.feel(s, 'anger', 0.25 + bond * 0.4, AI.keyOf(ev.foe));
             s.forceThink = true;
           } else Mind.feel(s, 'fear', 0.15 * near);
-        } else if (ev.kind === 'panic') {
-          // emotional contagion: a strong Pokémon running away is very convincing
+        } else if (ev.kind === 'panic' && !(ev.foeKey === 'thunder' && s.p.types.includes('electric'))) {
+          // emotional contagion: a strong Pokémon running away is very convincing (thunder doesn't scare electric types)
           const ratio = ev.src ? AI.Species.power(ev.src) / Math.max(60, AI.Species.power(e)) : 1;
           const amp = AI.Legend ? AI.Legend.contagionAmp(e) : 1;
           Mind.feel(s, 'fear', (0.12 + 0.25 * U.clamp(ratio, 0.4, 3) * (1 - tr.bravery)) * near * amp, ev.foeKey);

@@ -51,6 +51,8 @@
     if (!th || !AI.cfg.newArt) return out;
     const ch = CH(), x0 = cx * ch, y0 = cy * ch;
     const sea = season();
+    // forests keep their greenery all year; the season shows in the flowers
+    const veg = th === 'forest' && (sea === 'autumn' || sea === 'winter') ? 'summer' : sea;
     let i = 0;
     const R = () => rnd(cx, cy, i++);
     const spot = (r, tries = 6) => {
@@ -78,7 +80,7 @@
         }
       }
       // grass tufts and low tufts
-      const tc = TUFTS[sea];
+      const tc = TUFTS[veg];
       for (let n = 0; n < 16; n++) {
         const c = spot(6, 3);
         if (!c) continue;
@@ -87,15 +89,15 @@
       // ferns, sprouts, saplings
       for (let n = 0; n < 3; n++) {
         const c = spot(10);
-        if (c) push({ k: 'plant', n: ['fern', 'sprout', sea === 'autumn' ? 'sapling_13' : sea === 'winter' ? 'sapling_07' : 'sapling_01'][(R() * 3) | 0], x: c[0], y: c[1], f: R() < 0.5, hab: 'bush', r: 8 });
+        if (c) push({ k: 'plant', n: ['fern', 'sprout', veg === 'autumn' ? 'sapling_13' : veg === 'winter' ? 'sapling_07' : 'sapling_01'][(R() * 3) | 0], x: c[0], y: c[1], f: R() < 0.5, hab: 'bush', r: 8 });
       }
       // bushes (Caterpie, Weedle and friends live here)
-      const bl = BUSHES[sea];
+      const bl = BUSHES[veg];
       for (let n = 0; n < 5; n++) {
         const c = spot(14);
         if (c) push({ k: 'bush', n: bl[(R() * bl.length) | 0], x: c[0], y: c[1], f: R() < 0.5, hab: 'bush', r: 14 });
       }
-      if (R() < 0.6) { const c = spot(14); if (c) push({ k: 'bush', n: BERRY[sea], x: c[0], y: c[1], f: R() < 0.5, hab: 'berry', r: 12, berries: 3 }); }
+      if (R() < 0.6) { const c = spot(14); if (c) push({ k: 'bush', n: BERRY[veg], x: c[0], y: c[1], f: R() < 0.5, hab: 'berry', r: 12, berries: 3 }); }
       // fallen logs and stumps (Rattata hangouts)
       for (let n = 0; n < (R() < 0.35 ? 2 : 1); n++) {
         if (R() > 0.75) continue;
@@ -113,11 +115,6 @@
       }
       // burrows
       if (R() < 0.55) { const c = spot(14); if (c) push({ k: 'burrow', x: c[0], y: c[1], hab: 'burrow', r: 12, flat: true }); }
-      // an old lamp post now and then
-      if (th === 'forest' && R() < 0.07) {
-        const c = spot(16);
-        if (c) push({ k: 'lamp', n: R() < 0.5 ? 'lamppost' : 'lamppost_r', x: c[0], y: c[1], r: 8, light: { r: 150, c: [255, 196, 120], kind: 'lamp' }, lit: true, protected: true });
-      }
     } else if (th === 'haunted') {
       for (let n = 0; n < 4; n++) { const c = spot(8); if (c) push({ k: 'mush', n: R() < 0.5 ? 'ghostshroom' : 'ghostshroom_big', x: c[0], y: c[1], s: 0.8, hab: 'mush', r: 8, light: { r: 50, c: [255, 150, 70], kind: 'glow' } }); }
       for (let n = 0; n < 6; n++) { const c = spot(8); if (c) push({ k: 'plant', n: ['haunt_weed_a', 'haunt_weed_b', 'haunt_reed', 'deadsapling_b'][(R() * 4) | 0], x: c[0], y: c[1], f: R() < 0.5, hab: 'bush', r: 8 }); }
@@ -163,6 +160,8 @@
         items.push(item({ k: 'path', x: px, y: py, flat: true, over: Math.min(1, k / 7 + U.hash(k, s, 3) * 0.25), ang: Math.atan2(q[1] - p[1], q[0] - p[0]) }));
       }
     }
+    const ent = side(pts[0], pts[1], -40);
+    items.push(item({ k: 'lamp', n: 'lamppost', x: ent[0] - 30, y: ent[1] + 10, r: 8, light: { r: 150, c: [255, 196, 120], kind: 'lamp' }, lit: true, protected: true }));
     const sgn = side(pts[0], pts[1], 46);
     items.push(item({ k: 'sign', n: 'sign', x: sgn[0], y: sgn[1], r: 8, vines: true, lore: 'sign' }));
     const lan = side(pts[1], pts[2], -54);

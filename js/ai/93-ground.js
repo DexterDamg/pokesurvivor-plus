@@ -42,13 +42,28 @@
   }
 
   // ---------------------------------------------------------------- props: art, sway, parting
+  // how much room a tree has: distance to its nearest neighbouring tree
+  function roomOf(prop) {
+    let d = 999;
+    for (const o of AI.Env.props(prop.x, prop.y, 190)) {
+      if (o === prop || o.type !== 'tree') continue;
+      const dd = Math.hypot(o.x - prop.x, o.y - prop.y);
+      if (dd < d) d = dd;
+    }
+    return d;
+  }
   function artFor(prop) {
     const Sky = AI.Sky;
-    const key = AI.Env.biome() + ':' + (Sky ? Sky.season() : '');
+    const key = AI.Env.biome() + ':' + (Sky ? Sky.season() : '') + ':' + (AI.cfg.treeSizes !== false);
     if (prop._psxArtK === key) return prop._psxArt;
     prop._psxArtK = key;
     const b = AI.Env.biome(), se = Sky ? Sky.season() : 'summer';
-    prop._psxArt = prop.type === 'tree' ? AI.Art.treeFor(prop, b, se) : prop.type === 'grass' ? AI.Art.underFor(prop, b, se) : null;
+    prop._psxScale = 1; prop._psxStage = null;
+    if (prop.type === 'tree') {
+      const t = AI.Art.treeFor(prop, b, se, roomOf(prop));
+      prop._psxArt = t ? t.n : null;
+      if (t) { prop._psxScale = t.s; prop._psxStage = t.stage; }
+    } else prop._psxArt = prop.type === 'grass' ? AI.Art.underFor(prop, b, se) : null;
     return prop._psxArt;
   }
   // something brushing through: lean away from it
@@ -64,10 +79,18 @@
     }
     return best ? U.clamp(Math.sign(best) * (1 - Math.abs(best)) * 0.6, -0.6, 0.6) : 0;
   }
+  // the canopy turns see-through when you (or a Pokémon fighting you) are behind it
   function behindCanopy(x, y, w, h) {
-    const p = AI.R.Game.player;
+    const R = AI.R;
+    const p = R.Game.player;
     if (!p) return false;
-    return p.y < y - 6 && p.y > y - h * 0.92 && Math.abs(p.x - x) < w * 0.42;
+    const inside = (e) => e.y < y - 6 && e.y > y - h * 0.92 && Math.abs(e.x - x) < w * 0.42;
+    if (inside(p)) return true;
+    for (const e of R.EnemyMgr.queryCircle(x, y - h * 0.5, Math.max(w, h) * 0.6)) {
+      if (e.dead || !inside(e)) continue;
+      if (!e.psx || e.psx.stance === 'hostile' || p.psxFocus === e || (e.psx.inCombat && e.psx.combat.target === p)) return true;
+    }
+    return false;
   }
 
   function wrapDrawProp(orig) {
@@ -80,10 +103,20 @@
       const [w, h] = AI.Art.size(name);
       const flip = U.hash(prop.tx, prop.ty, 77) < 0.5;
       if (prop.type === 'tree') {
-        const tall = h > 130 ? 0.45 : 1;
+        const s = prop._psxScale || 1;
+        const tall = h * s > 130 ? 0.45 : 1;
         const sway = swayAt(prop.x, 0.05 * tall) + Math.sin(AI.time * 0.9 + prop.wiggle) * 0.006;
-        const fade = behindCanopy(prop.x, prop.y, w, h);
-        AI.Art.draw(ctx, name, prop.x, prop.y + 2, { flip, sway, alpha: fade ? 0.55 : null });
+        const fade = behindCanopy(prop.x, prop.y, w * s, h * s);
+        AI.Art.draw(ctx, name, prop.x, prop.y + 2, { flip, sway, scale: s, alpha: fade ? 0.5 : null });
+        // ferns and saplings crowd around the roots of big old trees
+        if (prop._psxStage === 'large' || prop._psxStage === 'ancient') {
+          const n = prop._psxStage === 'ancient' ? 3 : 2;
+          for (let i = 0; i < n; i++) {
+            const a = U.hash(prop.tx, prop.ty, 60 + i);
+            const ox = (i - (n - 1) / 2) * w * s * 0.42 + (a - 0.5) * 10;
+            AI.Art.draw(ctx, ['fern', 'bushball_01', 'sapling_01', 'bushtiny_10'][(a * 4) | 0], prop.x + ox, prop.y + 6 + a * 6, { flip: a < 0.5, sway: swayAt(prop.x + ox, 0.1) });
+          }
+        }
       } else {
         const shakeK = AI.Decor ? AI.Decor.shakeOf('p' + prop.tx + ',' + prop.ty) : 0;
         const sway = swayAt(prop.x, 0.12) + parting(prop.x, prop.y) + (shakeK ? Math.sin(AI.time * 40) * shakeK * 0.3 : 0) + Math.sin(2.4 * t + prop.wiggle) * 0.02;
@@ -233,6 +266,7 @@
       for (const it of D.inRect(x0, y0, x1, y1, flat)) {
         if (!it.flat) continue;
         if (it.k === 'path') drawPath(ctx, it);
+        else if (it.k === 'scorch') drawScorch(ctx, it);
         else if (it.k === 'burrow') drawBurrow(ctx, it);
         else AI.Art.draw(ctx, it.n, it.x, it.y, { flip: it.f, scale: it.s, sway: swayAt(it.x, 0.12) + parting(it.x, it.y) });
       }
@@ -307,6 +341,15 @@
     }
     if (it.over > 0.4) AI.Art.draw(ctx, 'tuft_' + (U.hash(it.id, 1, 1) < 0.5 ? 1 : 5), it.x + 8, it.y + 4, { sway: swayAt(it.x, 0.1) });
   }
+  function drawScorch(ctx, it) {
+    const a = U.clamp(1 - (AI.time - it.t) / 60, 0, 1);
+    if (a <= 0) { AI.Decor.removeDyn(it); return; }
+    ctx.fillStyle = 'rgba(28,20,14,' + (0.55 * a).toFixed(3) + ')';
+    ctx.beginPath(); ctx.ellipse(it.x, it.y, 22, 11, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = 'rgba(60,40,24,' + (0.4 * a).toFixed(3) + ')';
+    for (let i = 0; i < 6; i++) { const an = i * 1.05 + it.id; ctx.fillRect(Math.round(it.x + Math.cos(an) * 24), Math.round(it.y + Math.sin(an) * 12), 3, 2); }
+    if (AI.time - it.t < 6 && Math.random() < 0.2) AI.R.FX.px(it.x + U.rand(-8, 8), it.y - 4, '#9a9a9a', { vy: -25, life: 0.9 });
+  }
   function drawBurrow(ctx, it) {
     ctx.fillStyle = '#7d5c3a';
     ctx.beginPath(); ctx.ellipse(it.x, it.y, 15, 8, 0, 0, 6.283); ctx.fill();
@@ -330,7 +373,8 @@
     ctx.globalAlpha = 0.22;
     for (const p of props) {
       if (p.flat) continue;
-      const k = p.type === 'tree' ? 34 : p.type === 'psx' ? (p.item.r || 10) * 1.6 : 20;
+      // bigger canopies shade a wider patch of ground
+      const k = p.type === 'tree' ? (p._psxArt ? AI.Art.size(p._psxArt)[0] * (p._psxScale || 1) * 0.42 : 34) : p.type === 'psx' ? (p.item.r || 10) * 1.6 : 20;
       if (p.type === 'psx' && (p.item.k === 'lamp' || p.item.k === 'fence' || p.item.k === 'sign')) continue;
       ctx.drawImage(B, p.x - k, p.y - k * 0.42, k * 2, k * 0.84);
     }
@@ -367,7 +411,7 @@
       }
       let src = null, w = 0, h = 0, flip = false;
       const name = artOn() && (p.type === 'tree' || p.type === 'grass') ? artFor(p) : null;
-      if (name && AI.Art.has(name)) { src = AI.Art.silhouette(name); [w, h] = AI.Art.size(name); flip = U.hash(p.tx, p.ty, 77) < 0.5; }
+      if (name && AI.Art.has(name)) { src = AI.Art.silhouette(name); [w, h] = AI.Art.size(name); w *= p._psxScale || 1; h *= p._psxScale || 1; flip = U.hash(p.tx, p.ty, 77) < 0.5; }
       else {
         try { const sp = R.Tiles.propSprite(AI.Env.biome(), p.type, 0); src = AI.Art.silhouette(sp); w = sp.width * PX; h = sp.height * PX; } catch (e) { src = null; }
       }
@@ -381,7 +425,7 @@
       sg.ellipse(e.x + lx, e.y + ly, (e.r || 14) * 0.85 + Math.abs(lx) * 0.6, (e.r || 14) * 0.38 + Math.abs(ly) * 0.5, Math.atan2(ly, lx || 0.001), 0, 6.283);
       sg.fill();
     };
-    for (const e of R.EnemyMgr.drawables(cam)) if (!e.dead && !(e.psx && e.psx.vis && e.psx.vis.alpha < 0.3)) ent(e, e.bodyH || 30);
+    for (const e of R.EnemyMgr.drawables(cam)) if (!e.dead && !(e.psx && e.psx.vis && e.psx.vis.alpha < 0.3)) ent(e, AI.Scale.top(e));
     const pl = R.Game.player;
     if (pl && !pl.dead) ent(pl, pl.bodyH || 40);
     ctx.save();
@@ -407,5 +451,52 @@
     }
   }
 
-  AI.define('Ground', { drawGround, wrapDrawProp, wrapVisibleProps, drawItem, swayAt, parting });
+  // ---------------------------------------------------------------- attack telegraphs
+  /* Softer warnings than the game's blinking red dashed outlines: a feathered glow that builds up
+   * as the attack charges, a thin solid edge, and a gentle pulse in the last moments. Warnings
+   * for attacks that can't hit you (Pokémon fighting each other) are fainter still. */
+  function drawHazards(ctx) {
+    const H = AI.R.Hazards;
+    if (!H.count) return;
+    const cam = AI.R.Camera;
+    const t = performance.now() / 1000;
+    for (const h of H.all) {
+      if (h.hit) continue;
+      const k = Math.min(1, h.t / Math.max(0.01, h.delay));
+      const late = k > 0.75 ? 0.5 + 0.5 * Math.sin(t * 14) : 0;
+      const mine = !h.psxOwner || (h.psxOwner.psx && (h.psxOwner.psx.stance === 'hostile' || h.psxOwner.psx.combat && AI.isPlayer(h.psxOwner.psx.combat.target)));
+      const fade = mine ? 1 : 0.45;
+      const col = '255,92,70';
+      ctx.save();
+      if (h.kind === 'zone') {
+        if (!cam.sees(h.x, h.y, h.r)) { ctx.restore(); continue; }
+        const g = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, h.r);
+        g.addColorStop(0, 'rgba(' + col + ',' + (0.05 + k * 0.2) * fade + ')');
+        g.addColorStop(0.75, 'rgba(' + col + ',' + (0.08 + k * 0.18) * fade + ')');
+        g.addColorStop(1, 'rgba(' + col + ',0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.ellipse(h.x, h.y, h.r, h.r * 0.75, 0, 0, 6.2832); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,170,140,' + ((0.22 + k * 0.25 + late * 0.25) * fade).toFixed(3) + ')';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.ellipse(h.x, h.y, h.r * (0.6 + k * 0.4), h.r * 0.75 * (0.6 + k * 0.4), 0, 0, 6.2832); ctx.stroke();
+      } else {
+        ctx.translate(h.x, h.y);
+        ctx.rotate(h.angle || 0);
+        const w = h.w || 20, len = h.len || 100;
+        const g = ctx.createLinearGradient(0, -w / 2, 0, w / 2);
+        const a = (0.06 + k * 0.2) * fade;
+        g.addColorStop(0, 'rgba(' + col + ',0)');
+        g.addColorStop(0.3, 'rgba(' + col + ',' + a.toFixed(3) + ')');
+        g.addColorStop(0.7, 'rgba(' + col + ',' + a.toFixed(3) + ')');
+        g.addColorStop(1, 'rgba(' + col + ',0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, -w / 2, len, w);
+        ctx.fillStyle = 'rgba(255,190,160,' + ((0.12 + k * 0.2 + late * 0.2) * fade).toFixed(3) + ')';
+        ctx.fillRect(0, -1, len * k, 2);
+      }
+      ctx.restore();
+    }
+  }
+
+  AI.define('Ground', { drawHazards, drawGround, wrapDrawProp, wrapVisibleProps, drawItem, swayAt, parting, artFor, roomOf });
 })();

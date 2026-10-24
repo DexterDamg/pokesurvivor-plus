@@ -55,6 +55,8 @@
         L.push({ x: lx, y: ly, r: it.light.r * (0.85 + f * 0.15), c: it.light.c, i: f, src: it });
       }
     }
+    // lightning lights up everything around where it strikes
+    for (const s of AI.Sky.st.strikes) L.push({ x: s.x, y: s.y - 40, r: 520, c: [220, 230, 255], i: Math.max(0, 1 - s.t / 0.5) * s.power * 1.4 });
     const p = R.Game.player;
     if (p && !p.dead) {
       if (lanternOn()) L.push({ x: p.x, y: p.y - (p.bodyH || 40) * 0.5, r: 190, c: [255, 214, 150], i: 0.9 + Math.sin(AI.time * 9) * 0.04, player: true });
@@ -137,14 +139,68 @@
       rays(ctx, w, h);
       precipitation(ctx, w, h, cam);
       fog(ctx, w, h, cam, amb);
-      if (Sky.flash > 0.02) {
+      strikes(ctx, w, h, cam);
+      const fk = AI.cfg.flashIntensity == null ? 1 : AI.cfg.flashIntensity;
+      if (Sky.flash > 0.02 && fk > 0) {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
-        ctx.fillStyle = 'rgba(220,230,255,' + (Sky.flash * 0.32).toFixed(3) + ')';
+        ctx.fillStyle = 'rgba(220,230,255,' + (Math.min(1, Sky.flash) * 0.3 * fk).toFixed(3) + ')';
         ctx.fillRect(0, 0, w, h);
         ctx.restore();
       }
     }
+  }
+
+  // a bolt you can see: a jagged glowing channel down from the clouds, the strike frames from the
+  // supplied lightning sheet where it touches down, and an impact burst
+  function strikes(ctx, w, h, cam) {
+    const list = AI.Sky.st.strikes;
+    if (!list.length) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const s of list) {
+      const x = (s.x - cam.left()) * cam.scale, y = (s.y - cam.top()) * cam.scale;
+      const life = 1 - s.t / 0.7;
+      const blink = s.t < 0.45 ? (Math.sin(s.t * 70) > -0.3 ? 1 : 0.35) : life;
+      const rnd = U.rng(s.seed);
+      // the channel
+      const pts = [[x + (rnd() - 0.5) * 160, -20]];
+      const steps = 10;
+      for (let k = 1; k <= steps; k++) {
+        const ty = -20 + (y + 20) * (k / steps);
+        const tx = U.lerp(pts[0][0], x, k / steps) + (k < steps ? (rnd() - 0.5) * 46 : 0);
+        pts.push([tx, ty]);
+      }
+      for (const [wd, a] of [[12, 0.16], [5, 0.45], [2, 0.95]]) {
+        ctx.strokeStyle = 'rgba(235,240,255,' + (a * blink * s.power).toFixed(3) + ')';
+        ctx.lineWidth = wd;
+        ctx.beginPath();
+        pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+        ctx.stroke();
+      }
+      // a branch or two
+      ctx.strokeStyle = 'rgba(220,230,255,' + (0.5 * blink * s.power).toFixed(3) + ')';
+      ctx.lineWidth = 1.5;
+      for (let b = 0; b < 2; b++) {
+        const i0 = 2 + ((rnd() * 5) | 0);
+        let [bx, by] = pts[i0];
+        ctx.beginPath(); ctx.moveTo(bx, by);
+        for (let k = 0; k < 3; k++) { bx += (rnd() - 0.5) * 60; by += 20 + rnd() * 30; ctx.lineTo(bx, by); }
+        ctx.stroke();
+      }
+      // touchdown frames and the burst
+      if (AI.Art && AI.Art.ready) {
+        const sc = cam.scale * 2.4;
+        const f = Math.min(5, Math.floor(s.t / 0.07));
+        const strike = 'bolt_strike_' + f, burst = 'bolt_burst_' + (Math.floor(s.t / 0.09) % 4);
+        ctx.globalAlpha = blink;
+        const r1 = AI.Art.IDX[strike], r2 = AI.Art.IDX[burst];
+        if (r1) ctx.drawImage(AI.Art.img, r1[0], r1[1], r1[2], r1[3], x - r1[2] * sc / 2, y - r1[3] * sc * 0.92, r1[2] * sc, r1[3] * sc);
+        if (r2 && s.t < 0.4) ctx.drawImage(AI.Art.img, r2[0], r2[1], r2[2], r2[3], x - r2[2] * sc * 0.6, y - r2[3] * sc * 0.6, r2[2] * sc * 1.2, r2[3] * sc * 1.2);
+        ctx.globalAlpha = 1;
+      }
+    }
+    ctx.restore();
   }
 
   // sunbeams through the canopy (strongest at dawn/dusk and in thin mist)
@@ -298,13 +354,14 @@
     if (Sky.indoor()) { leaves.length = 0; return; }
     const autumn = Sky.season() === 'autumn';
     const wind = Sky.windNow();
-    const rate = (autumn ? 2.2 : 0.25) + wind * 3;
+    const rate = (autumn && (AI.Art && AI.Art.theme(AI.Env.biome())) !== 'forest' ? 2.2 : 0.25) + wind * 3;
     const th = AI.Art && AI.Art.theme(AI.Env.biome());
     if (th && Math.random() < rate / 60 && leaves.length < 90) {
       const props = R.World.visibleProps(cam).filter((p) => p.type === 'tree');
       const t = props[(Math.random() * props.length) | 0];
       if (t) {
-        const cols = autumn ? ['#d9822b', '#c4452a', '#e6b13a', '#9a5a2a'] : Sky.season() === 'winter' ? ['#e8f2ff', '#cfe0f0'] : ['#4c9a3f', '#7cc45a', '#2f7535'];
+        const green = th === 'forest';
+        const cols = autumn && !green ? ['#d9822b', '#c4452a', '#e6b13a', '#9a5a2a'] : Sky.season() === 'winter' && !green ? ['#e8f2ff', '#cfe0f0'] : ['#4c9a3f', '#7cc45a', '#2f7535'];
         leaves.push({ x: t.x + U.rand(-30, 30), y: t.y - U.rand(60, 120), vx: 0, vy: 0, z: U.rand(50, 110), c: U.pick(cols), r: Math.random() * 6, t: 0, drip: false });
       }
     }

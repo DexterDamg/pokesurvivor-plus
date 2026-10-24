@@ -86,7 +86,7 @@
       const w = Math.min(126, Math.max(...lines.map((l) => ctx.measureText(l).width))) + 10;
       const h = lines.length * 9 + 7;
       const lift = (e.psx && e.psx.vis ? (e.psx.vis.lift || 0) : 0) + (e.jumpLift || 0);
-      const x = Math.round(e.x - w / 2), y = Math.round(e.y - (e.bodyH || 30) - lift - h - 26);
+      const x = Math.round(e.x - w / 2), y = Math.round(e.y - AI.Scale.top(e) - lift - h - 26);
       ctx.globalAlpha = a;
       ctx.fillStyle = 'rgba(255,253,244,0.96)';
       ctx.strokeStyle = '#2b2a3a';

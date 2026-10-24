@@ -128,6 +128,8 @@ uso **no comercial** y con atribución a sus artistas.
 
 Stats base y nombres en español: [PokeAPI](https://pokeapi.co/),
 descargados una vez y guardados en `js/data/pokedex.js`.
+Alturas y pesos de la Pokédex (para el tamaño de cada especie): también de
+[PokeAPI](https://pokeapi.co/), guardados en `js/ai/12-sizes.js`.
 
 ## Árboles, plantas y decorado del bosque
 
@@ -138,6 +140,8 @@ bosque encantado del "entorno vivo" (`assets/env/atlas.png`) salen de estas hoja
   farol colgante, velas, lápidas y cruz.
 - Hojas de árboles y vegetación por colores, bosque claro, bosque oscuro con
   pueblo y bosque encantado: material aportado por DexterDamg para PokéSurvivor+.
+- Hoja de rayos (fotogramas de relámpago e impacto): material aportado por
+  DexterDamg para PokéSurvivor+.
   *(Falta indicar aquí el autor original de cada una de estas hojas.)*
 
 Los sonidos de ambiente (pájaros, grillos, lluvia, viento, truenos, caja de
