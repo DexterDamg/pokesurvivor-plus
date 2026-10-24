@@ -294,6 +294,7 @@
       if (AI.enabled) try { AI.Player.drawHud(ctx); AI.Light.drawClock(ctx); AI.Render.drawDebugHud(ctx, w, h); } catch (e) { AI.warn('hud', e); }
       if (AI.enabled) try { AI.Mysteries.drawScreen(ctx, w, h); } catch (e) { AI.warn('myst-hud', e); }
       if (AI.enabled) try { AI.Haunt.drawScreen(ctx, w, h); AI.Mansion.drawScreen(ctx, w, h); AI.Story.drawScreen(ctx, w, h); } catch (e) { AI.warn('mansion-hud', e); }
+      if (AI.enabled) try { AI.Talk.draw(ctx, w, h); } catch (e) { AI.warn('talk', e); }
       return r;
     };
 
@@ -397,6 +398,7 @@
         AI.Mansion.tick(dt);
         AI.Haunt.tick(dt);
         AI.Story.tick(dt);
+        AI.Talk.tick(dt);
         AI.Player.frame();
         AI.Legend.tick(dt);
         AI.Social.tick(dt);
@@ -420,7 +422,7 @@
     // ------------------------------------------------------------ new run → fresh world
     const oWR = R.World.reset;
     R.World.reset = function (seed) {
-      try { resetWorld(); AI.Decor.reset(seed); AI.Journey.reset(AI.Decor.seed); AI.Wildlife.reset(); AI.Light.reset(); AI.Forest.reset(); AI.Mysteries.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); } catch (e) { AI.warn('reset', e); }
+      try { resetWorld(); AI.Decor.reset(seed); AI.Journey.reset(AI.Decor.seed); AI.Wildlife.reset(); AI.Light.reset(); AI.Talk.reset(); AI.Forest.reset(); AI.Mysteries.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); } catch (e) { AI.warn('reset', e); }
       return oWR.apply(this, arguments);
     };
     function resetWorld() {

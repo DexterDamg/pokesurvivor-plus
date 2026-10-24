@@ -436,20 +436,36 @@
     next();
     return true;
   }
+  // who says it, for the dialogue boxes (81-talk.js): you on the left, the residents on the right
+  function speakerOf(who) {
+    if (who === 'player') return 'player';
+    const c = CAST[who];
+    return c ? { dex: c.dex, name: c.name, nick: c.nick, col: c.col, voice: c.voice, key: 'cast:' + who, kind: 'npc' } : null;
+  }
+  function endLine() {
+    if (st.line && st.line.box && AI.Talk) AI.Talk.release(st.line.box);
+    st.line = null;
+  }
   function next() {
     const sc = st.scene;
     if (!sc) return;
     for (;;) {
       sc.i++;
       sc.t = 0;
-      st.line = null;
-      if (sc.i >= sc.steps.length) { const id = sc.id; st.scene = null; st.cam = null; onSceneEnd(id); return; }
+      endLine();
+      if (sc.i >= sc.steps.length) {
+        const id = sc.id; st.scene = null; st.cam = null;
+        if (AI.Talk) for (const b of AI.Talk.all()) if (b.tag === 'story') b.life = Math.min(b.life, 1.2);
+        onSceneEnd(id);
+        return;
+      }
       const s = sc.steps[sc.i];
       if (s.act) runAct(s.act);
       if (s.cam !== undefined && !st.replay) setCam(s.cam);
       if (s.who || s.narr) {
         const text = tr(s.who ? s.text : s.narr);
         st.line = { who: s.who || null, text, shown: 0, done: false, t: 0 };
+        if (s.who && AI.Talk && AI.cfg.talkBoxes !== false) st.line.box = AI.Talk.say(speakerOf(s.who), text, { hold: true, src: st.line, tag: 'story', emo: s.emo, kind: s.who === 'player' ? 'party' : 'npc' });
         if (s.emote && s.who !== 'player') { const a = actorOf(s.who); if (a) { a.emote = s.emote; a.emoteT = 1.4; } }
         if (s.emote && s.who === 'player') { AI.playerBubble.icon = s.emote === '!' ? 'surprise' : s.emote === '?' ? 'question' : 'happy'; AI.playerBubble.t = 1.6; }
         if (s.who && s.who !== 'player') { const a = actorOf(s.who); if (a) { a.hop = Math.max(a.hop, 0.4); a.lookAt = AI.R.Game.player; } }
@@ -597,6 +613,7 @@
   function drawDialogue(ctx, w, h) {
     const L = st.line;
     if (!L) return;
+    if (L.box && AI.Talk && AI.cfg.talkBoxes !== false) return; // drawn as a side box (81-talk.js)
     const bw = Math.min(w - 32, 860), bh = 128;
     const x = Math.round((w - bw) / 2), y = Math.round(h - bh - 18);
     const narr = !L.who;
@@ -816,7 +833,7 @@
   }
   function resetProgress() { save = { stage: 0, seen: {} }; persist(); }
 
-  function reset() { st.scene = null; st.line = null; st.cam = null; st.cine = null; st.actors.length = 0; st.bubbles.length = 0; st.hush = false; st.leaving = false; st.exitArmed = false; st.laughAt = 0; }
+  function reset() { if (AI.Talk) AI.Talk.clear((b) => b.tag === 'story'); st.scene = null; st.line = null; st.cam = null; st.cine = null; st.actors.length = 0; st.bubbles.length = 0; st.hush = false; st.leaving = false; st.exitArmed = false; st.laughAt = 0; }
 
   AI.define('Story', {
     st, CAST, SCENES, STAGES, tick, reset, play, advance, skipScene, busy, lockInput, blockExit, blockEntry, drawables, lights, drawScreen,

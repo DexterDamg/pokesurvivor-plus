@@ -714,6 +714,59 @@ async function sample(h, ms, every, fn, arg) {
     return { pass: ok, detail: r };
   });
 
+  await scenario(h, 'dialogue boxes: your party talks on the left, important NPCs on the right, two each at most, with PMD portraits', async () => {
+    const r = await h.R(async () => {
+      const T = PSXAI.Talk;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      T.reset();
+      for (let i = 0; i < 40 && !T.manifest; i++) await wait(50);
+      T.say('player', 'Did anyone else hear that?');
+      T.party({ dex: 656, name: 'Froakie', key: 'f' }, 'Hear what? Haha!');
+      T.npc({ dex: 94, name: 'Gengar', key: 'g', col: '#a77be0' }, 'Kekeke!');
+      T.npc({ dex: 477, name: 'Dusknoir', key: 'd' }, '…Enough.');
+      T.party({ dex: 906, name: 'Sprigatito', key: 's' }, 'Mrrow.');
+      T.npc({ dex: 92, name: 'Gastly', key: 'ga' }, 'Boo!');
+      await wait(900);
+      const left = T.boxes.left.map((b) => b.who.name), right = T.boxes.right.map((b) => b.who.name);
+      const portraits = [656, 906, 477, 92].map((d) => !!T.portrait(d, 'Normal'));
+      const emo = [T.emoFor('Kekeke! Got you!'), T.emoFor('…I don\'t like this.'), T.emoFor('What?! No way!?')];
+      // words are typed out, then the box fades on its own
+      const b = T.say('player', 'Short.', { life: 0.3 });
+      await wait(1600);
+      const faded = !T.boxes.left.includes(b);
+      T.reset();
+      return { left, right, portraits, emo, faded, local: Object.keys(T.manifest || {}).length };
+    });
+    const ok = r.left.length === 2 && r.left.includes('Sprigatito') && !r.left.includes('Pikachu') && r.right.length === 2 && r.right.includes('Gastly') && !r.right.includes('Gengar') && r.portraits.every(Boolean) && r.emo[0] === 'Joyous' && r.emo[1] === 'Worried' && r.emo[2] === 'Surprised' && r.faded && r.local > 30;
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'the Legendary box is only for Legendaries: "???" and a silhouette until known, and bosses speak as the battle turns', async () => {
+    const r = await h.R(async () => {
+      const T = PSXAI.Talk, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      T.reset();
+      const notLegend = T.legend(16, 'I am just a Pidgey.');
+      const pidgeyInLegendBox = T.boxes.legend === notLegend;
+      const dk = T.legend(491, '…Turn back.', { unknown: true });
+      const unknown = T.boxes.legend === dk && dk.unknown;
+      // a legendary boss arrives and fights
+      T.reset();
+      const e = PSXAI.Debug.spawn(150, { temp: 'neutral', dx: 140 });
+      e.legend = true;
+      await wait(400);
+      const arrival = T.boxes.legend && T.boxes.legend.who.dex === 150 ? T.boxes.legend.text : null;
+      e.hp = e.maxHp * 0.4; await wait(300);
+      const mid = T.boxes.legend && T.boxes.legend.text;
+      e.hp = e.maxHp * 0.1; await wait(300);
+      const low = T.boxes.legend && T.boxes.legend.text;
+      e.dead = true; T.reset();
+      return { pidgeyInLegendBox, unknown, arrival, mid, low };
+    });
+    const ok = !r.pidgeyInLegendBox && r.unknown && !!r.arrival && r.mid && r.mid !== r.arrival && r.low && r.low !== r.mid;
+    return { pass: ok, detail: r };
+  });
+
   await scenario(h, 'trees and undergrowth use the new varied art', async () => {
     await h.wait(400);
     const r = await h.R(() => {
