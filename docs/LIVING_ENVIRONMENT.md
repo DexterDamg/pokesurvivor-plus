@@ -1,6 +1,6 @@
 # Living Environment
 
-The forest breathes now. Morning mist settles over the clearings while the dew sparkles and the
+The forest breathes now. Morning mist settles over the clearings while the
 first Pidgey start chirping. By midday the sun is high, shadows shrink under the trees and the
 bugs come out in force. In the evening the sky turns orange, then violet, the lanterns flicker
 on and the Hoothoot wake up. At midnight the forest goes quiet and dark, broken only by
@@ -60,7 +60,7 @@ dwellers instead of random picks:
 ## Day and night (`36-sky.js`, `94-light.js`)
 
 - A full day lasts 10 minutes by default (configurable), and runs start in the early morning.
-  The phases are dawn (mist, dew, birds waking, night Pokémon slipping away), day (strongest sun,
+  The phases are dawn (mist, birds waking, night Pokémon slipping away), day (strongest sun,
   bugs everywhere, shade-seeking in the heat), evening (orange to purple skies, Pokémon heading
   home, Hoothoot waking) and night (dark, quiet, fewer Pokémon, harder to spot).
 - **Daily rhythms.** Day Pokémon get drowsy at night and sleep in sheltered spots under trees, by

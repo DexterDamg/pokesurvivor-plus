@@ -1359,7 +1359,7 @@ async function sample(h, ms, every, fn, arg) {
     return { pass: r.ripples > 0 && r.chunksWithWater > 0 && r.fps >= 28, detail: r };
   });
 
-  await scenario(h, 'Forest Mysteries: rumours and clues fill the journal step by step, never spoiling, and it is kept', async () => {
+  await scenario(h, 'Forest Mysteries: each mystery fills a nameless journal of its own step by step, reading pauses the game, and it is kept', async () => {
     const r = await h.R(async () => {
       const M = PSXAI.Mysteries, st = M.run.sites.celebi, p = __PSX_REG__.Game.player;
       M.resetJournal();
@@ -1379,11 +1379,23 @@ async function sample(h, ms, every, fn, arg) {
       if (ap) { p.x = ap.x; p.y = ap.y + 10; }
       await new Promise((res) => setTimeout(res, 1500));
       const saved = JSON.parse(localStorage.getItem('psx.mysteries.v1') || '{}');
-      M.toggle(true); await new Promise((res) => setTimeout(res, 150)); M.toggle(false);
+      // reading pauses the game (solo), and closing resumes it
+      const G = __PSX_REG__.Game;
+      M.toggle(true);
+      const t0 = G.time;
+      await new Promise((res) => setTimeout(res, 800));
+      const paused = G.state === 'choice' && G.time === t0;
+      M.toggle(false);
+      await new Promise((res) => setTimeout(res, 300));
+      const resumed = G.state === 'playing' && G.time > t0;
+      // no journal ever names what it is about, or calls it legendary
+      const names = M.ORDER.map((id) => M.MY[id].name).filter(Boolean).concat(['Legendary', 'legendary', 'Mythical', 'mythical', 'Pokémon']);
+      const texts = M.ORDER.flatMap((id) => { const m = M.MY[id]; return [m.title, m.rumor, m.sight, m.conf, m.won, ...m.clues.map((c) => c[1])].filter(Boolean); });
+      const leaks = texts.filter((t) => names.some((n) => t.includes(n)));
       const others = M.ORDER.filter((id) => id !== 'celebi').map((id) => M.status(id));
-      return { empty, afterRumour, afterClue, celebiSeen, final: M.status('celebi'), saved: !!(saved.m && saved.m.celebi && saved.m.celebi.r), othersUnknown: others.filter((s) => s == null).length, othersTotal: others.length };
+      return { empty, afterRumour, afterClue, celebiSeen, final: M.status('celebi'), saved: !!(saved.m && saved.m.celebi && saved.m.celebi.r), othersUnknown: others.filter((s) => s == null).length, othersTotal: others.length, paused, resumed, leaks: leaks.length, journals: M.journals().length };
     });
-    return { pass: r.empty === 0 && r.afterRumour === 'Rumour' && /^Clues 1/.test(r.afterClue) && r.celebiSeen && /Sighted|Confirmed/.test(r.final) && r.saved && r.othersUnknown >= r.othersTotal - 2, detail: r };
+    return { pass: r.empty === 0 && r.afterRumour === 'Rumour' && /^Clues 1/.test(r.afterClue) && r.celebiSeen && /Sighted|Confirmed/.test(r.final) && r.saved && r.othersUnknown >= r.othersTotal - 2 && r.paused && r.resumed && r.leaks === 0, detail: r };
   });
 
   await scenario(h, 'Darkrai: the night darkens, a shadow rises and dissolves if rushed; only with its clues does it fight', async () => {

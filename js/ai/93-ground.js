@@ -321,12 +321,6 @@
       }
     }
     if (atmo || artOn()) drawShadows(ctx, cam, x0, y0, x1, y1);
-    // dawn dew sparkles on the grass
-    if (atmo && Sky.hour() > 5 && Sky.hour() < 8.5 && Sky.rain < 0.1 && Math.random() < 0.35) {
-      const props = R.World.visibleProps(cam);
-      const g = props[(Math.random() * props.length) | 0];
-      if (g && (g.type === 'grass' || g.type === 'psx')) R.FX.twinkle(g.x + U.rand(-10, 10), g.y - U.rand(2, 16));
-    }
   }
 
   function drawPath(ctx, it) {
