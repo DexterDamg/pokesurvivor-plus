@@ -43,9 +43,9 @@
   function riftSpot(p) {
     const W = AI.R.World;
     for (let i = 0; i < 30; i++) {
-      const a = Math.random() * 6.283, r = U.rand(700, 1150);
+      const a = Math.random() * 6.283, r = U.rand(760, 1150);
       const x = p.x + Math.cos(a) * r, y = p.y + Math.sin(a) * r * 0.85;
-      if (W.kindAt(x, y) === 'floor' && W.isFree(x, y, 30)) return [x, y];
+      if (Math.hypot(x - p.x, y - p.y) >= 680 && W.kindAt(x, y) === 'floor' && W.isFree(x, y, 30)) return [x, y];
     }
     return null;
   }

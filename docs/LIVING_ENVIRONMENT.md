@@ -174,7 +174,7 @@ height (stature) and weight (bulk):
 - Bosses come once you've defeated enough Pokémon (setting `bossKills`, default 35, 90, 160, 250,
   360), one at a time, with a notice ("Something powerful is approaching…") a few seconds before.
 - Rifts open at their own milestones (`riftKills`, default 50, 130, 230, 350, 480); golden rifts
-  are much rarer (`goldenRiftKills`, default 280, 650). They open on open ground 700–1150 px away
+  are much rarer (`goldenRiftKills`, default 280, 650). They open on open ground roughly 700–1150 px away
   from you, never on top of you or inside a wall. The game's own timed rifts are cancelled.
 - Major encounters never overlap: no rift while a boss is out, no boss while a rift is open, and a
   pause (`eventCooldown`, 75 s) between them. Past the last milestone the gaps keep growing.
