@@ -576,8 +576,9 @@ async function sample(h, ms, every, fn, arg) {
     });
     await h.wait(400);
     await h.R(() => { window.F0 = PSXAI.Sky.flash; PSXAI.Sky.bolt(1.2); window.F1 = PSXAI.Sky.flash; });
-    await h.wait(4800);
-    const r = await h.R(() => ({ ev: EV.slice(-2), flash: +F1.toFixed(2), fear: +Math.max(...TH.map((e) => e.psx.mind.emo.fear)).toFixed(2) }));
+    const fears = await sample(h, 4800, 300, () => Math.max(...TH.map((e) => e.psx.mind.emo.fear)));
+    const r = await h.R(() => ({ ev: EV.slice(-2), flash: +F1.toFixed(2) }));
+    r.fear = +Math.max(...fears).toFixed(2);
     const f = r.ev.find((x) => x[0] === 'flash'), t = r.ev.find((x) => x[0] === 'thunder');
     const delay = f && t ? +(t[1] - f[1]).toFixed(1) : null;
     return { pass: r.flash > 0.4 && delay != null && delay > 2 && r.fear > 0.2, detail: { flash: r.flash, delay, fear: r.fear } };

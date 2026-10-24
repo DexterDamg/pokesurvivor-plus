@@ -449,6 +449,7 @@
         continue;
       }
       const brave = s.pers.tr.bravery;
+      if (brave < 0.8) M().feel(s, 'fear', loud * 0.35 * (1 - brave), 'thunder'); // a jolt of fright, the timid most of all
       if (s.inCombat || brave > 0.8 || Math.random() > 0.35 + loud * 0.45) continue; // not everyone reacts every time
       const r = Math.random() * (1 - brave * 0.4);
       if (r < 0.3 && !s.lock) {
