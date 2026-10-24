@@ -18,8 +18,9 @@
  *   Shaymin    — the Gratitude Meadow · Cresselia — the Moonlit Refuge · Virizion — the Emerald
  *                Glade · Zarude — the Vine Hollow (only ever heard and half-seen in the canopy)
  *
- * Everything you learn goes into the Forest Mysteries journal (J), which is kept between runs.
- * It never spoils: unknown entries stay hidden, names are only revealed once confirmed.
+ * The journal (J) is a single page about a single mystery: the one you most recently learned
+ * something about. It is kept between runs. The journals never name anything: they read like notes on
+ * things that shouldn't exist. The game pauses while you read (in solo play).
  */
 (function () {
   'use strict';
@@ -28,109 +29,112 @@
   const KEY = 'psx.mysteries.v1';
 
   // ---------------------------------------------------------------- the mysteries
+  /* The journals never name what they're about. They read like someone's notes on things that
+   * shouldn't exist: hearsay first, then what was found, then what was seen. They have no titles.
+   * (`name` is only used in code and in the fight with Darkrai; no journal text ever shows it.) */
   const MY = {
     darkrai: {
-      dex: 491, name: 'Darkrai', title: 'The Hollow of Unending Night',
-      rumor: 'Travellers tell of a hollow deep in the woods where night never quite lifts. Those who sleep near it all wake from the same dream.',
+      dex: 491, name: 'Darkrai',
+      rumor: 'The woodcutters won\'t go past the grey trees after dusk. They say there is a hollow out there where the night forgets to end, and that everyone who sleeps near it dreams the same dream. None of them will tell me what the dream is.',
       clues: [
-        ['x_runestone', 'A black stone, cold as deep water. Someone, or something, has scratched a crescent of eyes into it.'],
-        ['deadsapling_b', 'This sapling withered overnight. The grass around it has gone grey.'],
-        ['ghostshroom_s', 'A ring of pale mushrooms. Pokémon found sleeping inside it at dawn will not wake.'],
+        ['x_runestone', 'Found a black stone in the grey grass, cold as deep water. Someone has scratched eyes into it, a whole crescent of eyes. I am almost sure there was one more of them when I looked again.'],
+        ['deadsapling_b', 'A sapling died here overnight. Not burnt, not cut. Emptied. The grass around it has lost its colour, as if something drank it.'],
+        ['ghostshroom_s', 'A ring of pale mushrooms with a Pidgey asleep in the middle. I called to it, shook it. It would not wake. Its feet kept twitching, like it was running from something.'],
       ],
-      sight: 'A shadow rose out of the dark and looked at you. When you came closer, there was nothing there.',
-      conf: 'Darkrai waits in the hollow on dark nights. It no longer vanishes when you approach.',
-      won: 'You stood your ground against Darkrai, and the night lifted from the hollow.',
+      sight: 'The dark stood up. That is the only way I can write it. A piece of the night stood up and turned toward me, and there was a red light where a face should be. I took one step and it came apart like smoke.',
+      conf: 'I went back. It did not leave this time. It only watched, as if it had been waiting for me to understand something. I think I do now. I am not sure I wanted to.',
+      won: 'I did not run. When it was over the hollow was only a hollow, and by morning the grass had begun to turn green again. I have not dreamed since.',
     },
     celebi: {
-      dex: 251, name: 'Celebi', title: 'The Evergold Sanctuary',
-      rumor: 'Somewhere a clearing glows gold even at dusk. The old folk say the shrine there was never built by anyone.',
+      dex: 251, name: 'Celebi',
+      rumor: 'There is a clearing that stays golden after the sun goes down. The old woman at the edge of the woods says her grandmother found it as a girl, and that it looked exactly the same when she found it again at eighty.',
       clues: [
-        ['x_shrine', 'The shrine is thick with moss, but the offering bowl holds fresh berries. Time feels slow here.'],
-        ['sapling_02', 'A sapling no taller than your knee, with bark as gnarled as an ancient oak.'],
+        ['x_shrine', 'A shrine older than anything I know, sunk in moss. The offering bowl is full of berries. Fresh ones. Nobody lives out here.'],
+        ['sapling_02', 'This sapling is no taller than my knee, but its bark is cracked and grey like a tree that has seen a thousand winters. I counted the rings on a fallen twig. I stopped at three hundred.'],
       ],
-      sight: 'Something small and green circled the shrine, chimed once, and was gone in a flash of light.',
-      conf: 'Celebi visits the shrine in the quiet hours of the day, when no one is fighting nearby.',
+      sight: 'I sat by the shrine for a long time without moving. Something small and green came out of nowhere, circled the stone twice and rang like a bell. Then it was gone, and my watch had stopped.',
+      conf: 'It comes back whenever I am quiet. It never comes while anyone is fighting. I think it is guarding something. Maybe not a place. Maybe a time.',
     },
     raikou: {
-      dex: 243, name: 'Raikou', title: 'The Thunder Ridge',
-      rumor: 'When storms roll over the forest at night, some say a beast stands on the ridge between the lightning strikes.',
+      dex: 243, name: 'Raikou',
+      rumor: 'On stormy nights the hunters count the seconds between the flash and the thunder. They say that if you count wrong, you will see what stands on the ridge in between.',
       clues: [
-        ['stump_dark', 'A tree split clean by lightning. Its scorch marks look like claw marks.'],
-        ['w_moss_stone_a', 'Paw prints pressed into the stone, still prickling with static.'],
+        ['stump_dark', 'A tree split clean down the middle. The scorch marks are not the shape of lightning. They are the shape of claws.'],
+        ['w_moss_stone_a', 'Paw prints pressed into solid stone, wide as both my hands. My fingers prickled when I touched them, like the air before a storm.'],
       ],
-      sight: 'In the flash of lightning a great beast stood on the ridge. By the next strike it was gone.',
-      conf: 'Raikou watches the storm from the ridge, and runs with the thunder.',
+      sight: 'The lightning turned the whole ridge white, and something was standing on it. Huge. Perfectly still. Then the dark came back, and when the next bolt fell there was only rock.',
+      conf: 'Three storms now. It does not come to the storm. I think it is the storm, the part of it that walks.',
     },
     suicune: {
-      dex: 245, name: 'Suicune', title: 'The Clear Pool',
-      rumor: 'In the morning fog the water of a quiet pond turns clear as glass, as if something purified it in the night.',
+      dex: 245, name: 'Suicune',
+      rumor: 'In the morning fog the water of a certain pond turns clear as glass. Those who drink from it say they feel lighter for days. Nobody has ever seen who cleans it.',
       clues: [
-        ['lily_flower', 'The water here is perfectly clear, though the pond is fed by mud.'],
-        ['w_moss_stone_b', 'Frost-like crystals on a stone by the water, though it isn\'t cold.'],
+        ['lily_flower', 'The pond is fed by mud and rot, and yet I can see every pebble on the bottom. The water is clearer than air.'],
+        ['w_moss_stone_b', 'Frost on a stone by the water, delicate as lace. But it is not cold. It is not cold at all.'],
       ],
-      sight: 'Something stood on the water in the mist. It turned and walked away across the surface, into the fog.',
-      conf: 'Suicune comes to the clear pool when the fog lies on the water.',
+      sight: 'Something stood on the water in the mist. Not in it. On it. It turned its head, then walked away across the surface without a single ripple, and the fog closed behind it like a curtain.',
+      conf: 'It only comes when the fog lies on the water, and it never looks back. I have stopped trying to follow.',
     },
     entei: {
-      dex: 244, name: 'Entei', title: 'The Scorched Clearing',
-      rumor: 'Woodcutters found grass burnt in perfect paw prints, and stones still warm long after sundown.',
+      dex: 244, name: 'Entei',
+      rumor: 'A woodcutter came back pale. He had found grass burnt black in the shape of a paw bigger than a cartwheel, and stones still warm long after sundown. He moved to the city the next week.',
       clues: [
-        ['x_scorch', 'Grass burnt black in the shape of a great paw.'],
-        ['w_moss_stone_a', 'These stones are warm to the touch. Something large rested here.'],
-        ['stump_small', 'Embers drift up from the soil around this stump, though nothing is burning.'],
+        ['x_scorch', 'Burnt grass, black and brittle, in the shape of a great paw. No fire anywhere near it.'],
+        ['w_moss_stone_a', 'These stones are warm, warm like something large lay on them all afternoon. It is raining.'],
+        ['stump_small', 'Embers drift up out of the soil around this stump. Nothing is burning. Nothing has burned here for years.'],
       ],
-      sight: 'A roar shook the trees. Across the clearing a great beast watched you, then was gone in a gust of heat.',
-      conf: 'Entei rests in the scorched clearing. It does not stay to be seen.',
+      sight: 'The roar went through me before I heard it. Across the clearing something watched me, wrapped in heat, the air rippling around it. Then a gust of hot wind, and it was gone.',
+      conf: 'It rests in the scorched clearing and never stays to be seen. I do not think it is hiding. I think it is restless, and the world is too small for it.',
     },
     spectrier: {
-      dex: 897, name: 'Spectrier', title: 'The Forgotten Path',
-      rumor: 'There is a path that only some can find, narrow and dark, where hoofbeats make no sound.',
+      dex: 897, name: 'Spectrier',
+      rumor: 'There is a path in these woods that is not on any map, narrow and dark, and only some people can find it. They say hoofbeats walk it at night. They say the hoofbeats make no sound. I do not know what that means.',
       clues: [
-        ['x_marker', 'An old marker, its words scratched away. The path behind it is barely there.'],
-        ['w_litter_b', 'Hoofprints in the leaves that end mid-stride.'],
+        ['x_marker', 'An old marker where the trail begins. Its words have been scratched away, deliberately, over and over. The path behind it is barely there, as if the forest is trying to forget it.'],
+        ['w_litter_b', 'Hoofprints in the dead leaves. They go along the path at a gallop, and then they stop. Mid-stride. Nothing on either side.'],
       ],
-      sight: 'A dark horse stood at the end of the path. It turned its head, looked at you, and galloped away without a sound.',
-      conf: 'Spectrier keeps to the forgotten path at night.',
+      sight: 'At the end of the path a horse stood perfectly still, dark as a hole cut out of the night. It turned its head and looked at me. Its eyes were not eyes. Then it ran, and there was no sound at all, only a violet light trailing after it like smoke.',
+      conf: 'I keep walking the path at night. It is always there at the end, and it always looks at me first. I think it is deciding something.',
     },
     shaymin: {
-      dex: 492, name: 'Shaymin', title: 'The Gratitude Meadow',
-      rumor: 'Children say there is a meadow of pink flowers that moves when no wind blows.',
+      dex: 492, name: 'Shaymin',
+      rumor: 'Children say there is a meadow of pink flowers that moves when there is no wind. The grown-ups say children say a lot of things.',
       clues: [
-        ['flower_c0', 'Pink flowers that are said to bloom only where someone is grateful.'],
-        ['tuftlow_1', 'A tiny hollow pressed into the flowers, still warm.'],
+        ['flower_c0', 'The flowers here are pink and smell of something sweet I cannot name. An old song says they only grow where someone is grateful.'],
+        ['tuftlow_1', 'A tiny hollow pressed into the flowers, round and still warm, as if something was curled up here a moment ago.'],
       ],
-      sight: 'A little hedgehog of flowers peeked out of the meadow, then burrowed away.',
-      conf: 'Shaymin hides in the flower meadow on sunny days.',
+      sight: 'A patch of the meadow lifted its head. Two eyes, a little hedgehog made of flowers, staring at me in such surprise that I laughed out loud. Then it burrowed away and the meadow was just a meadow.',
+      conf: 'It is there whenever the sun is out. If I sit still and say thank you out loud, I swear the flowers lean toward me.',
     },
     cresselia: {
-      dex: 488, name: 'Cresselia', title: 'The Moonlit Refuge',
-      rumor: 'Those troubled by bad dreams sometimes find a pool where the moon seems brighter, and sleep soundly after.',
+      dex: 488, name: 'Cresselia',
+      rumor: 'People with bad dreams go looking for a pool where the moon seems brighter. Those who find it say they sleep soundly for the first time in years. Nobody can find it twice on purpose.',
       clues: [
-        ['w_bluebells', 'Bluebells that turn toward the moon instead of the sun.'],
-        ['lily', 'Feather-like shimmers of light on the pool, each shaped like a crescent.'],
+        ['w_bluebells', 'Bluebells that turn toward the moon instead of the sun. All of them, every single one, facing the same way.'],
+        ['lily', 'Shimmers on the pool like falling feathers of light, each one shaped like a crescent. There is no moon tonight.'],
       ],
-      sight: 'On a clear night something glided over the pool trailing moonlight, then rose into the sky.',
-      conf: 'Cresselia visits the refuge on clear, moonlit nights.',
+      sight: 'On a clear night something glided over the pool, slow as a cloud, trailing moonlight. There were two moons in the water. Then one of them rose into the sky, and the pool held only one.',
+      conf: 'Since that night my dreams are quiet. I think it keeps them that way for whoever finds the pool. I think it is the opposite of the grey hollow.',
     },
     virizion: {
-      dex: 640, name: 'Virizion', title: 'The Emerald Glade',
-      rumor: 'Hunters speak of a glade where the grass is cut clean, as if by a sword. No one hunts there.',
+      dex: 640, name: 'Virizion',
+      rumor: 'The hunters speak of a glade where the grass is cut clean, as if by a sword. No one hunts there. No one will say why.',
       clues: [
-        ['w_fern_c', 'Leaves sliced clean through, as if by a blade.'],
-        ['tuft_1', 'Hoofprints, light and quick, circling the glade.'],
+        ['w_fern_c', 'Leaves sliced clean through, the edges perfectly straight. Not torn. Cut, by something sharper than any blade I own.'],
+        ['tuft_1', 'Hoofprints, light and quick, circling the glade again and again. Like a patrol.'],
       ],
-      sight: 'A slender green figure stood in the glade. It looked at you, then leapt away through the trees.',
-      conf: 'Virizion guards the emerald glade.',
+      sight: 'A slender green figure stood in the middle of the glade with its head high, like a knight at a gate. It looked at me as if weighing me. Then it leapt, and the trees closed behind it.',
+      conf: 'It guards this glade. I think I am allowed in now. I am careful not to touch anything.',
     },
     zarude: {
-      dex: null, name: null, title: 'The Vine Hollow',
-      rumor: 'Deep in the forest vines have been knotted into ropes, and berries go missing from every bush.',
+      dex: null, name: null,
+      rumor: 'Deep in the forest vines have been knotted into ropes, and berries go missing from every bush for a mile. Something is making a home out there. Something with hands.',
       clues: [
-        ['berrycone_00', 'A pile of berries stacked with care. Something keeps a pantry here.'],
-        ['x_vines', 'Vines knotted like ropes, high in the branches.'],
-        ['w_branch', 'Branches snapped high up, in a line through the canopy.'],
+        ['berrycone_00', 'A pile of berries stacked with care and sorted by colour. A pantry.'],
+        ['x_vines', 'Vines knotted like ropes high in the branches. Real knots, the kind sailors tie.'],
+        ['w_branch', 'Branches snapped high up in a straight line through the canopy, as if something swung from tree to tree in a hurry.'],
       ],
-      sight: 'Something swung through the canopy overhead, crashing through the vines, and was gone.',
+      sight: 'The canopy crashed overhead, branch after branch, and something called out, half laugh, half warning. I looked up and saw only falling leaves. Whatever it is, it is fast, and it does not want me here.',
       conf: null, // never seen clearly
     },
   };
@@ -138,6 +142,7 @@
 
   // ---------------------------------------------------------------- the journal (kept between runs)
   let J = load();
+  let page = 0; // the journal on display
   function load() {
     try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o && o.v === 1 && o.m) return o; } catch (e) { /* ignore */ }
     return { v: 1, m: {} };
@@ -161,15 +166,15 @@
     if (st) e.where = whereText(st);
     save();
     if (news) {
-      const label = e.conf ? m.name : m.title;
-      toast('📖 Forest Mysteries · ' + label + (news === 'clue' ? ' — clue found' : news === 'sight' ? ' — sighting' : news === 'conf' ? ' — confirmed' : news === 'won' ? ' — the night lifts' : ' — a rumour') + '  (J)');
+      page = ORDER.filter((k) => J.m[k] && J.m[k].r).indexOf(id); // (J opens it here)
+      toast('📖 Something new is written in the journal  (J)');
     }
   }
   function whereText(st) {
     const d = Math.hypot(st.x, st.y);
     const dirs = ['east', 'south-east', 'south', 'south-west', 'west', 'north-west', 'north', 'north-east'];
     const dir = dirs[((Math.round(Math.atan2(st.y, st.x) / (Math.PI / 4)) % 8) + 8) % 8];
-    return (d > 3200 ? 'deep in the forest' : d > 2000 ? 'far into the woods' : 'in the woods') + ', to the ' + dir + ' of where you start';
+    return 'Last time I found this place ' + (d > 3200 ? 'deep in the forest' : d > 2000 ? 'far into the woods' : 'not far into the woods') + ', toward the ' + dir + '. The forest is never the same twice.';
   }
 
   // ---------------------------------------------------------------- this run
@@ -531,6 +536,7 @@
 
   // ---------------------------------------------------------------- per frame
   function tick(dt) {
+    tickJournal();
     if (!on()) { if (run.dark > 0) run.dark = Math.max(0, run.dark - dt); return; }
     const P = AI.Forest.plan();
     if (!run.dressed || run.seed !== P.seed) { run.apps.length = 0; run.cool = {}; run.battle = null; dress(); }
@@ -576,6 +582,7 @@
     if (line) out.push(line);
     return out;
   }
+  // (for the console and tests only: never shown)
   function status(id) {
     const e = J.m[id];
     if (!e || !e.r) return null;
@@ -585,65 +592,117 @@
     if (cluesFound(id)) return 'Clues ' + cluesFound(id) + '/' + MY[id].clues.length;
     return 'Rumour';
   }
+  // A single page about a single mystery: the one you most recently learned something about.
+  // Hearsay, then what was found, then what was seen. No title, no names, no other pages.
+  const SERIF = 'Georgia, "Times New Roman", serif';
+  function journals() { return ORDER.filter((id) => J.m[id] && J.m[id].r); }
   function drawJournal(ctx, w, h) {
-    const known = ORDER.filter((id) => J.m[id] && J.m[id].r);
+    const list = journals();
+    page = list.length ? ((page % list.length) + list.length) % list.length : 0;
     ctx.save();
-    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, 0, w, h);
-    const bw = Math.min(760, w - 32), bh = Math.min(h - 40, 620), bx = (w - bw) / 2, by = (h - bh) / 2;
-    ctx.fillStyle = '#e9dfc3'; ctx.fillRect(bx, by, bw, bh);
-    ctx.strokeStyle = '#6b5532'; ctx.lineWidth = 3; ctx.strokeRect(bx + 1.5, by + 1.5, bw - 3, bh - 3);
-    ctx.fillStyle = '#3b2d18'; ctx.textAlign = 'left';
-    ctx.font = 'bold 20px system-ui, sans-serif';
-    ctx.fillText('Forest Mysteries — Legendary Sightings Journal', bx + 20, by + 34);
-    ctx.font = '12px system-ui, sans-serif';
-    ctx.fillStyle = '#6b5532';
-    const unknown = ORDER.length - known.length;
-    ctx.fillText(known.length ? (unknown ? unknown + ' more mysteries remain unknown.' : 'Every mystery of the forest is in this journal.') : 'Nothing written yet. Explore the Shady Forest: listen to rumours, look for signs.', bx + 20, by + 54);
-    ctx.textAlign = 'right'; ctx.fillText('J / Esc to close', bx + bw - 20, by + 34); ctx.textAlign = 'left';
-    // (scrolls with the mouse wheel or the arrow keys)
-    ctx.save();
-    ctx.beginPath(); ctx.rect(bx, by + 64, bw, bh - 70); ctx.clip();
-    let y = by + 82 - scroll;
-    const y0 = y;
-    const colW = bw - 40;
-    for (const id of known) {
-      const m = MY[id], e = J.m[id];
-      ctx.font = 'bold 15px system-ui, sans-serif'; ctx.fillStyle = '#3b2d18';
-      ctx.fillText((e.conf && m.name ? m.name + ' — ' : '') + m.title, bx + 20, y);
-      ctx.font = 'bold 12px system-ui, sans-serif'; ctx.fillStyle = e.conf ? '#2f6b2a' : e.s ? '#7a5a12' : '#7a6a52';
-      ctx.textAlign = 'right'; ctx.fillText(status(id), bx + bw - 20, y); ctx.textAlign = 'left';
-      y += 17;
-      ctx.font = '12px system-ui, sans-serif'; ctx.fillStyle = '#4a3a22';
-      const parts = [m.rumor];
-      m.clues.forEach(([, t], i) => { if (e.c[i]) parts.push('• ' + t); });
-      if (e.s) parts.push('Seen: ' + m.sight);
-      if (e.conf && m.conf) parts.push(m.conf);
-      if (e.won && m.won) parts.push(m.won);
-      if (e.where) parts.push('Where: ' + e.where + ' (the forest changes with every journey).');
-      for (const part of parts) for (const l of wrap(ctx, part, colW)) { ctx.fillText(l, bx + 20, y); y += 15; }
-      y += 10;
+    ctx.fillStyle = 'rgba(2,2,6,0.72)'; ctx.fillRect(0, 0, w, h);
+    const bw = Math.min(600, w - 32), bh = Math.min(h - 32, 640), bx = (w - bw) / 2, by = (h - bh) / 2;
+    // an old page: yellowed, darker toward the edges, a few stains
+    ctx.fillStyle = '#e4d8b8'; ctx.fillRect(bx, by, bw, bh);
+    const vg = ctx.createRadialGradient(bx + bw / 2, by + bh / 2, Math.min(bw, bh) * 0.3, bx + bw / 2, by + bh / 2, Math.max(bw, bh) * 0.75);
+    vg.addColorStop(0, 'rgba(120,90,40,0)'); vg.addColorStop(1, 'rgba(110,80,35,0.45)');
+    ctx.fillStyle = vg; ctx.fillRect(bx, by, bw, bh);
+    const id = list[page];
+    for (let i = 0; i < 4; i++) {
+      const hh = U.hash(page, i, 77);
+      ctx.fillStyle = 'rgba(110,80,40,0.08)';
+      ctx.beginPath(); ctx.ellipse(bx + bw * (0.15 + hh * 0.7), by + bh * (0.2 + (hh * 7 % 1) * 0.6), 18 + hh * 30, 12 + hh * 20, hh * 3, 0, 6.283); ctx.fill();
     }
+    ctx.strokeStyle = 'rgba(70,50,25,0.55)'; ctx.lineWidth = 2; ctx.strokeRect(bx + 1, by + 1, bw - 2, bh - 2);
+    const pad = 34, colW = bw - pad * 2;
+    ctx.textAlign = 'center';
+    if (!id) {
+      ctx.fillStyle = '#5a4528'; ctx.font = 'italic 16px ' + SERIF;
+      wrap(ctx, 'The pages are empty. Somewhere in the forest, something is waiting to be written down.', colW).forEach((l, i) => ctx.fillText(l, w / 2, by + bh / 2 - 10 + i * 22));
+      ctx.font = '11px ' + SERIF; ctx.fillStyle = 'rgba(70,50,25,0.6)';
+      ctx.fillText('J or Esc to close', w / 2, by + bh - 16);
+      ctx.restore();
+      return;
+    }
+    const m = MY[id], e = J.m[id];
+    // the notes (scroll with the mouse wheel or ↑ ↓)
+    ctx.save();
+    ctx.beginPath(); ctx.rect(bx, by + 24, bw, bh - 66); ctx.clip();
+    ctx.textAlign = 'left';
+    let y = by + 52 - scroll;
+    const y0 = y;
+    const para = (text, style) => {
+      ctx.font = (style && style.font) || 'italic 15px ' + SERIF;
+      ctx.fillStyle = (style && style.color) || '#3a2a14';
+      for (const l of wrap(ctx, text, colW)) { ctx.fillText(l, bx + pad, y); y += 21; }
+    };
+    const sep = () => { ctx.fillStyle = 'rgba(70,50,25,0.45)'; ctx.font = '14px ' + SERIF; ctx.textAlign = 'center'; ctx.fillText('~', w / 2, y + 2); ctx.textAlign = 'left'; y += 22; };
+    para(m.rumor);
+    m.clues.forEach(([, t], i) => { if (e.c[i]) { sep(); para(t); } });
+    if (e.s) {
+      sep();
+      // a false start, crossed out
+      ctx.font = 'italic 15px ' + SERIF; ctx.fillStyle = 'rgba(58,42,20,0.55)';
+      const fs = 'I don\'t know how to write down what I saw.';
+      ctx.fillText(fs, bx + pad, y);
+      ctx.fillRect(bx + pad - 2, y - 5, ctx.measureText(fs).width + 4, 1.5);
+      y += 23;
+      para(m.sight, { color: '#2a1608' });
+    }
+    if (e.conf && m.conf) { sep(); para(m.conf); }
+    if (e.won && m.won) { sep(); para(m.won); }
+    if (e.where) { y += 8; para(e.where, { font: 'italic 12px ' + SERIF, color: 'rgba(70,50,25,0.7)' }); }
     ctx.restore();
-    maxScroll = Math.max(0, y - y0 - (bh - 90));
+    maxScroll = Math.max(0, y - y0 - (bh - 96));
     scroll = Math.min(scroll, maxScroll);
-    if (maxScroll > 0) { ctx.fillStyle = 'rgba(107,85,50,0.5)'; const sh = (bh - 90) * (bh - 90) / (bh - 90 + maxScroll); ctx.fillRect(bx + bw - 8, by + 70 + (bh - 90 - sh) * (scroll / maxScroll), 4, sh); }
+    ctx.textAlign = 'center';
+    ctx.font = '11px ' + SERIF; ctx.fillStyle = 'rgba(70,50,25,0.6)';
+    ctx.fillText('J or Esc to close', w / 2, by + bh - 14);
+    if (maxScroll > 0) { ctx.fillStyle = 'rgba(70,50,25,0.4)'; const vh = bh - 66, sh = vh * vh / (vh + maxScroll); ctx.fillRect(bx + bw - 8, by + 24 + (vh - sh) * (scroll / maxScroll), 3, sh); }
     ctx.restore();
   }
   let scroll = 0, maxScroll = 0;
-  let openedAt = 0;
-  function toggle(v) { open = v == null ? !open : !!v; scroll = 0; openedAt = performance.now(); }
-  // (a tap or click closes it, for touch screens)
-  addEventListener('pointerdown', (ev) => { if (open && performance.now() - openedAt > 300) { open = false; ev.stopPropagation(); ev.preventDefault(); } }, true);
+  let openedAt = 0, held = false;
+  // the game holds still while you read (solo; in co-op the world can't wait for one player)
+  function hold(on2) {
+    const R = AI.R;
+    try {
+      if (on2) {
+        if (R.Coop && R.Coop.active) return;
+        if (R.Game.state === 'paused' && R.Game.togglePause) R.Game.togglePause(); // (opened from the pause menu)
+        if (R.Game.state === 'playing') { R.Game.soloHold(true); held = true; }
+      } else if (held) { held = false; R.Game.soloHold(false); }
+    } catch (e) { held = false; }
+  }
+  function toggle(v) {
+    const next = v == null ? !open : !!v;
+    if (next === open) return;
+    open = next;
+    scroll = 0; openedAt = performance.now();
+    hold(open);
+  }
+  // (a tap closes it, for touch screens)
+  addEventListener('pointerdown', (ev) => {
+    if (!open || performance.now() - openedAt < 300) return;
+    toggle(false);
+    ev.stopPropagation(); ev.preventDefault();
+  }, true);
   addEventListener('wheel', (ev) => { if (open) { scroll = U.clamp(scroll + ev.deltaY * 0.6, 0, maxScroll); ev.preventDefault(); } }, { passive: false });
   addEventListener('keydown', (ev) => {
     const R = AI.R;
     if (!R || !AI.enabled || ev.repeat) return;
     const el = document.activeElement;
     if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
-    if (ev.code === 'KeyJ' && R.Game.state === 'playing') { toggle(); ev.preventDefault(); }
-    else if (ev.code === 'Escape' && open) { open = false; ev.stopPropagation(); }
-    else if (open && (ev.code === 'ArrowDown' || ev.code === 'ArrowUp')) { scroll = U.clamp(scroll + (ev.code === 'ArrowDown' ? 60 : -60), 0, maxScroll); ev.preventDefault(); }
+    if (ev.code === 'KeyJ' && (open || R.Game.state === 'playing')) { toggle(); ev.preventDefault(); ev.stopPropagation(); return; }
+    if (!open) return;
+    if (ev.code === 'Escape') toggle(false);
+    else if (ev.code === 'ArrowDown' || ev.code === 'KeyS') scroll = U.clamp(scroll + 60, 0, maxScroll);
+    else if (ev.code === 'ArrowUp' || ev.code === 'KeyW') scroll = U.clamp(scroll - 60, 0, maxScroll);
+    else return;
+    ev.preventDefault(); ev.stopPropagation();
   }, true);
+  // a run that ends while you read doesn't stay held
+  function tickJournal() { if (open && AI.R && AI.R.Game.state !== 'choice' && AI.R.Game.state !== 'playing') { open = false; held = false; } }
 
   // ---------------------------------------------------------------- for the sky's light map
   function lights(out) {
@@ -657,7 +716,7 @@
 
   AI.define('Mysteries', {
     MY, ORDER, tick, reset, drawScreen, addProps, lights, spawnOk, toggle, note, status, entry, sanctuary,
-    get journal() { return J; }, get open() { return open; }, run,
+    get journal() { return J; }, get open() { return open; }, get page() { return page; }, journals, run,
     resetJournal() { J = { v: 1, m: {} }; save(); },
     // debugging: summon a mystery's appearance at its site regardless of the hour
     test(id) { const st = run.sites[id]; const p = AI.R.Game.player; if (!st || !p) return null; run.cool[id] = 0; run.seenT[id] = 99; return st; },

@@ -150,27 +150,31 @@ mystery on purpose.
 
 ### The journal
 
-Press **J** (or use the button in **F7**) to open **Forest Mysteries — Legendary Sightings
-Journal** (J, Esc or a tap to close; the mouse wheel or arrow keys scroll). Entries appear only once you've discovered something:
+The journal is a single page about a single mystery: the one you most recently learned something
+about. It reads like someone's notes on a thing that shouldn't exist. It has no title, never names
+what it's about, never says "legendary", and never shows that other pages exist.
 
-- **Rumour:** you came near the place, or found a clue
-- **Clues n/m:** what you found, in your own words
-- **Sighted:** what you saw
-- **Confirmed:** with every clue found and a sighting, the Pokémon's name is revealed
-- **Confirmed · faced:** Darkrai, after the fight
+- A mystery's notes start when you first come near its place or find one of its signs: the
+  hearsay.
+- Every sign you find adds a paragraph. A sighting adds what was seen (after a crossed-out false
+  start). Once you've found every sign and seen it, a closing note is added, and Darkrai's notes
+  get one more after the fight.
+- The last line says roughly where the place was in your last journey, since the forest is
+  different every run.
+- When something new is written, a short notice says so, without saying what.
+- What you've learned about every mystery is kept between runs; the page simply shows whichever
+  one you learned about last.
 
-Each entry notes roughly where the place was in your last journey (the forest is different every
-run). New entries show a short notice once. Nothing is spoiled: unknown mysteries are only
-counted, never named. The journal is kept between runs in the browser.
-
-The game keeps running while the journal is open.
+**Reading:** press **J** (or use **📖 Journal** in F7, which also works from the pause menu on
+touch screens). **↑ ↓** or the mouse wheel scroll; **J**, **Esc** or a tap closes it. The game
+pauses while you read. In co-op it can't pause the world for everyone, so it stays an overlay.
 
 ## Settings
 
 | Setting | Default | What it does |
 |---|---|---|
 | `forestWorld` | on | the rebuilt Shady Forest (off: the game's own forest floor and water) |
-| `mysteries` | on | the Forest Mysteries |
+| `mysteries` | on | the Forest Mysteries and the journal |
 | `enemyBars` | off | health bars over wild Pokémon |
 | `announce` | off | banners for wild events (evolutions, shinies, arrivals) |
 | `forestTraps` | off | the game's hidden floor traps in the Shady Forest |
@@ -184,7 +188,7 @@ PSXAI.Forest.water(x, y)             // { e: px inside the water (negative outsi
 PSXAI.Forest.locomotion(dex)         // 'fly' | 'swim' | 'amphi' | 'surface' | 'walk'
 PSXAI.Mysteries.run.sites            // where each mystery is this run
 PSXAI.Mysteries.toggle()             // open / close the journal
-PSXAI.Mysteries.resetJournal()       // forget everything
+PSXAI.Mysteries.resetJournal()       // forget everything written in them
 ```
 
 ## Performance
@@ -200,10 +204,9 @@ PSXAI.Mysteries.resetJournal()       // forget everything
 
 Scenario tests cover the floor (no tile painting, chunked), the plan across seeds, tree spacing,
 undergrowth habitats, deep water from every direction and through knockback, Pokémon locomotion,
-the water effects and frame rate, the journal, Darkrai, Raikou, Spectrier and the sanctuary.
+the water effects and frame rate, the journal (no names or titles, game paused), Darkrai, Raikou, Spectrier and the sanctuary.
 
 ## What's not here
 
 - Mystery texts are in English only; the rest of the interface keeps its languages.
-- On touch screens the journal opens from the settings panel (pause menu → Wild life → Mysteries journal).
 - Fish only appear if the area's roster has them; the forest doesn't add new species.

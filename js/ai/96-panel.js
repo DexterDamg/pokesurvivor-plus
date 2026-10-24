@@ -75,11 +75,11 @@
     resetStory: { es: 'Reiniciar la historia', en: 'Reset story progress', fr: 'Réinitialiser l\'histoire', zh: '重設劇情進度' },
     forestTitle: { es: 'El Bosque Umbrío', en: 'The Shady Forest', fr: 'La Forêt Ombreuse', zh: '幽暗森林' },
     forestWorld: { es: 'Bosque renovado (suelo, lago, regiones)', en: 'Rebuilt forest (ground, lake, regions)', fr: 'Forêt refaite (sol, lac, régions)', zh: '重建的森林（地面、湖泊、區域）' },
-    mysteries: { es: 'Misterios del bosque (legendarios)', en: 'Forest Mysteries (legendaries)', fr: 'Mystères de la forêt (légendaires)', zh: '森林之謎（傳說寶可夢）' },
+    mysteries: { es: 'Misterios del bosque (avistamientos extraños)', en: 'Forest mysteries (strange sightings)', fr: 'Mystères de la forêt (apparitions étranges)', zh: '森林之謎（奇異目擊）' },
     enemyBars: { es: 'Barras de vida de Pokémon salvajes', en: 'Health bars on wild Pokémon', fr: 'Barres de vie des Pokémon sauvages', zh: '野生寶可夢血條' },
     announce: { es: 'Anunciar sucesos salvajes', en: 'Announce wild events', fr: 'Annoncer les événements sauvages', zh: '公告野生事件' },
     forestTraps: { es: 'Trampas ocultas en el suelo', en: 'Hidden floor traps', fr: 'Pièges cachés au sol', zh: '地面隱藏陷阱' },
-    journal: { es: '📖 Diario de misterios (J)', en: '📖 Mysteries journal (J)', fr: '📖 Journal des mystères (J)', zh: '📖 謎團日誌（J）' },
+    journal: { es: '📖 Diario (J)', en: '📖 Journal (J)', fr: '📖 Carnet (J)', zh: '📖 日誌（J）' },
   };
   AI.lang = function () {
     const l = (AI.R && AI.R.I18n && AI.R.I18n.lang) || (navigator.language || 'es');
