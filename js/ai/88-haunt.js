@@ -23,7 +23,7 @@
   const hs = {
     visitT: 0, tension: 0, nextT: 8, quietUntil: 0, inRow: 0, last: null,
     count: {}, cool: {}, done: new Set(), seen: 0, rooms: new Set(),
-    actors: [], dust: [], smoke: [], texts: [], hist: [],
+    actors: [], dust: [], smoke: [], texts: [], hist: [], eyes: [],
     duskull: null, reflect: 0,
     mirror: { phase: 'idle', t: 0, done: false, armed: false, flip: 0, vast: 0 },
     still: 0, stretch: 0, shadows: 0, drain: 0, jump: 0, jumpT: 0, flash: 0, turnT: 0,
@@ -389,17 +389,9 @@
       ctx.scale(kx, ky); // impossibly tall
       A.draw(ctx, 'giratina_shadow', 0, 0, {});
       ctx.restore();
-      // the eyes catch the light
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
+      // the eyes catch the light (drawn after the colour drains away, so they burn through it)
       const ey = base - sh0 * ky * EYE_Y;
-      for (const ex of EYE_X) {
-        const exx = sx + ex * sw0 * kx;
-        const g = ctx.createRadialGradient(exx, ey, 0, exx, ey, big ? 9 : 6);
-        g.addColorStop(0, 'rgba(255,50,70,' + (0.95 * shadowA).toFixed(2) + ')'); g.addColorStop(1, 'rgba(255,40,60,0)');
-        ctx.fillStyle = g; ctx.fillRect(exx - 10, ey - 10, 20, 20);
-      }
-      ctx.restore();
+      for (const ex of EYE_X) hs.eyes.push({ x: sx + ex * sw0 * kx, y: ey, r: big ? 9 : 6, a: shadowA, flip });
     }
     // you, in the glass (the reflection keeps still while the shadow rises)
     if (showSelf) {
@@ -559,7 +551,7 @@
   }
   // screen space, before the HUD: colour draining away, a hallway that stretches
   function drawPost(ctx, w, h) {
-    if (!on()) return;
+    if (!on()) { hs.eyes.length = 0; return; }
     const drain = Math.max(hs.drain, hs.still ? 0.75 : 0);
     if (drain > 0.01) {
       ctx.save();
@@ -570,6 +562,20 @@
       ctx.fillStyle = 'rgba(150,140,190,' + (drain * 0.5).toFixed(3) + ')';
       ctx.fillRect(0, 0, w, h);
       ctx.restore();
+    }
+    // red eyes in the glass
+    if (hs.eyes.length) {
+      const cam = AI.R.Camera;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const e of hs.eyes) {
+        const x = (e.x - cam.left()) * cam.scale, y = (e.y - cam.top()) * cam.scale, r = e.r * cam.scale;
+        const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+        g.addColorStop(0, 'rgba(255,60,80,' + (0.95 * e.a).toFixed(2) + ')'); g.addColorStop(0.45, 'rgba(255,30,50,' + (0.6 * e.a).toFixed(2) + ')'); g.addColorStop(1, 'rgba(255,20,40,0)');
+        ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      ctx.restore();
+      hs.eyes.length = 0;
     }
     if (hs.stretch > AI.time) {
       const k = Math.min(1, (hs.stretch - AI.time) / 0.8) * Math.min(1, (AI.time - (hs.stretchStart || 0)) / 0.6);

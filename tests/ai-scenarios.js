@@ -700,16 +700,17 @@ async function sample(h, ms, every, fn, arg) {
   });
 
   // =========================================================== overhaul: world, encounters, storms, sizes
-  await scenario(h, 'lamps stand only at the old trail, nowhere at random', async () => {
+  await scenario(h, 'lamps stand only along the old path to the mansion, nowhere at random', async () => {
     const r = await h.R(() => {
       const D = PSXAI.Decor, p = __PSX_REG__.Game.player;
       D.ensure();
-      const items = D.inRect(p.x - 3000, p.y - 3000, p.x + 3000, p.y + 3000, []);
+      const items = D.inRect(p.x - 3500, p.y - 3500, p.x + 3500, p.y + 3500, []);
       const lamps = items.filter((it) => it.k === 'lamp');
-      const st = D.trail && D.trail.start;
-      return { lamps: lamps.length, fromTrail: lamps.map((l) => (st ? Math.round(Math.hypot(l.x - st[0], l.y - st[1])) : -1)) };
+      const path = D.trail ? D.trail.mansion.dense : [];
+      const fromPath = lamps.map((l) => Math.round(Math.min(...path.map((q) => Math.hypot(l.x - q[0], l.y - q[1])))));
+      return { lamps: lamps.length, inTrail: lamps.filter((l) => D.trail.items.includes(l)).length, fromPath };
     });
-    return { pass: r.lamps <= 1 && r.fromTrail.every((d) => d >= 0 && d < 140), detail: r };
+    return { pass: r.lamps >= 2 && r.inTrail === r.lamps && r.fromPath.every((d) => d < 90), detail: r };
   });
 
   await scenario(h, 'attack warnings are soft glows instead of blinking red dashed outlines', async () => {
@@ -979,6 +980,241 @@ async function sample(h, ms, every, fn, arg) {
     const after = await h.R(() => ({ x: A.x, y: A.y, dead: A.dead, anger: A.psx && A.psx.mind.emo.anger, fear: A.psx && A.psx.mind.emo.fear }));
     const flew = Math.hypot(after.x - k.x, after.y - k.y);
     return { pass: angry && dried > 0 && flew > 450, detail: { angryBubble: angry, evaporatedTiles: dried, magikarpFlew: flew | 0, magikarpAfter: { anger: +(after.anger || 0).toFixed(2), fear: +(after.fear || 0).toFixed(2) } } };
+  });
+  await h.close();
+
+  // =========================================================== the haunted mansion
+  h = await boot({ partner: 25 });
+  const story = {
+    // read through whatever scene is playing (like pressing the button)
+    async finish(maxSteps = 200) { for (let i = 0; i < maxSteps; i++) { const b = await h.R(() => { PSXAI.Story.advance(); return PSXAI.Story.busy(); }); if (!b) return true; await h.wait(60); } return false; },
+    goto: (room, tx, ty) => h.R(([room, tx, ty]) => { const I = PSXAI.Mansion.interior(), p = __PSX_REG__.Game.player; if (room) { const r = I.room(room); p.x = r.x + r.w / 2; p.y = r.y + r.h / 2; } else { p.x = I.wx(tx); p.y = I.wy(ty); } PSXAI.Mansion.snapCamera(p); return true; }, [room, tx, ty]),
+  };
+  async function enterMansion() {
+    await h.R(() => { const p = __PSX_REG__.Game.player, g = PSXAI.Mansion.geom(); p.x = g.D[0]; p.y = g.D[1] + 30; PSXAI.Mansion.snapCamera(p); });
+    await h.page.keyboard.down('KeyW'); await h.wait(500); await h.page.keyboard.up('KeyW');
+    for (let i = 0; i < 20; i++) { if (await h.R(() => PSXAI.Mansion.inside && PSXAI.Mansion.st.fade < 0.05)) break; await h.wait(150); }
+    await h.wait(1300); // the first visit's arrival scene starts a moment after you step in
+    return h.R(() => PSXAI.Mansion.inside);
+  }
+
+  await scenario(h, 'a shady, lantern-lit dirt path leads from the woods to the gates of the mansion', async () => {
+    const r = await h.R(() => {
+      const D = PSXAI.Decor, g = PSXAI.Mansion.geom(), W = __PSX_REG__.World;
+      const items = D.trail.items;
+      const lamps = items.filter((i) => i.k === 'lamp'), dirt = items.filter((i) => i.k === 'dirt'), posts = items.filter((i) => i.k === 'gpillar');
+      // lamps come in pairs, one either side of the path, evenly spaced
+      const pairs = [];
+      for (let i = 0; i < lamps.length; i += 2) pairs.push(Math.round(Math.hypot((lamps[i].x + lamps[i + 1].x) / 2 - g.S[0], (lamps[i].y + lamps[i + 1].y) / 2 - g.S[1])));
+      const gaps = pairs.slice(1).map((d, i) => d - pairs[i]);
+      // nothing grows or stands on the path or in the grounds: no trees, rocks, chests or ponds
+      let blocked = 0, wet = 0, n = 0;
+      const check = (x, y) => { n++; if (W.propsInCircle(x, y, 20).some((p) => p.solid || p.type === 'tree' || p.type === 'rock')) blocked++; if (W.isLiquid(x, y)) wet++; };
+      for (const p of g.dense) check(p[0], p[1]);
+      for (let y = g.D[1] + 10; y < g.G[1]; y += 40) for (let x = g.D[0] - g.SW + 30; x < g.D[0] + g.SW - 30; x += 40) check(x, y);
+      const end = g.pts[g.pts.length - 1];
+      return { lamps: lamps.length, pairs: pairs.length, gaps, dirt: dirt.length, gatePosts: posts.length, litPosts: posts.filter((p) => p.lit).length, endsAtGate: Math.round(Math.hypot(end[0] - g.G[0], end[1] - g.G[1])), blocked, wet, n };
+    });
+    const even = r.gaps.length > 0 && Math.max(...r.gaps) - Math.min(...r.gaps) < 60;
+    return { pass: r.pairs >= 2 && r.lamps === r.pairs * 2 && even && r.dirt > 100 && r.gatePosts === 4 && r.litPosts === 4 && r.endsAtGate < 5 && r.blocked === 0 && r.wet === 0, detail: r };
+  });
+
+  await scenario(h, 'the house, its fence and its gates are solid; the front door is the way in', async () => {
+    const r = await h.R(() => {
+      const g = PSXAI.Mansion.geom(), W = __PSX_REG__.World;
+      const probe = (x, y) => { const e = { x, y, r: 14 }; W.collide(e); return Math.round(Math.hypot(e.x - x, e.y - y)); };
+      return { wall: probe(g.D[0] + 120, g.D[1] - 60), fence: probe(g.D[0] - g.SW, g.G[1] - 100), gateFence: probe(g.D[0] + 150, g.G[1]), gateOpening: probe(g.D[0], g.G[1]), courtyard: probe(g.D[0] - 100, g.D[1] + 120), freeAtWall: W.isFree(g.D[0], g.D[1] - 100, 12) };
+    });
+    const entered = await enterMansion();
+    const inside = await h.R(() => ({ inside: PSXAI.Mansion.inside, room: PSXAI.Mansion.roomAt(__PSX_REG__.Game.player.x, __PSX_REG__.Game.player.y) }));
+    return { pass: r.wall > 10 && r.fence > 4 && r.gateFence > 4 && r.gateOpening === 0 && r.courtyard === 0 && !r.freeAtWall && entered && inside.room === 'foyer', detail: { pushedOut: r, ...inside } };
+  });
+
+  await scenario(h, 'inside the mansion: no wild Pokémon at all, and the forest\'s Pokémon wait outside', async () => {
+    // (still inside from the previous scenario) — read through the arrival first
+    await story.finish();
+    const out = await h.R(async () => {
+      const R = __PSX_REG__, D = PSXAI.Debug;
+      D.freeze(false); // the game's spawner is running
+      const tried = D.spawn(16, { temp: 'neutral', dx: 60 });
+      const added = R.EnemyMgr.get(tried.id) === tried;
+      await new Promise((res) => setTimeout(res, 6000));
+      const n = R.EnemyMgr.all().filter((e) => !e.dead).length;
+      D.freeze(true);
+      return { addedInside: added, aliveInside: n, stashed: true };
+    });
+    // leave, and the ones outside are back
+    await h.R(() => { const I = PSXAI.Mansion.interior(), p = __PSX_REG__.Game.player; p.x = I.entrance[0]; p.y = I.entrance[1] - 6; });
+    await h.page.keyboard.down('KeyS'); await h.wait(500); await h.page.keyboard.up('KeyS');
+    for (let i = 0; i < 20 && await h.R(() => PSXAI.Mansion.inside); i++) await h.wait(150);
+    const after = await h.R(() => ({ inside: PSXAI.Mansion.inside, nearDoor: Math.round(Math.hypot(__PSX_REG__.Game.player.x - PSXAI.Mansion.geom().D[0], __PSX_REG__.Game.player.y - PSXAI.Mansion.geom().D[1])) }));
+    return { pass: !out.addedInside && out.aliveInside === 0 && !after.inside && after.nearDoor < 80, detail: { ...out, ...after } };
+  });
+
+  await scenario(h, 'hauntings are varied, spaced out with silence, and never the same trick twice in a row', async () => {
+    await enterMansion();
+    await story.finish();
+    const r = await h.R(async () => {
+      PSXAI.setCfg('hauntRate', 3);
+      const ev = [];
+      const off = PSXAI.Bus.on('mansion', (e) => { if (e.what === 'haunt') ev.push([PSXAI.time, e.kind]); });
+      const I = PSXAI.Mansion.interior(), p = __PSX_REG__.Game.player;
+      __PSX_REG__.Game.debugSpeed(4);
+      // wander from room to room
+      for (const room of ['foyer', 'gallery', 'dining', 'gallery', 'foyer', 'hall', 'foyer', 'gallery']) {
+        const r = I.room(room); p.x = r.x + r.w / 2; p.y = r.y + r.h * 0.6;
+        await new Promise((res) => setTimeout(res, 3500));
+      }
+      __PSX_REG__.Game.debugSpeed(1);
+      if (typeof off === 'function') off();
+      PSXAI.setCfg('hauntRate', 1);
+      const kinds = ev.map((e) => e[1]);
+      const gaps = ev.slice(1).map((e, i) => +(e[0] - ev[i][0]).toFixed(1));
+      return { n: ev.length, kinds, distinct: new Set(kinds).size, repeats: kinds.filter((k, i) => i && k === kinds[i - 1]).length, longestQuiet: gaps.length ? Math.max(...gaps) : 0 };
+    });
+    return { pass: r.n >= 5 && r.distinct >= 4 && r.repeats === 0 && r.longestQuiet >= 12, detail: r };
+  });
+
+  await scenario(h, 'the mirror: only after the house has got to you, a tall shadow behind your reflection, then the jumpscare — once', async () => {
+    const stand = () => h.R(() => { const I = PSXAI.Mansion.interior(), p = __PSX_REG__.Game.player; p.x = I.mirror.x; p.y = I.mirror.y + 110; p._vx = 0; p._vy = -60; PSXAI.Mansion.snapCamera(p); });
+    // too early: nothing happens (fresh visit, nothing has happened yet)
+    await h.R(() => { PSXAI.Haunt.hs.seen = 0; PSXAI.Haunt.hs.visitT = 0; });
+    await stand();
+    await h.page.keyboard.down('KeyW'); await h.wait(200); await h.page.keyboard.up('KeyW');
+    await h.wait(2500);
+    const early = await h.R(() => PSXAI.Haunt.hs.mirror.phase);
+    await h.R(() => { PSXAI.Haunt.hs.seen = 6; });
+    await stand();
+    await h.page.keyboard.down('KeyW'); await h.wait(200); await h.page.keyboard.up('KeyW');
+    const phases = [];
+    let sawJump = false, sawShadowPx = 0;
+    for (let i = 0; i < 120; i++) {
+      const s = await h.R(() => ({ ph: PSXAI.Haunt.hs.mirror.phase, jump: PSXAI.Haunt.hs.jump, lock: PSXAI.Story.lockInput() }));
+      if (phases[phases.length - 1] !== s.ph) phases.push(s.ph);
+      if (s.jump) sawJump = true;
+      if (s.ph === 'shadow' && !sawShadowPx) {
+        await h.wait(450);
+        // dark pixels with red in the glass: the shadow and its eyes
+        sawShadowPx = await h.R(() => { const cv = document.getElementById('game'), g = cv.getContext('2d'), cam = __PSX_REG__.Camera, I = PSXAI.Mansion.interior();
+          const sx = (I.mirror.x - cam.left()) * cam.scale, sy = (I.mirror.y - 70 - cam.top()) * cam.scale;
+          const d = g.getImageData(Math.round(sx - 30 * cam.scale), Math.round(sy - 40 * cam.scale), Math.round(60 * cam.scale), Math.round(60 * cam.scale)).data;
+          let red = 0; for (let k = 0; k < d.length; k += 4) if (d[k] > 140 && d[k + 1] < 90 && d[k + 2] < 110) red++; return red; });
+      }
+      if (s.ph === 'idle' && phases.length > 3) break;
+      await h.wait(120);
+    }
+    const st = await h.R(() => ({ stage: PSXAI.Story.stage(), done: PSXAI.Haunt.hs.mirror.done }));
+    await story.finish();
+    // and never again
+    await stand();
+    await h.page.keyboard.down('KeyW'); await h.wait(200); await h.page.keyboard.up('KeyW');
+    await h.wait(2000);
+    const again = await h.R(() => PSXAI.Haunt.hs.mirror.phase);
+    return { pass: early === 'idle' && phases.join(',').includes('dread,shadow,scare,turn,after') && sawJump && sawShadowPx > 3 && st.stage === 'mirror' && again === 'idle', detail: { early, phases, jumpscare: sawJump, redEyePixels: sawShadowPx, ...st, again } };
+  });
+
+  await scenario(h, 'the pranksters: every Ghost Pokémon has its say, in proper dialogue, with its own voice', async () => {
+    // laughter from the locked ballroom, then the door gives
+    for (let i = 0; i < 40 && await h.R(() => PSXAI.Story.stage() !== 'unlocked'); i++) { await h.R(() => PSXAI.Story.advance()); await h.wait(200); }
+    await story.finish();
+    const door = await h.R(() => { const d = PSXAI.Mansion.interior().doors.find((q) => q.id === 'ballroom'); return { locked: d.locked, open: d.open }; });
+    await story.goto(null, 29.5, 10);
+    await h.wait(600);
+    const speakers = new Set(), lines = [];
+    let locked = 0, checks = 0;
+    for (let i = 0; i < 400; i++) {
+      const s = await h.R(() => { const st = PSXAI.Story.st; const ax = __PSX_REG__.Input.axis(); return { scene: st.scene && st.scene.id, who: st.line && st.line.who, text: st.line && st.line.text, axis: ax[0] === 0 && ax[1] === 0, stage: PSXAI.Story.stage() }; });
+      if (s.who) { speakers.add(s.who); lines.push(s.text); checks++; if (s.axis) locked++; }
+      if (s.stage === 'warned' && !s.scene) break;
+      await h.R(() => { PSXAI.Story.advance(); PSXAI.Story.advance(); });
+      await h.wait(70);
+    }
+    const cast = await h.R(() => Object.keys(PSXAI.Story.CAST));
+    const missing = cast.filter((c) => !speakers.has(c));
+    const names = await h.R(() => Object.values(PSXAI.Story.CAST).map((c) => c.name));
+    const bare = lines.filter((t) => names.includes(t.replace(/[!?.…]/g, '').trim()) || t.length < 2);
+    return { pass: !door.locked && door.open && missing.length === 0 && bare.length === 0 && lines.length > 60 && locked === checks, detail: { doorUnlocked: !door.locked, speakers: speakers.size, missing, lines: lines.length, bareNameLines: bare.length, inputHeldDuringDialogue: locked + '/' + checks } };
+  });
+
+  await scenario(h, 'the twist: the house goes still, nobody laughs — and the watcher is never named, fought or caught', async () => {
+    const r = await h.R(() => {
+      const S = PSXAI.Story;
+      const all = [];
+      for (const id in S.SCENES) for (const s of S.SCENES[id].steps) for (const v of [s.text, s.narr]) {
+        if (!v) continue;
+        const t = typeof v === 'function' ? [v()] : [v];
+        for (const x of t) if (x) all.push(...Object.values(x));
+      }
+      const named = all.filter((t) => /giratina|guiratina|ギラティナ|騎拉帝納/i.test(t));
+      const boss = __PSX_REG__.EnemyMgr.all().some((e) => e.dex === 487);
+      const actor = S.st.actors.some((a) => a.dex === 487);
+      return { lines: all.length, named: named.length, boss, actor, stillSeen: !!window.__stillSeen };
+    });
+    // the "(Silence.)" beat drained the colour and stopped the flames: replay the twist and look
+    await h.R(() => PSXAI.Story.replay('twist'));
+    let still = false;
+    for (let i = 0; i < 120; i++) {
+      const s = await h.R(() => ({ narr: PSXAI.Story.st.line && !PSXAI.Story.st.line.who && PSXAI.Story.st.line.text, busy: PSXAI.Story.busy() }));
+      if (s.narr && /Silen/.test(s.narr)) { still = true; }
+      if (!s.busy) break;
+      await h.R(() => { PSXAI.Story.advance(); PSXAI.Story.advance(); });
+      await h.wait(50);
+    }
+    return { pass: r.lines > 100 && r.named === 0 && !r.boss && !r.actor && still, detail: { ...r, silenceBeat: still } };
+  });
+
+  await scenario(h, 'leaving: total silence, something vast in the far mirror, and a glimpse of somewhere else', async () => {
+    const t0 = await h.R(() => ({ stage: PSXAI.Story.stage(), armed: PSXAI.Story.st.exitArmed }));
+    // down the hall toward the way out
+    await h.R(() => { const I = PSXAI.Mansion.interior(), p = __PSX_REG__.Game.player; p.x = I.mirror.x; p.y = I.mirror.y + 420; PSXAI.Mansion.snapCamera(p); });
+    let vast = false, still = false, cam = false;
+    for (let i = 0; i < 60; i++) {
+      const s = await h.R(() => ({ vast: PSXAI.Haunt.hs.mirror.vast > PSXAI.time, still: !!PSXAI.Haunt.hs.still, cam: !!PSXAI.Story.cam, busy: PSXAI.Story.busy() }));
+      vast = vast || s.vast; still = still || s.still; cam = cam || s.cam;
+      if (!s.busy && i > 5) break;
+      await h.wait(150);
+    }
+    // out the front door
+    await h.R(() => { const I = PSXAI.Mansion.interior(), p = __PSX_REG__.Game.player; p.x = I.entrance[0]; p.y = I.entrance[1] - 6; PSXAI.Mansion.snapCamera(p); });
+    await h.page.keyboard.down('KeyS'); await h.wait(500); await h.page.keyboard.up('KeyS');
+    let cine = false;
+    for (let i = 0; i < 160; i++) {
+      const s = await h.R(() => ({ cine: PSXAI.Story.st.cine, busy: PSXAI.Story.busy(), inside: PSXAI.Mansion.inside }));
+      if (s.cine === 'distortion') cine = true;
+      if (!s.busy && !s.inside && cine) break;
+      await h.R(() => PSXAI.Story.advance());
+      await h.wait(150);
+    }
+    await h.wait(1500);
+    const end = await h.R(() => ({ stage: PSXAI.Story.stage(), inside: PSXAI.Mansion.inside, journal: PSXAI.Story.journal().map((j) => j.id), saved: JSON.parse(localStorage.getItem('psx_mansion_story_v1') || '{}').stage }));
+    return { pass: t0.stage === 'warned' && vast && still && cam && cine && end.stage === 'done' && !end.inside && end.journal.length === 6 && end.saved === 6, detail: { before: t0, vastShapeInMirror: vast, stillness: still, cameraLookedBack: cam, distortionWorld: cine, ...end } };
+  });
+
+  await scenario(h, 'story scenes are protected: no bosses, rifts or hordes interrupt them', async () => {
+    const r = await h.R(async () => {
+      const R = __PSX_REG__, P = PSXAI.Progress;
+      PSXAI.setCfg('eventCooldown', 1);
+      P.st.lastEvent = -999; P.st.bossPending = null;
+      PSXAI.Story.replay('reveal');
+      const busy = PSXAI.Story.busy();
+      R.Game.player.kills = PSXAI.cfg.bossKills[0] + PSXAI.cfg.riftKills[0] + 10;
+      await new Promise((res) => setTimeout(res, 3000));
+      const pending = !!P.st.bossPending, boss = R.EnemyMgr.bossAlive(), rift = !!R.Rift.rift;
+      PSXAI.Story.skipScene();
+      R.Game.player.kills = 0;
+      PSXAI.resetCfg();
+      return { busyDuringReplay: busy, bossPending: pending, boss, rift };
+    });
+    return { pass: r.busyDuringReplay && !r.bossPending && !r.boss && !r.rift, detail: r };
+  });
+
+  await scenario(h, 'returning later: the residents are home, and the house still runs smoothly', async () => {
+    await enterMansion();
+    await h.wait(600);
+    const r = await h.R(() => ({ actors: PSXAI.Story.st.actors.length, stage: PSXAI.Story.stage(), busy: PSXAI.Story.busy() }));
+    const fps = await h.R(() => new Promise((res) => { PSXAI.setCfg('hauntRate', 3); let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 2500) requestAnimationFrame(f); else res(n / ((performance.now() - t0) / 1000)); }; requestAnimationFrame(f); }));
+    await h.R(() => PSXAI.resetCfg());
+    return { pass: r.actors === 14 && r.stage === 'done' && !r.busy && fps > 40, detail: { ...r, fps: Math.round(fps), errors: h.errors.filter((e) => !e.includes('404')).slice(0, 3) } };
   });
   await h.close();
 
