@@ -42,6 +42,11 @@ Pixel-art item icons at their native size (`*.png`), with the upscaled originals
 | `dragon_scale.png` | Dragon Scale | evolution item (Seadra) | 23×17 |
 | `electirizer.png` | Electirizer | evolution item (Electabuzz) | 20×20 |
 | `magmarizer.png` | Magmarizer | evolution item (Magmar) | 20×20 |
+| `sachet.png` | Sachet | evolution item (Spritzee) | 16×21 |
+| `whipped_dream.png` | Whipped Dream | evolution item (Swirlix) | 19×21 |
+| `oval_stone.png` | Oval Stone | evolution item (Happiny) | 16×17 |
+| `dubious_disc.png` | Dubious Disc | evolution item (Porygon2) | 20×17 |
+| `up_grade.png` | Up-Grade | evolution item (Porygon) | 20×17 |
 
 ## Sheets (`sheets/`, kept exactly as sent)
 
