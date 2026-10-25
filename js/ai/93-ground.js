@@ -155,6 +155,7 @@
     const D = AI.Decor;
     const t = AI.time;
     switch (it.k) {
+      case 'well': if (AI.Well) AI.Well.draw(ctx, it); break; // (86-well.js)
       case 'bush': case 'plant': case 'mush': {
         const k = D.shakeOf('d' + it.id);
         const sway = swayAt(it.x, it.k === 'mush' ? 0.02 : 0.1) + parting(it.x, it.y) * (it.k === 'mush' ? 0 : 1) + (k ? Math.sin(t * 42) * k * 0.35 : 0);

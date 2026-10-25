@@ -194,7 +194,7 @@
   function begin(e, s, m, target, aimX, aimY) {
     const c = s.combat;
     c.cast = { m, t: 0, target, ax: aimX, ay: aimY, ang: Math.atan2(aimY - e.y, aimX - e.x), fired: false };
-    m.cdLeft = m.cd * (1 + (Math.random() - 0.5) * 0.2);
+    m.cdLeft = m.cd * (1 + (Math.random() - 0.5) * 0.2) * ((e.pp && e.pp.cdMul) || 1); // (a companion's held item or power crystal)
     m.uses++;
     const anim = { shot: 'Shoot', beam: 'Charge', zap: 'Charge', rain: 'Charge', melee: 'Attack', dash: 'Charge', pulse: 'Charge', buff: 'Charge', leap: 'Charge', splash: 'Hurt' }[m.cls] || 'Charge';
     e.anim.play(anim, { speed: anim === 'Attack' ? 1.6 : 1.2 });

@@ -349,6 +349,9 @@
       case 'leaves': for (let i = 0; i < 5; i++) burst('bandpass', 2800, 0.7, 0.2, 0.05 * v, pan, false, i * 0.09); break;
       case 'call': tone('square', 330, 520, 0.25, 0.02 * v, pan, true); tone('square', 520, 300, 0.3, 0.02 * v, pan, true, 0.3); break;
       case 'note': tone('sine', 660, 880, 0.5, 0.025 * v, pan, true); break;
+      // the old well: a drop, very far down, and its echo; a breath of whispering
+      case 'drip': [0, 0.42, 0.85].forEach((d, i) => tone('sine', 1500, 520, 0.12, 0.03 * v * (1 - i * 0.35), pan, true, d)); break;
+      case 'whisper': burst('bandpass', 1900, 1.4, 0.8, 0.035 * v, pan, true, 0, 0.3); burst('bandpass', 1500, 1.8, 0.7, 0.025 * v, pan, true, 0.9, 0.3); break;
     }
   }
   AI.define('Ambience', { start, tick, chirp, hoot, thunder, rumble, rustle, splash, squelch, snore, cry, flutter, creak, branch, musicBox, mansion, lap, myst, get ctx() { return ctx; } });

@@ -23,7 +23,7 @@
     415: 'day', 406: 'day', 25: 'day', 214: 'day', 127: 'day', 123: 'day', 216: 'day', 469: 'day',
     163: 'night', 164: 'night', 43: 'night', 44: 'night', 45: 'night', 182: 'day', 167: 'night', 168: 'night', 48: 'night', 49: 'night',
     41: 'night', 42: 'night', 169: 'night', 92: 'night', 93: 'night', 94: 'night', 198: 'night', 430: 'night', 200: 'night', 302: 'night',
-    401: 'dusk', 402: 'dusk', 313: 'night', 314: 'night', 19: 'any', 20: 'any', 263: 'any', 264: 'any', 399: 'any', 400: 'any',
+    401: 'dusk', 402: 'dusk', 313: 'night', 314: 'night', 595: 'night', 596: 'night', 197: 'night', 19: 'any', 20: 'any', 263: 'any', 264: 'any', 399: 'any', 400: 'any',
     46: 'any', 47: 'any', 69: 'any', 70: 'any', 71: 'any', 29: 'any', 30: 'any', 32: 'any', 33: 'any', 285: 'any', 286: 'any',
     114: 'any', 465: 'any', 217: 'any', 275: 'night', 274: 'any', 273: 'day',
   };
@@ -38,7 +38,7 @@
     16: ['tree'], 17: ['tree'], 18: ['tree'], 21: ['tree'], 22: ['tree'], 163: ['tree'], 164: ['tree'], 165: ['tree', 'bush'], 166: ['tree'],
     396: ['tree'], 397: ['tree'], 398: ['tree'], 415: ['tree', 'berry'], 214: ['tree'], 127: ['tree', 'log'], 123: ['grass'], 198: ['tree'],
     46: ['mush', 'log'], 47: ['mush', 'log'], 285: ['mush', 'log'], 286: ['mush'], 25: ['tree', 'grass'], 401: ['grass'], 402: ['grass'],
-    216: ['berry', 'log'], 217: ['log'], 114: ['bush'], 465: ['bush'], 92: ['log'], 93: ['log'], 41: ['tree'], 42: ['tree'],
+    216: ['berry', 'log'], 217: ['log'], 114: ['bush'], 465: ['bush'], 92: ['log'], 93: ['log'], 41: ['tree'], 42: ['tree'], 595: ['bush', 'tree'], 596: ['tree'],
   };
   const RARE = { 25: 0.25, 92: 0.35, 93: 0.4, 123: 0.3, 214: 0.6, 127: 0.6, 198: 0.5, 465: 0.5, 469: 0.5, 182: 0.5 };
 
@@ -46,8 +46,8 @@
   const ROSTERS = {
     0: {
       tiers: [
-        [16, 19, 161, 10, 13, 265, 263, 165, 396, 163, 43, 167, 48, 401],
-        [16, 19, 161, 11, 14, 266, 268, 46, 69, 29, 32, 25, 285, 406, 415, 21, 163, 43, 167, 48, 41, 401],
+        [16, 19, 161, 10, 13, 265, 263, 165, 396, 163, 43, 167, 48, 401, 595],
+        [16, 19, 161, 11, 14, 266, 268, 46, 69, 29, 32, 25, 285, 406, 415, 21, 163, 43, 167, 48, 41, 401, 595, 198],
         [17, 20, 162, 12, 15, 267, 269, 264, 397, 400, 166, 402, 70, 47, 30, 33, 22, 216, 164, 168, 49, 44, 198, 92],
         [22, 286, 214, 127, 71, 45, 182, 398, 114, 217, 20, 162, 164, 93, 168, 49],
         [217, 214, 123, 127, 286, 18, 398, 45, 71, 164, 93, 169, 15, 12],
@@ -79,10 +79,11 @@
     const Sky = AI.Sky;
     if (!Sky || AI.cfg.atmosphere === false || Sky.indoor()) return 1;
     const a = active(dex), d = Sky.darkness(), ph = Sky.phase();
+    // at night the forest belongs to the night Pokémon: the rest are barely about
     if (a === 'night') return U.clamp(d * 1.2 - 0.1, 0.05, 1);
-    if (a === 'day') return U.clamp(1.1 - d * 1.15, 0.04, 1);
-    if (a === 'dusk') return ph === 'dusk' || ph === 'dawn' ? 1 : d > 0.5 ? 0.7 : 0.3;
-    return 1 - d * 0.35;
+    if (a === 'day') return U.clamp(1.1 - d * 1.15, 0.02, 1);
+    if (a === 'dusk') return ph === 'dusk' || ph === 'dawn' ? 1 : d > 0.5 ? 0.35 : 0.3;
+    return U.clamp(1 - d * 0.92, 0.07, 1);
   }
 
   // ---------------------------------------------------------------- roster → spawn definitions

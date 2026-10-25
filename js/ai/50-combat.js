@@ -241,12 +241,15 @@
     return risk * tr.intelligence * 1.2;
   }
 
+  // a party companion's skill (0…1): grows with its level and as it evolves (83-party.js)
+  function skillOf(e) { return (e && e.pp && e.pp.skill) || 0; }
   function aimAt(e, s, t, speed, delay = 0) {
     const tr = s.pers.tr;
+    const sk = skillOf(e);
     const [vx, vy] = targetVel(t);
     const dist = Math.hypot(t.x - e.x, t.y - e.y);
     // smart Pokémon that have watched you move for a moment lead their shots; others shoot where you are
-    const reads = s.combat.seenFor > 0.6 && Math.random() < 0.2 + tr.intelligence * 0.7;
+    const reads = s.combat.seenFor > 0.6 && Math.random() < 0.2 + tr.intelligence * 0.7 + sk * 0.5;
     let lead = reads ? U.rand(0.8, 1.08) : U.rand(0, 0.25);
     if (s.mind.emo.fear > 0.7) lead *= 0.5;
     // time until impact = windup before the shot leaves + flight time
@@ -255,7 +258,7 @@
     tt = delay + Math.hypot(ax - e.x, ay - e.y) / Math.max(60, speed);
     ax = t.x + vx * tt * lead; ay = t.y + vy * tt * lead;
     // honest aim error, worse when panicking
-    const err = (0.26 - 0.2 * tr.intelligence) * (s.mind.emo.fear > 0.75 ? 1.8 : 1) * (s.mind.needs.energy < 0.2 ? 1.4 : 1);
+    const err = (0.26 - 0.2 * tr.intelligence) * (s.mind.emo.fear > 0.75 ? 1.8 : 1) * (s.mind.needs.energy < 0.2 ? 1.4 : 1) * (1 - sk * 0.6);
     const a = Math.atan2(ay - e.y, ax - e.x) + (Math.random() + Math.random() - 1) * err;
     const r = Math.hypot(ax - e.x, ay - e.y);
     return [e.x + Math.cos(a) * r, e.y + Math.sin(a) * r];
@@ -268,7 +271,8 @@
     if (s.mind.needs.energy < 0.2) k -= 0.2;
     if (s.p.size === 2) k -= 0.12;
     if (s.pers.quirks.has('lazy')) k -= 0.15;
-    return U.clamp(k, 0.03, 0.82);
+    k += skillOf(e) * 0.5;
+    return U.clamp(k, 0.03, e && e.pp ? 0.95 : 0.82);
   }
 
   // is (x, y) inside a pending (telegraphed, not yet triggered) hazard someone else placed?
@@ -285,6 +289,7 @@
     const H = AI.R.Hazards;
     for (const h of H.all) {
       if (h.hit || h.t >= h.delay || h.psxOwner === e) continue;
+      if (e.pp && (h.friendly || (h.psxOwner && h.psxOwner.pp))) continue; // (the party's own blasts don't touch a companion)
       if (!H.inside(h, e.x, e.y, e.r)) continue;
       if (c.dodged.has(h)) continue;
       c.dodged.add(h);
@@ -317,8 +322,10 @@
         if (!l) continue;
         for (const p of l) {
           if (p.psxOwner === e || c.dodged.has(p)) continue;
-          // shots from allies aimed elsewhere aren't threats to react to (they might still hit!)
-          if (!p.friendly && p.psxTarget && p.psxTarget !== e) continue;
+          if (e.pp) {
+            // a companion: the party's own shots are harmless to it, and any wild shot can hit it
+            if (p.friendly || (p.psxOwner && p.psxOwner.pp)) continue;
+          } else if (!p.friendly && p.psxTarget && p.psxTarget !== e) continue; // shots from allies aimed elsewhere aren't threats to react to (they might still hit!)
           const vx = p.vx || 0, vy = p.vy || 0;
           const v2 = vx * vx + vy * vy;
           if (v2 < 100) continue;
@@ -330,7 +337,7 @@
           if (mx * mx + my * my > rr * rr) continue;
           c.dodged.add(p);
           // needs time to see it coming, and the skill to react
-          if (tca < Perception().reactionDelay(s) * 0.55) continue;
+          if (tca < Perception().reactionDelay(s) * 0.55 * (1 - skillOf(e) * 0.5)) continue;
           if (Math.random() > dodgeSkill(e, s)) continue;
           const len = Math.sqrt(v2);
           let px = -vy / len, py = vx / len;
@@ -630,6 +637,6 @@
 
   AI.define('Combat', {
     CLOSE, init, engage, disengage, update, globalTick, attackersOf, chooseStrategy, hazardEscape, inDanger,
-    resolveNpcShots, resolveHazards, noteShotResult, aimAt, scoreMove, dodgeSkill, playerAuraR,
+    resolveNpcShots, resolveHazards, noteShotResult, aimAt, scoreMove, dodgeSkill, playerAuraR, scanThreats, skillOf,
   });
 })();

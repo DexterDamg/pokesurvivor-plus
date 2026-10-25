@@ -86,7 +86,7 @@
       let v = 0;
       for (const t of (R.DEX_BY[dex] || {}).types || []) if (!ht.has(t)) v += 1;
       if (BASE[dex].role === 'light' && !light) v += 0.8;
-      if (st.list.some((c) => c.dex === dex && !c.pp.leaving)) v += 0.6; // keep who's already here
+      if (st.list.some((c) => c.pp.dex === dex && !c.pp.leaving)) v += 0.6; // keep who's already here
       if (BASE[dex].role === 'scout') v += 0.3;
       return v;
     };
@@ -97,9 +97,9 @@
     const want = on() && AI.cfg.pseudoPlayers !== false ? Math.max(0, MAX_PARTY - humans()) : 0;
     const keep = choose(want);
     // a human joined: the companion who fits least says goodbye and heads off
-    for (const c of st.list.slice()) if (!keep.includes(c.dex) && !c.pp.leaving) dismiss(c, force);
+    for (const c of st.list.slice()) if (!keep.includes(c.pp.dex) && !c.pp.leaving) dismiss(c, force); // (pp.dex: who it was before it evolved)
     // a place opened up (or the run started): someone joins
-    for (const dex of keep) if (!st.list.some((c) => c.dex === dex && !c.pp.leaving)) spawn(dex);
+    for (const dex of keep) if (!st.list.some((c) => c.pp.dex === dex && !c.pp.leaving)) spawn(dex);
   }
 
   // ---------------------------------------------------------------- the companions themselves
@@ -150,6 +150,7 @@
     AI.Rel.get(s, 'P').a = 0.6;
     if (saved) { e.hp = Math.max(1, Math.min(e.maxHp, saved.hp || e.maxHp)); }
     st.list.push(e);
+    if (AI.PartyPlus) try { AI.PartyPlus.onSpawn(e, saved); } catch (err) { AI.warn('party-plus-spawn', err); }
     if (!saved && st.list.length && AI.time - st.startT > 5) {
       // joining mid-run: a word on arrival
       say(e, 'join');
@@ -173,7 +174,7 @@
     if (fresh) { e.maxHp = mh; e.hp = mh; }
     else if (mh !== e.maxHp) { const f = e.hp / Math.max(1, e.maxHp); e.maxHp = mh; e.hp = Math.max(1, Math.round(mh * f)); }
     e.level = p.level || 1;
-    const spd = (p.baseSpd || 116) * (p.spdMul || 1);
+    const spd = (p.baseSpd || 116) * (p.spdMul || 1) * (AI.PartyPlus ? AI.PartyPlus.spdK(e) : 1);
     e.spd = spd;
     if (e.psx) e.psx.baseSpd = spd;
     e._dmg = 6 + e.level * 0.9;
@@ -188,6 +189,7 @@
     let dmg = amount;
     if (this.psx && this.psx.buff && this.psx.buff.until > AI.time && this.psx.buff.def < 1) dmg *= this.psx.buff.def;
     if (!enemyStyle && typeof a2 === 'string') dmg *= R.Types && R.Types.mult ? U.clamp(R.Types.mult(a2, this.types || ['normal']), 0.5, 2) : 1;
+    if (AI.PartyPlus) dmg = AI.PartyPlus.incoming(this, dmg);
     this.hp -= dmg;
     this.invuln = 0.3;
     this.pp.hurtAt = AI.time;
@@ -482,7 +484,8 @@
         const fa = Math.atan2(p._vy || 0, p._vx || 0), moving = Math.hypot(p._vx || 0, p._vy || 0) > 20;
         const scout = e.pp.base.role === 'scout';
         const a = moving && scout ? fa + U.rand(-0.5, 0.5) : Math.random() * 6.28;
-        const d = U.rand(L * 0.6, L * 1.15);
+        // off on its own for a while (the independent ones go further), then back
+        const d = U.rand(L * 0.8, L * (1.3 + ((s.pers.nx && s.pers.nx.independence) || 0.5) * 1.1));
         const pt = B().pointNear(e, p.x + Math.cos(a) * d, p.y + Math.sin(a) * d * 0.8, 0, 60);
         s.bs.to = pt || [p.x + Math.cos(a) * d, p.y + Math.sin(a) * d * 0.8];
         // near the old house, the curious one goes to look at the gate
@@ -496,7 +499,7 @@
         s.bs.t += dt;
         const [tx, ty] = s.bs.to;
         const d = Math.hypot(tx - e.x, ty - e.y);
-        if (d > 14 && s.bs.t < 7) { B().go(it, tx, ty, 0.6); return true; }
+        if (d > 14 && s.bs.t < 10) { B().go(it, tx, ty, 0.7); return true; }
         // look around a little
         B().stay(it);
         s.bs.look -= dt;
@@ -720,6 +723,7 @@
     }
     st.statT = (st.statT == null || st.statT <= 0) ? 1 : st.statT - dt;
     apart(dt);
+    if (AI.PartyPlus) try { AI.PartyPlus.tick(dt); } catch (err) { AI.warn('party-plus', err); }
     helpOpen(dt);
     shots();
     tickTalk(dt);
@@ -850,6 +854,7 @@
   }
   // a companion's hit on a wild Pokémon counts like a party member's (the kill is the party's)
   function hurtFoe(victim, dmg, attacker, color, kx, ky, knock) {
+    if (AI.PartyPlus) dmg = AI.PartyPlus.outgoing(attacker, victim, dmg); // (its held item, a power crystal)
     const prevA = AI.curAttacker;
     AI.curAttacker = attacker;
     const env = victim._env;
@@ -1178,8 +1183,8 @@
     const used = c.pp.said[ctx] || 0;
     let text = fill(pick[used % pick.length][0], vars);
     // (a substitute speaks in its own voice: no cat noises from a Rowlet)
-    if (c.dex !== 906) text = text.replace(/\bM+r+o*w*r*[!…,.]*\s*/gi, '').replace(/^\s*(\.\.\.|…)\s*$/, '…');
-    if (c.dex !== 4 && c.dex !== 390) text = text.replace(/my tail/gi, 'my flame');
+    if (c.pp.dex !== 906) text = text.replace(/\bM+r+o*w*r*[!…,.]*\s*/gi, '').replace(/^\s*(\.\.\.|…)\s*$/, '…');
+    if (c.pp.dex !== 4 && c.pp.dex !== 390) text = text.replace(/my tail/gi, 'my flame');
     return text || null;
   }
   function quiet() {
@@ -1364,6 +1369,7 @@
       // AI badge
       ctx.fillStyle = '#b8c0d8'; ctx.fillRect(x + bw - 20, y + 4, 15, 9);
       ctx.fillStyle = '#1a2038'; ctx.font = '700 7px Pixelify, "Segoe UI", sans-serif'; ctx.fillText('AI', x + bw - 17, y + 5);
+      if (c.pp && AI.PartyPlus) try { AI.PartyPlus.drawBadges(ctx, c, x, y, bw); } catch (err) { /* ignore */ }
       const hp = c.pp && c.pp.downed ? 0 : c.hp / Math.max(1, c.maxHp);
       ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(x + 33, y + 17, bw - 40, 7);
       ctx.fillStyle = hp > 0.5 ? '#6fdc78' : hp > 0.25 ? '#ffd24a' : '#ff6a5a';
@@ -1411,7 +1417,7 @@
   // ---------------------------------------------------------------- the run: start, save, resume
   const SAVE = 'psx.party.v1';
   function save() {
-    try { localStorage.setItem(SAVE, JSON.stringify({ seed: st.seed, rel: st.rel, mem: st.mem, list: st.list.map((c) => ({ dex: c.dex, nature: c.pp.nature, hp: c.hp, x: c.x, y: c.y })) })); } catch (e) { /* ignore */ }
+    try { localStorage.setItem(SAVE, JSON.stringify({ seed: st.seed, rel: st.rel, mem: st.mem, list: st.list.map((c) => ({ dex: c.pp.dex, form: c.dex, nature: c.pp.nature, hp: c.hp, x: c.x, y: c.y, item: c.pp.item || null, bag: c.pp.bag || null })) })); } catch (e) { /* ignore */ }
   }
   function reset(seed) {
     for (const c of st.list.slice()) remove(c);
@@ -1441,7 +1447,7 @@
 
   AI.define('Companions', {
     st, ROSTER, SUBST, BASE, KEY, LN, roster, list, alive, tick, reset, think, okFor, hurtFoe, hazards, drawables, drawAir, drawHud, onNet,
-    rel, bump, allocate, choose, spawn, dismiss, say, convo, react, restorePending, humans, isGuest, moodOf, lineFor, leash, down, getUp,
+    rel, bump, allocate, choose, spawn, dismiss, say, convo, react, restorePending, humans, isGuest, moodOf, lineFor, leash, down, getUp, syncStats,
     get mem() { return st.mem; },
   });
 })();

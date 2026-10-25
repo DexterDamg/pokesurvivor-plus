@@ -177,6 +177,9 @@
     491: { in: T('You should not have come this far into the dark.', 'No debiste adentrarte tanto en la oscuridad.'), mid: T('Every step you take, the dream grows deeper.', 'Cada paso que das, el sueño se hace más profundo.'), low: T('…Then wake. And forget me.', '…Entonces despierta. Y olvídame.') },
     249: { in: T('The sea is restless because of you.', 'El mar está inquieto por tu culpa.') }, 250: { in: T('Let the flames judge your heart.', 'Que las llamas juzguen tu corazón.') },
     382: { in: T('The rain will not stop for you.', 'La lluvia no se detendrá por ti.') }, 383: { in: T('The land burns where I walk.', 'La tierra arde donde camino.') }, 384: { in: T('Nothing stands between the sky and me.', 'Nada se interpone entre el cielo y yo.') },
+    243: { in: T('The storm chose this meeting. So did I.', 'La tormenta eligió este encuentro. Yo también.'), mid: T('Faster! The lightning doesn\'t wait for anyone!', '¡Más rápido! ¡El rayo no espera a nadie!'), low: T('…Your spark is real.', '…Tu chispa es real.') },
+    245: { in: T('The water is calm. Are you?', 'El agua está en calma. ¿Y tú?'), mid: T('Your heart does not waver. Good.', 'Tu corazón no vacila. Bien.'), low: T('…Clear as the north wind.', '…Claro como el viento del norte.') },
+    244: { in: T('Burn bright — or burn out!', '¡Arde con fuerza, o apágate!'), mid: T('Yes! Let the fire in you roar!', '¡Sí! ¡Que ruja el fuego que llevas dentro!'), low: T('…The others were right about you.', '…Los otros tenían razón sobre ti.') },
     144: { in: T('…Cold. Like the summit wind.', '…Frío. Como el viento de la cumbre.') }, 145: { in: T('The storm has a voice. Hear it.', 'La tormenta tiene voz. Escúchala.') }, 146: { in: T('Burn bright, little one. Briefly.', 'Arde con fuerza, pequeño. Brevemente.') },
   };
   const BY_TYPE = {

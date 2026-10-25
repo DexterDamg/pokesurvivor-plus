@@ -49,6 +49,10 @@
     powerRework: true, // Mega Evolution after Crystal Cave with the Pokémon's own Mega Stone (a held item); Z-Moves after Volcano, through Totem Trials (92-power.js)
     exploreExp: true, // EXP for exploring, treasure, kindness and teamwork too (91-exp.js)
     pseudoPlayers: true, // AI companions fill the party's empty places (four in all): Charmander, Froakie and Sprigatito in the Shady Forest
+    companionLoot: true, // companions pick up EXP and loot, open chests and touch power crystals (83-partyplus.js)
+    companionCrystals: true, // …including power crystals
+    legendTrio: true, // Raikou, Suicune and Entei can be earned in the Shady Forest (82-trio.js)
+    oldWell: true, // an old well sometimes stands in the forest (86-well.js)
     partyTalk: true, // they talk among themselves and to you, now and then
     talkBoxes: true, // Mystery Dungeon dialogue boxes: the party on the left, important NPCs on the right, Legendaries in their own box
     nightVisibility: 0, // accessibility: 0 = nights as dark as intended … 1 = noticeably brighter nights (light sources still matter)

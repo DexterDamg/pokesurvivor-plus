@@ -273,7 +273,7 @@
     R.Camera.follow = function (x, y, dt) { const c = AI.enabled && AI.Story && AI.Story.cam; return c ? oFollow.call(this, c[0], c[1], dt * 0.35) : oFollow.apply(this, arguments); };
     // story scenes hold the player still
     const oAxis = R.Input.axis;
-    R.Input.axis = function () { if (AI.enabled && AI.Story && AI.Story.lockInput()) return [0, 0]; return oAxis.apply(this, arguments); };
+    R.Input.axis = function () { if (AI.enabled && ((AI.Story && AI.Story.lockInput()) || (AI.Trio && AI.Trio.busy()))) return [0, 0]; return oAxis.apply(this, arguments); };
 
     // ------------------------------------------------------------ combat resolution
     const tracked = new Map(); // NPC shot → { move, target } for hit/miss learning
@@ -312,7 +312,7 @@
       if (AI.enabled) try { AI.Player.drawHud(ctx); AI.Light.drawClock(ctx); AI.Render.drawDebugHud(ctx, w, h); } catch (e) { AI.warn('hud', e); }
       if (AI.enabled) try { AI.Mysteries.drawScreen(ctx, w, h); } catch (e) { AI.warn('myst-hud', e); }
       if (AI.enabled) try { AI.Haunt.drawScreen(ctx, w, h); AI.Mansion.drawScreen(ctx, w, h); AI.Story.drawScreen(ctx, w, h); } catch (e) { AI.warn('mansion-hud', e); }
-      if (AI.enabled) try { AI.Companions.drawHud(ctx, w, h); AI.Events.drawScreen(ctx, w, h); AI.Totem.drawScreen(ctx, w, h); } catch (e) { AI.warn('party-hud', e); }
+      if (AI.enabled) try { AI.Companions.drawHud(ctx, w, h); AI.Events.drawScreen(ctx, w, h); AI.Totem.drawScreen(ctx, w, h); if (AI.Trio) AI.Trio.drawScreen(ctx, w, h); if (AI.Well) AI.Well.drawScreen(ctx, w, h); } catch (e) { AI.warn('party-hud', e); }
       if (AI.enabled) try { AI.Talk.draw(ctx, w, h); } catch (e) { AI.warn('talk', e); }
       return r;
     };
@@ -323,7 +323,7 @@
       if (AI.enabled) try { AI.Forest.drawMist(ctx); AI.Journey.drawFog(ctx); AI.Journey.drawSils(ctx); AI.Forest.drawFlies(ctx); } catch (e) { AI.warn('forest-air', e); }
       if (AI.enabled) try { AI.Light.drawAir(ctx); } catch (e) { AI.warn('env-air', e); }
       if (AI.enabled) try { AI.Mansion.drawAir(ctx); } catch (e) { AI.warn('mansion-air', e); }
-      if (AI.enabled) try { AI.Events.drawAir(ctx); AI.Power.drawAir(ctx); AI.Totem.drawAir(ctx); AI.Render.drawAir(ctx); AI.Companions.drawAir(ctx); } catch (e) { AI.warn('air', e); }
+      if (AI.enabled) try { AI.Events.drawAir(ctx); AI.Power.drawAir(ctx); AI.Totem.drawAir(ctx); AI.Render.drawAir(ctx); AI.Companions.drawAir(ctx); if (AI.PartyPlus) AI.PartyPlus.drawAir(ctx); if (AI.Trio) AI.Trio.drawAir(ctx); } catch (e) { AI.warn('air', e); }
       if (AI.enabled) try { AI.Lore.drawSpeech(ctx); } catch (e) { AI.warn('speech', e); }
       return r;
     };
@@ -423,6 +423,8 @@
         AI.Events.tick(dt);
         AI.Power.tick(dt);
         AI.Totem.tick(dt);
+        if (AI.Trio) AI.Trio.tick(dt);
+        if (AI.Well) AI.Well.tick(dt);
         AI.Player.frame();
         AI.Legend.tick(dt);
         AI.Social.tick(dt);
@@ -460,7 +462,7 @@
     // ------------------------------------------------------------ new run → fresh world
     const oWR = R.World.reset;
     R.World.reset = function (seed) {
-      try { resetWorld(); AI.Decor.reset(seed); AI.Journey.reset(AI.Decor.seed); AI.Wildlife.reset(); AI.Light.reset(); AI.Talk.reset(); AI.Companions.reset(AI.Decor.seed); AI.Exp.reset(); AI.Events.reset(); AI.Power.reset(); AI.Totem.reset(); AI.Forest.reset(); AI.Mysteries.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); } catch (e) { AI.warn('reset', e); }
+      try { resetWorld(); AI.Decor.reset(seed); AI.Journey.reset(AI.Decor.seed); AI.Wildlife.reset(); AI.Light.reset(); AI.Talk.reset(); AI.Companions.reset(AI.Decor.seed); AI.Exp.reset(); AI.Events.reset(); AI.Power.reset(); AI.Totem.reset(); if (AI.Trio) AI.Trio.reset(); if (AI.Well) AI.Well.reset(); AI.Forest.reset(); AI.Mysteries.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); } catch (e) { AI.warn('reset', e); }
       return oWR.apply(this, arguments);
     };
     function resetWorld() {

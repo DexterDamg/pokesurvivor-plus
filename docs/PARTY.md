@@ -63,6 +63,35 @@ anything.
 - **Never lost:** stuck behind something or too far behind, a companion catches up from somewhere
   you're not looking.
 
+### Playing like a player (`83-partyplus.js`)
+
+- **Loot.** They pick up what's lying around. **EXP goes to the whole party** (it counts for
+  you, as if you'd picked it up), and so do coins and tickets. **Items they keep**: a companion
+  holds one held item (shown on its panel) and carries up to three more; berries go in its pouch,
+  to eat when it's hurt or to hand to you when you're low. TMs, bottle caps and Mega Stones are left
+  for you: a companion can't use them. And they never race you: anything lying nearer you than
+  them is yours, and a held item is only fair game once it's been left lying a while (or came out
+  of a chest they opened).
+- **What a held item does for them**: much the same as for you. Life Orb and the Power items hit
+  harder, Choice Scarf and Quick Claw make them faster or quicker to recover, Assault Vest
+  toughens them, Leftovers and Sitrus Berry heal, Focus Sash saves them once, Rocky Helmet bites
+  back, the Orbs and King's Rock can burn, poison, slow or stun what they hit, Lucky Egg and Amulet
+  Coin add to what they pick up for the party.
+- **Chests.** They open small chests themselves and stand at big ones until they pop; whatever
+  falls out is theirs to pick up first.
+- **Power crystals.** They touch them too. A white crystal starts its event, as if you had; the
+  others empower that companion for 25 s (Fury: double damage; Bolt: faster; Magnet: picks things
+  up from much further away; Haste: moves recover sooner), shown as a coloured ring around it.
+- **Roaming.** Off on their own for a while (the independent ones further), then back, and they
+  drop an errand to catch up when you move on.
+- **Battle.** They dodge shots and telegraphed blasts aimed at anyone in the party, in a fight or
+  not (your own attacks aren't threats to them), keep their distance or close in as their moves
+  need, lead their shots, and step in for each other.
+- **Evolution.** They evolve at the level their species does: Charmander at 16 and Charmeleon at
+  36, Froakie and Sprigatito at 16 and 36, Rowlet at 17 and 34, Chimchar at 14, Piplup at 16. They
+  glow, change, and have something to say about it. Each stage (and every level) sharpens them:
+  better dodging, faster reactions, steadier aim.
+
 ### Relationships
 
 Between each of them, and with you, the run keeps: **trust, friendship, confidence, irritation,
@@ -150,6 +179,8 @@ line (happy, worried, surprised, angry…).
 | `pseudoPlayers` | on | AI companions fill the party's empty places |
 | `partyTalk` | on | they talk among themselves and to you |
 | `talkBoxes` | on | Mystery Dungeon dialogue boxes |
+| `companionLoot` | on | companions pick things up, open chests and touch power crystals |
+| `companionCrystals` | on | …including power crystals |
 
 ### Console helpers
 
@@ -159,6 +190,8 @@ PSXAI.Companions.rel('char', 'P')        // what Charmander thinks of you
 PSXAI.Companions.mem                     // what the party remembers about you
 PSXAI.Talk.say('player', 'Hello!')       // say something in your own box
 PSXAI.Natures.describe('timid')          // what a Nature leans toward
+PSXAI.PartyPlus.st                       // what they've picked up, opened and dodged
+PSXAI.PartyPlus.evolve(c, 5)             // evolve a companion now
 ```
 
 ## Performance
