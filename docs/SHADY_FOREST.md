@@ -117,6 +117,9 @@ pushing at it.
   dim even at noon, and clearings stay sunlit.
 - **Fireflies** drift over the wetwood, clearings and two of the sanctuaries on dry nights, each
   one a tiny light.
+- **Music:** the forest plays *Viridian Forest* (Pokémon FireRed and LeafGreen) instead of the
+  level's own track, looped at your music volume. Bosses, rifts and the Judgment still bring their
+  own music in, and the haunted mansion has its own (`97-music.js`, setting `forestMusic`).
 - Weather keeps working as before (rain, fog, storms, wind). The game's own weather and terrain
   events (type boosts such as Misty Terrain, their banners and the HUD pill) stay switched off.
 
@@ -205,7 +208,8 @@ Battles still pay as before; now discovery and kindness level you up too. Reward
 - **Exploring:** new ground reached on foot (never twice; standing still, walking in circles or
   being teleported earns nothing), distance milestones, each kind of place the first time (a
   sunlit clearing, an ancient grove, the wetwood, the deep forest, the lake shore), special
-  places, the mansion's route and its door.
+  places, the mansion's route and its door. Distance milestones and new kinds of place pay
+  quietly, with just the small "+EXP" over you and no message.
 - **Treasure:** chests by rarity (a big chest more than a small one), half again for a chest
   hidden off the beaten path; each chest pays once. (The chests' own EXP drop is unchanged.)
 - **Pokémon:** befriending a wild Pokémon, sparing a beaten one, watching wildlife.
@@ -292,6 +296,7 @@ pauses while you read. In co-op it can't pause the world for everyone, so it sta
 | `mansionAfter` | 1200 s | active forest time before the mansion is placed |
 | `forestEvents` | on | the forest's events and its history |
 | `exploreExp` | on | EXP for exploring, treasure and kindness |
+| `forestMusic` | on | Viridian Forest instead of the level's own track |
 | `maxNpcs` / `maxResidents` | 24 / 10 | roaming Pokémon / tree residents at once |
 | `treeDensity` | 1 | how many trees grow |
 | `legendTrio` | on | Raikou, Suicune and Entei can be earned |

@@ -760,6 +760,28 @@ async function sample(h, ms, every, fn, arg) {
     return { pass: ok, detail: r };
   });
 
+  await scenario(h, 'the Shady Forest plays Viridian Forest (bosses and rifts keep their own music), exploring pays quietly, and Level 2 asks you to complete Level 1', async () => {
+    const r = await h.R(async () => {
+      const Mu = PSXAI.Music, R = __PSX_REG__, X = PSXAI.Exp, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      await wait(1500);
+      const forest = Mu.choose(), req = Mu.st.req;
+      Mu.st.req = 'boss'; const boss = Mu.choose(); Mu.st.req = 'rift'; const rift = Mu.choose(); Mu.st.req = req;
+      PSXAI.setCfg('forestMusic', false); const off = Mu.choose(); PSXAI.setCfg('forestMusic', true);
+      await wait(1200);
+      const el = Mu.st.els.forest;
+      // walking new ground: EXP, but no toast about distances or places found
+      PSXAI.cfg.exploreExp = true; X.reset(); PSXAI.Debug.freeze(false);
+      const said = [], oSay = R.Spawner.say;
+      R.Spawner.say = function (t) { said.push(String(t)); return oSay.apply(this, arguments); };
+      for (let i = 0; i < 120; i++) { p.x += 45; await wait(25); }
+      R.Spawner.say = oSay; PSXAI.Debug.freeze(true); PSXAI.cfg.exploreExp = false;
+      const lock = R.I18n.f('Derrota a Arceus en el mapa {x} para abrirlo.', 1), lock2 = R.I18n.f('Derrota a Arceus en el mapa {x} para abrirlo.', 2);
+      return { forest, boss, rift, off, playing: !!el && !el.paused && el.src.includes('viridian'), vol: el ? +el.volume.toFixed(2) : 0, xp: X.st.total, toasts: said.filter((t) => /explored|Discovered|km/i.test(t)), lock, lock2 };
+    });
+    return { pass: r.forest === 'forest' && r.boss === null && r.rift === null && r.off === null && r.playing && r.vol > 0.05 && r.xp > 0 && r.toasts.length === 0 && !/Arceus/.test(r.lock) && /1/.test(r.lock) && /Arceus/.test(r.lock2), detail: r };
+  });
+
   await scenario(h, 'the Legendary box is only for Legendaries: "???" and a silhouette until known, and bosses speak as the battle turns', async () => {
     const r = await h.R(async () => {
       const T = PSXAI.Talk, R = __PSX_REG__, p = R.Game.player;
@@ -1753,8 +1775,8 @@ async function sample(h, ms, every, fn, arg) {
     const extra = await h.R(async () => {
       const M = PSXAI.Mansion, H = PSXAI.Haunt, it = M.interior();
       const rooms = it.rooms.map((r) => r.id);
-      const song = M.st.song, A = __PSX_REG__.Audio;
-      const music = { playing: !!song && song.src.includes('old-chateau'), volume: song ? +song.volume.toFixed(2) : 0, gameMuted: M.st.musicOn === true };
+      const Mu = PSXAI.Music, song = Mu.st.els.chateau, A = __PSX_REG__.Audio;
+      const music = { playing: !!song && !song.paused && song.src.includes('old-chateau'), volume: song ? +song.volume.toFixed(2) : 0, gameMuted: Mu.st.cur === 'chateau' };
       const lit0 = M.st.flick;
       H.EVENTS.flicker.run();
       const dips = [];
