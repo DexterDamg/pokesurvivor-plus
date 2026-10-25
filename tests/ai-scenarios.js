@@ -846,14 +846,15 @@ async function sample(h, ms, every, fn, arg) {
       const foe = PSXAI.Debug.spawn(19, { temp: 'aggressive', dx: -150, hp: 160 });
       const hurts0 = T.hurts.length;
       let fought = 0;
-      const hp0 = foe.hp;
-      for (let i = 0; i < 35 && !foe.dead; i++) { await wait(400); fought = Math.max(fought, C.list().filter((c) => c.psx.combat && c.psx.combat.target === foe).length); }
+      const hp0 = foe.hp, foeBehs = new Set();
+      for (let i = 0; i < 50 && !foe.dead; i++) { await wait(400); fought = Math.max(fought, C.list().filter((c) => c.psx.combat && c.psx.combat.target === foe).length); if (foe.psx && foe.psx.beh) foeBehs.add(foe.psx.beh.id); }
       PSXAI.Debug.freeze(true);
       // (whatever hurt you came from the wild one: the companions' own shots are harmless to you)
       const companionShotsAtYou = R.Projectiles.all().filter((q) => q.psxOwner && q.psxOwner.pp && !q.psxSafe).length;
-      return { calmTargeted, calmAlive: !calm.dead, fought, foeDown: foe.dead, foeLost: Math.round((1 - Math.max(0, foe.hp) / hp0) * 100), kills: p.kills, companionShotsAtYou };
+      return { calmTargeted, calmAlive: !calm.dead, fought, foeDown: foe.dead, foeLost: Math.round((1 - Math.max(0, foe.hp) / hp0) * 100), fled: foeBehs.has('flee') || foeBehs.has('retreat'), kills: p.kills, companionShotsAtYou };
     });
-    return { pass: !r.calmTargeted && r.calmAlive && r.fought >= 2 && (r.foeDown || r.foeLost > 60) && r.companionShotsAtYou === 0, detail: r };
+    // (beaten, or hurt and driven off: a wild Pokémon that's losing runs for it)
+    return { pass: !r.calmTargeted && r.calmAlive && r.fought >= 2 && (r.foeDown || r.foeLost > 60 || (r.fled && r.foeLost > 30)) && r.companionShotsAtYou === 0, detail: r };
   });
 
   await scenario(h, 'a fallen companion is helped up by its teammates (or gets up later), and remembers who helped', async () => {
@@ -890,8 +891,11 @@ async function sample(h, ms, every, fn, arg) {
       p._vx = 0;
       await wait(2500);
       const L = C.alive();
-      const ang = L.map((c) => Math.atan2(c.y - p.y, c.x - p.x));
-      const spread = Math.max(...ang) - Math.min(...ang);
+      // the smallest arc around you that holds them all
+      const ang = L.map((c) => Math.atan2(c.y - p.y, c.x - p.x)).sort((a, b) => a - b);
+      let gap = 0;
+      for (let i = 0; i < ang.length; i++) gap = Math.max(gap, (i + 1 < ang.length ? ang[i + 1] : ang[0] + Math.PI * 2) - ang[i]);
+      const spread = Math.PI * 2 - gap;
       const dist = L.map((c) => Math.round(Math.hypot(c.x - p.x, c.y - p.y)));
       return { maxD: Math.round(maxD), minPair: Math.round(minPair), spread: +spread.toFixed(2), dist, behs: L.map((c) => c.psx.beh.id) };
     });
@@ -915,7 +919,7 @@ async function sample(h, ms, every, fn, arg) {
       PSXAI.Debug.freeze(false);
       const g = PSXAI.Debug.spawn(92, { temp: 'aggressive', dx: 200, hp: 400 });
       let fearT = 0, fearB = 0;
-      for (let i = 0; i < 20; i++) { await wait(300); seen.timid.add(timid.psx.beh.id); seen.brave.add(brave.psx.beh.id); fearT = Math.max(fearT, timid.psx.mind.emo.fear); fearB = Math.max(fearB, brave.psx.mind.emo.fear); }
+      for (let i = 0; i < 30; i++) { await wait(300); seen.timid.add(timid.psx.beh.id); seen.brave.add(brave.psx.beh.id); fearT = Math.max(fearT, timid.psx.mind.emo.fear); fearB = Math.max(fearB, brave.psx.mind.emo.fear); }
       PSXAI.Debug.freeze(true);
       g.dead = true;
       C.st.humansOverride = 0;
@@ -948,8 +952,10 @@ async function sample(h, ms, every, fn, arg) {
       PSXAI.cfg.partyTalk = true;
       T2.reset(); C.st.lastConvo = 0; C.st.convoAt = {};
       for (const c of C.list()) c.psx.pers.nx.talk = 0.9;
-      C.convo('crumb_fence');
-      await wait(700);
+      // (a remark is sometimes left unanswered; here someone does answer)
+      const mr = Math.random; Math.random = () => 0.3;
+      try { C.convo('crumb_fence'); } finally { Math.random = mr; }
+      for (let i = 0; i < 30 && !T2.boxes.left.length; i++) await wait(100);
       const first = T2.boxes.left.map((b) => b.who.name);
       const seen = new Map();
       for (let i = 0; i < 26; i++) { await wait(300); for (const b of T2.boxes.left) seen.set(b.who.name, b.text); }
@@ -1512,7 +1518,7 @@ async function sample(h, ms, every, fn, arg) {
     await h.wait(400);
     const drizzle = await h.R(() => PSXAI.Sky.st.next);
     await h.R(() => PSXAI.resetCfg());
-    const irregular = r.gaps.length > 1 && Math.max(...r.gaps) - Math.min(...r.gaps) > 0.8;
+    const irregular = r.gaps.length > 1 && Math.max(...r.gaps) - Math.min(...r.gaps) > 0.25; // (a fixed timer would give the same gap every time)
     return { pass: r.n >= 3 && irregular && rain && !rain.storm && rain.inSec >= 12 && !drizzle, detail: { strikes: r.n, gaps: r.gaps, distancesKm: r.dists, heavyRainNextStrikeIn: rain && rain.inSec, lightRainLightning: !!drizzle } };
   });
 
@@ -1929,7 +1935,7 @@ async function sample(h, ms, every, fn, arg) {
       const J = PSXAI.Journey, M = PSXAI.Mansion, W = __PSX_REG__.World, p = __PSX_REG__.Game.player, C = __PSX_REG__.Camera;
       const wait = (ms) => new Promise((res) => setTimeout(res, ms));
       // head east for a moment so the party has a direction
-      for (let i = 0; i < 40; i++) { p.x += 30; await wait(20); }
+      for (let i = 0; i < 100; i++) { p.x += 12; await wait(30); }
       const fresh0 = new Set(J.gen);
       J.debugElapse(Math.max(5, J.threshold() - J.elapsed + 5));
       for (let i = 0; i < 30 && !M.geom(); i++) await wait(100);

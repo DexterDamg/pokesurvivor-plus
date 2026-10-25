@@ -425,8 +425,18 @@
     const p = lead();
     const fa = Math.atan2(p._vy || 0, p._vx || 0);
     const moving = Math.hypot(p._vx || 0, p._vy || 0) > 20;
-    const base = moving ? fa + Math.PI : (e.pp.slot * 2.1 + 0.6);
-    const a = base + [-0.7, 0.7, 0, 1.6][e.pp.slot % 4] + Math.sin(AI.time * 0.13 + e.pp.slot * 2) * 0.35;
+    let a;
+    if (moving) a = fa + Math.PI + [-0.7, 0.7, 0, 1.6][e.pp.slot % 4] + Math.sin(AI.time * 0.13 + e.pp.slot * 2) * 0.35;
+    else {
+      // standing around: each keeps to its own side of you, easing away from the others
+      a = Math.atan2(e.y - p.y, e.x - p.x);
+      for (const o of alive()) {
+        if (o === e) continue;
+        let df = a - Math.atan2(o.y - p.y, o.x - p.x);
+        df = Math.atan2(Math.sin(df), Math.cos(df));
+        if (Math.abs(df) < 1.1) a += (df > 0 || (df === 0 && e.pp.slot > o.pp.slot) ? 1 : -1) * (1.1 - Math.abs(df)) * 0.6;
+      }
+    }
     const d = L * 0.55;
     let x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d * 0.75;
     for (const o of alive()) if (o !== e && Math.hypot(o.x - x, o.y - y) < 34) { x += (x - o.x) * 0.6; y += (y - o.y) * 0.6; }
@@ -442,7 +452,7 @@
         if (!s.companion) return 0;
         const p = lead();
         const d = Math.hypot(p.x - e.x, p.y - e.y), L = leash(e, s);
-        if (s.beh && s.beh.id === 'party-follow') return d > L * 0.5 ? 0.7 : 0;
+        if (s.beh && s.beh.id === 'party-follow') return d > L * 0.5 || AI.time < (s.bs.toSlot || 1e9) ? 0.7 : 0;
         return d > L ? 0.55 + Math.min(0.8, (d - L) / 300) : 0;
       },
       update(e, s, dt, it) {
@@ -451,7 +461,10 @@
         const [tx, ty] = slotPos(e, s, L);
         const d = Math.hypot(p.x - e.x, p.y - e.y);
         B().go(it, tx, ty, d > 420 ? 1.35 : d > L ? 1.08 : 0.8);
-        return d > L * 0.45;
+        if (d > L * 0.45) { s.bs.toSlot = 0; return true; }
+        // close enough: finish walking to its own place (not wherever it caught up), for a moment at most
+        if (!s.bs.toSlot) s.bs.toSlot = AI.time + 3;
+        return AI.time < s.bs.toSlot && Math.hypot(tx - e.x, ty - e.y) > 30;
       },
     });
     // off to look at something, then back
@@ -580,13 +593,15 @@
     BH.add({
       id: 'party-hesitate', tier: 4, party: true, emotion: 'fear', minCommit: 1.5, cd: 45,
       score(e, s) {
-        if (!s.companion || s.inCombat) return 0;
+        if (!s.companion) return 0;
+        const ghost = ghostsNear(e.x, e.y, 300);
+        if (s.inCombat && !ghost) return 0; // (a ghost turning up gives a cautious one pause even as a fight starts)
         const nx = s.pers.nx || {};
         const c = (nx.caution || 0.5) * (1.2 - s.pers.tr.bravery);
         const mk = mansionK();
         const dark = darkness() > 0.6 && !nearLight(e, 120);
-        if (c < 0.45 || !(mk > 0.55 || dark || ghostsNear(e.x, e.y, 300))) return 0;
-        return 0.5 + c * 0.5;
+        if (c < 0.45 || !(mk > 0.55 || dark || ghost)) return 0;
+        return ghost ? Math.min(1.6, 0.5 + c * 1.4) : 0.5 + c * 0.5;
       },
       start(e, s) { s.bs.t = U.rand(1.4, 2.8); s.bs.why = mansionK() > 0.55 ? 'mansion' : ghostsNear(e.x, e.y, 300) ? 'ghost' : 'dark'; say(e, 'hesitate_' + s.bs.why); },
       update(e, s, dt, it) {

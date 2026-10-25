@@ -100,11 +100,11 @@
     const cx = pl.reduce((a, p) => a + p.x, 0) / pl.length, cy = pl.reduce((a, p) => a + p.y, 0) / pl.length;
     const head = Math.atan2(st.heading[1], st.heading[0]);
     const h = (i) => U.hash(st.seed | 0, i, 8811);
-    // ahead first, then wider and wider around; nearer first, then farther
+    // ahead first (within about 50°, at any distance), then wider and wider around; nearer first, then farther
     for (const strict of [true, false]) {
-      for (let ring = 0; ring < 6; ring++) {
+      for (const [k0, k1] of [[0, 5], [5, 13]]) for (let ring = 0; ring < 6; ring++) {
         const lead = 1250 + ring * 450; // where the path starts, ahead of the party
-        for (let k = 0; k < 13; k++) {
+        for (let k = k0; k < k1; k++) {
           const off = (k === 0 ? 0 : (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.42) + (h(ring * 13 + k) - 0.5) * 0.15;
           const a = head + off;
           const S = [cx + Math.cos(a) * lead, cy + Math.sin(a) * lead];
@@ -172,7 +172,7 @@
     if (st.lastPos) {
       const vx = p.x - st.lastPos[0], vy = p.y - st.lastPos[1];
       const v = Math.hypot(vx, vy);
-      if (v > 0.5 && v < 400) { st.heading[0] = st.heading[0] * 0.98 + vx / v * 0.02; st.heading[1] = st.heading[1] * 0.98 + vy / v * 0.02; }
+      if (v > 0.5 && v < 400) { const k = 1 - Math.exp(-dt / 2); st.heading[0] += (vx / v - st.heading[0]) * k; st.heading[1] += (vy / v - st.heading[1]) * k; } // (the last few seconds of travel)
     }
     st.lastPos = [p.x, p.y];
     const inside = AI.Mansion && AI.Mansion.inside;
