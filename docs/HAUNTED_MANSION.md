@@ -150,6 +150,12 @@ with a **Replay** button, and can reset the story.
 
 Story text is written in English and Spanish; French and Chinese fall back to English.
 
+## In the main menu (`96-menu.js`)
+
+The Shady Forest ends at the mansion, so its level banner shows the mansion at dusk (a shot from
+the game itself, `assets/ui/zone-1-mansion.webp`) and its status line reads **Mansion not explored
+yet** until you've seen the story through, then **Mansion explored**, instead of Arceus.
+
 ## Settings
 
 | Setting | Default | What it does |

@@ -26,6 +26,8 @@
     AI.R = R;
     // Level 3 becomes the Tropical Ocean (34-ocean.js): registered before anything reads the maps
     try { if (AI.Ocean) AI.Ocean.register(R); } catch (e) { AI.warn('ocean-register', e); }
+    // the main menu's level banners and the Shady Forest's status line (96-menu.js)
+    try { if (AI.Menu) AI.Menu.install(R); } catch (e) { AI.warn('menu-install', e); }
     const P = R.Enemy.prototype;
 
     // ------------------------------------------------------------ enemies
