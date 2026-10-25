@@ -144,8 +144,9 @@ The Haunted Mansion is the Shady Forest's end stage and the only way to complete
 
 ## The old well (`86-well.js`)
 
-Some runs (about three in five), an old stone well stands somewhere in the forest: mossy stones, a
-rotten little roof, a rope that ends in nothing, a bucket on its side in the weeds. It's placed out
+Some runs (about three in five), the Creepy Well stands somewhere in the forest: blood-streaked
+stones furred with moss, cobwebs strung between rotten posts, a broken roof, a rope that ends in
+nothing (`assets/env/creepy_well.png`). It's placed out
 of sight and never announced; finding it is worth a little EXP.
 
 - Up close the air goes still and a cold mist breathes out of the shaft. At night something drips

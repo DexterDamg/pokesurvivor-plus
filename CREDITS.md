@@ -205,6 +205,9 @@ bosque encantado del "entorno vivo" (`assets/env/atlas.png`) salen de estas hoja
   el barro y la orilla del Bosque Umbrío se pintan en el propio juego
   (`js/ai/34-forest.js`).
   *(Falta indicar aquí el autor original de cada una de estas hojas.)*
+- **Pozo Siniestro** (`assets/env/creepy_well.png`): material aportado por DexterDamg para
+  PokéSurvivor+, devuelto a su rejilla de píxeles y recortado del fondo negro; el original, tal como
+  se aportó, en `assets/env/src/creepy_well@6x.webp`. *(Falta indicar el autor original.)*
 
 ## La mansión encantada, por dentro y por fuera
 

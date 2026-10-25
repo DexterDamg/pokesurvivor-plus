@@ -111,7 +111,7 @@
       const b = ev.target.getBoundingClientRect();
       const k = (cam._cw || b.width) / Math.max(1, b.width);
       const wx = cam.left() + ((ev.clientX - b.left) * k) / cam.scale, wy = cam.top() + ((ev.clientY - b.top) * k) / cam.scale;
-      if (Math.abs(wx - W.x) > 48 || wy < W.y - 90 || wy > W.y + 16) return;
+      if (Math.abs(wx - W.x) > 52 || wy < W.y - 140 || wy > W.y + 16) return; // (the well's art: 86-well.js)
       ev.stopPropagation();
       clickWell(W);
     }, true);
@@ -300,7 +300,7 @@
     }
     // the keystone on the rim, glowing, during the scene
     if (st.scene && img.ok) {
-      const x = st.scene.x, y = st.scene.y - 30 - Math.min(20, st.scene.t * 3);
+      const x = st.scene.x, y = st.scene.y - 40 - Math.min(20, st.scene.t * 3);
       ctx.save(); ctx.imageSmoothingEnabled = false;
       ctx.globalAlpha = 0.6 + 0.4 * Math.sin(st.scene.t * 8);
       ctx.drawImage(img, Math.round(x - 9), Math.round(y - 9), 18, 18);
