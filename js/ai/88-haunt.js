@@ -6,7 +6,9 @@
  * still air, candles going out and lighting themselves, a shape darting past the edge of the screen,
  * whispers from an empty room, portraits whose faces change, a reflection in a window that lags
  * behind you, cold drafts, something scratching inside the walls, rattling armour, and a Duskull
- * that follows you down the hall but is never there when you turn around.
+ * that follows you down the hall but is never there when you turn around. Upstairs too: every light
+ * in the room stuttering while a grin hangs in the dark, a shadow sprinting past right behind you,
+ * and heavy banging on the wall beside you.
  * (They're pranks, as you'll find out. 89-story.js.)
  *
  * Not all of it is. The tall mirror at the end of the hall shows something no prankster put there.
@@ -61,6 +63,7 @@
     const lift = 10 + Math.sin(AI.time * 2.2 + a.bob) * 4;
     ctx.save();
     ctx.globalAlpha = a.alpha;
+    if (a.kind === 'shadow') ctx.filter = 'brightness(0)'; // (only its silhouette)
     try { a.anim.draw(ctx, a.x, a.y - lift, { alpha: 1 }); } catch (e) { /* sprite not loaded yet */ }
     ctx.restore();
   }
@@ -83,6 +86,10 @@
     armour: { w: 1, cap: 2, cool: 50, ok: (r) => r === 'gallery', run: armour },
     clock: { w: 0.6, cap: 1, cool: 200, ok: (r) => r === 'foyer', run: clock },
     duskull: { w: 0.9, cap: 2, cool: 80, ok: (r) => r === 'hall' || r === 'foyer', run: startDuskull },
+    // the gang, before you've met them: anywhere in the house
+    flicker: { w: 1.2, cap: 4, cool: 40, ok: () => true, run: flicker },
+    dash: { w: 1.1, cap: 4, cool: 45, ok: () => true, run: dash },
+    pound: { w: 1, cap: 3, cool: 55, ok: () => true, run: pound },
   };
   function happened(k) { return hs.done.has(k); }
   function note(k) { hs.done.add(k); hs.count[k] = (hs.count[k] || 0) + 1; hs.cool[k] = AI.time; hs.seen++; hs.last = k; AI.Bus.emit({ type: 'mansion', what: 'haunt', kind: k, x: 0, y: 0, loud: 0 }); }
@@ -235,6 +242,52 @@
     for (const pl of it.plaques) pl.shake = 0.8;
     sfx('clank', q.x, q.y);
     setTimeout(() => sfx('swish', q.x, q.y), 300);
+    return true;
+  }
+  // every light in the room stutters on and off; in the dark, a grin hangs in the air for a moment
+  function flicker() {
+    hs.flickerUntil = AI.time + U.rand(1.4, 2.2);
+    sfx('snuff', 0, 0);
+    const cam = AI.R.Camera;
+    setTimeout(() => {
+      try {
+        if (!M().inside) return;
+        const x = cam.left() + cam.w * U.rand(0.2, 0.8), y = cam.top() + cam.h * U.rand(0.25, 0.6);
+        actor({ kind: 'grin', dex: 92, key: 'grin92', x, y, life: 0.9, alpha: 0 });
+        sfx('laugh', x, y, 300);
+      } catch (e) { /* ignore */ }
+    }, 600);
+    return true;
+  }
+  // a shadow sprints past right behind you, much too fast
+  function dash() {
+    const p = player();
+    const face = Math.hypot(p._vx || 0, p._vy || 0) > 20 ? Math.atan2(p._vy, p._vx) : (p.moveAngle != null ? p.moveAngle : -Math.PI / 2);
+    const back = face + Math.PI, d = U.rand(110, 170);
+    const cx = p.x + Math.cos(back) * d, cy = p.y + Math.sin(back) * d * 0.8;
+    const across = back + Math.PI / 2 * (Math.random() < 0.5 ? 1 : -1);
+    const sp = U.rand(900, 1200);
+    const dex = U.pick([94, 93, 92]);
+    actor({ kind: 'shadow', dex, key: 'shadow' + dex, x: cx - Math.cos(across) * 260, y: cy - Math.sin(across) * 200, vx: Math.cos(across) * sp, vy: Math.sin(across) * sp * 0.75, life: 0.5, alpha: 0 });
+    sfx('swish', cx, cy);
+    for (let i = 0; i < 4; i++) setTimeout(() => sfx('step', cx + Math.cos(across) * (i - 2) * 70, cy), i * 90);
+    return true;
+  }
+  // heavy blows on the wall right beside you, the portraits jumping on their hooks
+  function pound() {
+    const p = player(), it = M().st.built;
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const n = 3 + ((Math.random() * 3) | 0);
+    for (let i = 0; i < n; i++) setTimeout(() => {
+      try {
+        if (!M().inside) return;
+        sfx('bang', p.x + side * 200, p.y - 40, 1);
+        AI.R.Camera.kick(0.35);
+        dustFall(p.x + side * U.rand(100, 200), p.y + U.rand(-90, 30), 6);
+        for (const q of it.portraits) if (Math.hypot(q.x - p.x, q.y - p.y) < 520) q.shake = 1;
+        for (const q of it.props) if (q.kind === 'candles' && Math.hypot(q.x - p.x, q.y - p.y) < 300) q.shake = 0.7;
+      } catch (e) { /* ignore */ }
+    }, i * U.rand(380, 520));
     return true;
   }
   function clock() {
@@ -447,6 +500,8 @@
       a.t += dt;
       try { a.anim.update && a.anim.update(dt); } catch (e) { /* ignore */ }
       if (a.kind === 'glimpse') { a.x += a.vx * dt; a.y += a.vy * dt; a.alpha = Math.sin(Math.min(1, a.t / a.life) * Math.PI) * 0.45; }
+      else if (a.kind === 'shadow') { a.x += a.vx * dt; a.y += a.vy * dt; a.alpha = Math.min(1, a.t / 0.06) * 0.9; }
+      else if (a.kind === 'grin') a.alpha = Math.sin(Math.min(1, a.t / a.life) * Math.PI) * 0.7;
       else if (a.kind === 'duskull') { if (pranks() && hs.mirror.phase === 'idle' && !hs.still) tickDuskull(a, dt); else a.alpha = Math.max(0, a.alpha - dt * 3); }
       if (a.t > a.life) { hs.actors.splice(i, 1); if (a === hs.duskull) hs.duskull = null; }
     }
@@ -456,6 +511,8 @@
     if (hs.stillUntil && AI.time > hs.stillUntil) endStillness();
     if (hs.drain > 0 && !(hs.draftT > AI.time)) hs.drain = Math.max(0, hs.drain - dt * 0.4);
     if (hs.jump) hs.jumpT += dt;
+    // the lights stuttering (flicker)
+    M().st.flick = hs.flickerUntil > AI.time ? (Math.random() < 0.45 ? U.rand(0, 0.12) : U.rand(0.6, 1)) : 1;
     mirrorTick(dt);
     const S = story();
     if (S && S.busy()) return; // a scene is playing: the house holds its breath
@@ -648,7 +705,7 @@
   }
   AI.Bus.on('mansion', (ev) => {
     if (ev.what === 'enter') onVisit();
-    if (ev.what === 'exit') { endStillness(); hs.actors.length = 0; hs.duskull = null; if (M()) M().st.dim = 1; }
+    if (ev.what === 'exit') { endStillness(); hs.actors.length = 0; hs.duskull = null; hs.flickerUntil = 0; if (M()) { M().st.dim = 1; M().st.flick = 1; } }
   });
   function reset() {
     hs.done.clear(); hs.seen = 0; hs.mirror = { phase: 'idle', t: 0, done: false, armed: false, flip: 0, vast: 0 };
