@@ -1313,9 +1313,9 @@ async function sample(h, ms, every, fn, arg) {
       PSXAI.Journey.establishNow();
       const t = PSXAI.Decor.trail;
       const p = __PSX_REG__.Game.player;
-      // the spot along the path where the trail's pull is strongest
+      // the spot along the path where the trail's pull is strongest (outside the mansion's silent grounds)
       let at = [t.pts[6][0], t.pts[6][1] + 20], bz = -1;
-      for (let i = 3; i < Math.min(12, t.pts.length); i++) for (const dy of [0, 12, 24]) { const z = PSXAI.Decor.trailZone(t.pts[i][0], t.pts[i][1] + dy); if (z > bz && __PSX_REG__.World.isFree(t.pts[i][0], t.pts[i][1] + dy, 12)) { bz = z; at = [t.pts[i][0], t.pts[i][1] + dy]; } }
+      for (let i = 3; i < Math.min(12, t.pts.length); i++) for (const dy of [0, 12, 24]) { const z = PSXAI.Decor.trailZone(t.pts[i][0], t.pts[i][1] + dy); if (z > bz && __PSX_REG__.World.isFree(t.pts[i][0], t.pts[i][1] + dy, 12) && !PSXAI.Mansion.silentAt(t.pts[i][0], t.pts[i][1] + dy)) { bz = z; at = [t.pts[i][0], t.pts[i][1] + dy]; } }
       p.x = at[0] + 300; p.y = at[1];
       window.A = PSXAI.Debug.spawn(161, { temp: 'neutral', x: at[0], y: at[1] });
       PSXAI.Sky.set({ fog: 0.9, hour: 15 });
