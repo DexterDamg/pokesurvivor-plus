@@ -1,5 +1,5 @@
 /* PokéSurvivor+ — Living World AI · Totem Trials: where Z-Crystals come from
- * Once Volcano has been beaten, a Totem's shrine stands somewhere in the stage after it (Zona Cero
+ * Once Level 3 (the Tropical Ocean) has been beaten, a Totem's shrine stands somewhere in the stage after it (Zona Cero
  * for now): a tall stone with a light of its type rising from it. Only for the Z-Crystal your own
  * Pokémon can use (the type of its Z-Move), and only until you have it. Stand at it for a moment and
  * its trial begins (step away to decline).

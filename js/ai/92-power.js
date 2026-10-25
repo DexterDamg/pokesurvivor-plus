@@ -3,7 +3,7 @@
  * level 10 with a locked slot on the bar before that). Now:
  *
  * Mega Evolution
- *   - only after Level 2 (Crystal Cave) has been beaten, and only from Level 3 on (Volcano, Zona Cero)
+ *   - only after Level 2 (Crystal Cave) has been beaten, and only from Level 3 on (Tropical Ocean, Zona Cero)
  *   - only with that Pokémon's own Mega Stone, which is a held item: it takes the one held-item
  *     slot like any other (Lucario holding Lucarionite holds no Assault Vest), and picking one up
  *     while holding something else asks which to keep
@@ -16,7 +16,7 @@
  *     follow the same milestone without a stone
  *
  * Z-Moves
- *   - after Level 3 (Volcano) has been beaten, in the stages after it (Zona Cero for now)
+ *   - after Level 3 (the Tropical Ocean) has been beaten, in the stages after it (Zona Cero for now)
  *   - each needs the Z-Crystal of the Pokémon's own Z-Move type, earned only by completing that
  *     type's Totem Trial (89-totem.js); never from chests or level-ups
  *   - until a Z-Move is actually usable its slot does not exist on the bar (no locked slot, no level)
@@ -54,7 +54,7 @@
   function on() { return !!(AI.enabled && AI.cfg.powerRework !== false && AI.R && AI.R.Mega); }
   function player() { return AI.R.Game.player; }
   function save() { return (AI.R.DB && AI.R.DB.save) || {}; }
-  // a stage beaten (wins are counted per map: 2 = Crystal Cave, 3 = Volcano)
+  // a stage beaten (wins are counted per map: 2 = Crystal Cave, 3 = Tropical Ocean)
   function beaten(n) { const s = save(); return !!((s.mapWins && s.mapWins[n]) || (s.ach && s.ach['arceus' + n])); }
   function stage() { try { return (AI.R.Maps.cur && AI.R.Maps.cur.n) || 1; } catch (e) { return 1; } }
   function megaStage() { return beaten(2) && stage() >= 3; }

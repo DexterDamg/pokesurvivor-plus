@@ -9,8 +9,8 @@ too.
 |---|---|---|---|
 | Level 1, Shady Forest | — | — | — |
 | Level 2, Crystal Cave | — (boss fight included) | — | — |
-| Level 3, Volcano | after Crystal Cave is beaten | — | — |
-| Zona Cero | yes | after Volcano is beaten | — |
+| Level 3, Tropical Ocean | after Crystal Cave is beaten | — | — |
+| Zona Cero | yes | after the Tropical Ocean is beaten | — |
 
 ---
 
@@ -43,7 +43,7 @@ too.
 
 ## Z-Moves
 
-- **Unlocked by beating Level 3 (Volcano)**, usable in the stage after it. The game has no
+- **Unlocked by beating Level 3 (the Tropical Ocean)**, usable in the stage after it. The game has no
   Tropical Beach stage, so for now that's **Zona Cero**.
 - **Each Z-Move needs its Z-Crystal**: the crystal of your Pokémon's own Z-Move type (the type the
   game picks for it, or the one you chose among its types). Crystals are kept for good once earned.
@@ -53,7 +53,7 @@ too.
 
 ### Totem Trials (`89-totem.js`)
 
-- Once Volcano is beaten, a **Totem's shrine** stands somewhere in Zona Cero: a tall stone with a
+- Once the Tropical Ocean is beaten, a **Totem's shrine** stands somewhere in Zona Cero: a tall stone with a
   light of its type rising from it. It's only ever for the crystal your current Pokémon can use,
   and only until you have it.
 - **Stand at it for a moment** to begin (step away to decline).
@@ -79,7 +79,7 @@ no Dynamax Band exists. When that stage exists, the Band can follow the same rul
 The request left a few things open; these are the choices made, so they can be changed:
 
 1. **Stages after unlocking.** Mega Evolution is usable only on Level 3 and beyond, and Z-Moves
-   only in the stage after Volcano, even after the milestone (the progression table marks them
+   only in the stage after the Tropical Ocean, even after the milestone (the progression table marks them
    unavailable on earlier stages).
 2. **Level-up 1%.** The game's level-up screen has no item cards, so the 1% is rolled on each level
    gained and the stone is offered right after the screen through the usual held-item choice.

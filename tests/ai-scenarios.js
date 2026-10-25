@@ -1279,6 +1279,7 @@ async function sample(h, ms, every, fn, arg) {
       const C = PSXAI.Companions, P = PSXAI.PartyPlus, R = __PSX_REG__, p = R.Game.player;
       const wait = (ms) => new Promise((res) => setTimeout(res, ms));
       PSXAI.Debug.freeze(true);
+      R.Pickups.clear(); // (nothing left lying from earlier scenarios: collecting it could level you up mid-test)
       const c = C.list().find((q) => q.pp.key === 'froa');
       c.pp.item = null; c.pp.bag = { berries: [], items: [] };
       c.x = p.x + 320; c.y = p.y; c.psx.px = c.x; c.psx.py = c.y;
@@ -2659,6 +2660,398 @@ async function sample(h, ms, every, fn, arg) {
   await scenario(h, 'wild Pokémon keep their HP but show no health bar, and their events stay quiet', async () => {
     const r = await h.R(() => ({ noBars: PSXGEN.noBars(), quietCfg: PSXAI.cfg.announce !== true, say: typeof PSXAI.say }));
     return { pass: r.noBars && r.quietCfg && r.say === 'function', detail: r };
+  });
+
+  await h.close();
+
+  // =========================================================== Level 3: the Tropical Ocean
+  h = await boot({});
+  await h.R(() => { const R = __PSX_REG__; R.DB.save.mapWins = { 1: 1, 2: 1 }; R.Maps.choose(3); PSXAI.cfg.birthIslandChance = 1; PSXAI.Sea.forget(); });
+  await h.startRun(25);
+  await h.wait(600);
+  // page-side helpers for the sea
+  await h.R(() => {
+    window.OT = {
+      tp(x, y) { const p = __PSX_REG__.Game.player; if (p.psxBoat) PSXAI.Boats.leave(p.psxBoat, [x, y]); p.x = x; p.y = y; p._psxOk = [x, y]; PSXAI.Mansion.snapCamera(p); },
+      // a point of the given depth class near (x, y)
+      find(x, y, cls, r) { const O = PSXAI.Ocean; for (let d = 0; d <= (r || 3000); d += 24) for (let k = 0; k < 24; k++) { const a = k / 24 * 6.283, qx = x + Math.cos(a) * d, qy = y + Math.sin(a) * d, s = O.sample(qx, qy); if (s.cls === cls && !s.solid && !s.tidal) return [qx, qy]; } return null; },
+    };
+  });
+
+  await scenario(h, 'ocean: Level 3 is the Tropical Ocean (not the Ash Volcano), in every language', async () => {
+    const r = await h.R(() => {
+      const R = __PSX_REG__, O = PSXAI.Ocean, m = R.Maps.LIST.find((x) => x.n === 3);
+      return { name: m.name, biome: m.biome, BIOME: O.BIOME, world: R.World.biome, on: O.on(), en: R.T('Océano Tropical'), tab: R.T('3 · Volcán'), types: m.types.includes('water') && !m.types.includes('fire'), l1: R.Maps.LIST[0].biome, l2: R.Maps.LIST[1].biome };
+    });
+    return { pass: r.name === 'Océano Tropical' && r.biome === r.BIOME && r.world === r.BIOME && r.on && r.en === 'Tropical Ocean' && /Ocean/.test(r.tab) && r.types && r.l1 === 0 && r.l2 === 1, detail: r };
+  });
+
+  await scenario(h, 'ocean: you start on the harbour pier, boats moored beside it, the lighthouse on the headland', async () => {
+    const r = await h.R(() => {
+      const O = PSXAI.Ocean, B = PSXAI.Boats, LH = PSXAI.OceanDraw.LH;
+      return { pier: O.artAt(0, 0), boats: B.boats.map((b) => [b.col, Math.round(Math.hypot(b.x, b.y)), O.sample(b.x, b.y).cls]), lh: O.artAt(LH.x, LH.foot), lhDist: Math.round(Math.hypot(LH.x, LH.y)), harbor: O.zoneAt(0, 0).id };
+    });
+    return { pass: r.pier === 1 && r.boats.length >= 3 && r.boats.every((b) => b[1] < 500 && b[2] >= 1) && r.lh === 2 && r.lhDist < 700 && r.harbor === 'harbor', detail: r };
+  });
+
+  await scenario(h, 'ocean: walking into a boat boards it, the controls steer it, and it carries you', async () => {
+    // (from the pier's edge, pushing toward the boat moored beside it)
+    const b0 = await h.R(() => { const b = PSXAI.Boats.boats[0], O = PSXAI.Ocean; let y = b.y - 40; while (y > b.y - 200 && !O.fits('walk', b.x, y)) y -= 4; OT.tp(b.x, y); return [b.x, b.y]; });
+    await h.page.keyboard.down('KeyS'); await h.wait(700); await h.page.keyboard.up('KeyS');
+    const aboard = await h.R(() => !!__PSX_REG__.Game.player.psxBoat);
+    await h.page.keyboard.down('KeyS'); await h.wait(2500); await h.page.keyboard.up('KeyS');
+    const r = await h.R((b0) => { const p = __PSX_REG__.Game.player, b = p.psxBoat; return { aboard: !!b, moved: b ? Math.round(Math.hypot(b.x - b0[0], b.y - b0[1])) : 0, seated: b ? Math.hypot(p.x - b.x, p.y - b.y) < 40 : false, cls: PSXAI.Ocean.sample(p.x, p.y).cls }; }, b0);
+    return { pass: aboard && r.aboard && r.moved > 60 && r.seated && r.cls >= 1, detail: Object.assign({ boarded: aboard }, r) };
+  });
+
+  await scenario(h, 'ocean: sailing up to the shore and pushing on steps you off onto land (never deep water); the boat stays', async () => {
+    let r = null;
+    await h.page.keyboard.down('KeyW');
+    for (let i = 0; i < 24; i++) { await h.wait(400); r = await h.R(() => ({ aboard: !!__PSX_REG__.Game.player.psxBoat })); if (!r.aboard) break; }
+    await h.page.keyboard.up('KeyW');
+    r = await h.R(() => {
+      const p = __PSX_REG__.Game.player, O = PSXAI.Ocean, b = PSXAI.Boats.boats[0], s = O.sample(p.x, p.y);
+      return { aboard: !!p.psxBoat, cls: s.cls, solid: s.solid, boat: [Math.round(b.x), Math.round(b.y)], boatCls: O.sample(b.x, b.y).cls, rider: !!b.rider, near: Math.round(Math.hypot(b.x - p.x, b.y - p.y)) };
+    });
+    return { pass: !r.aboard && r.cls <= 1 && !r.solid && r.boatCls >= 1 && !r.rider && r.near < 200, detail: r };
+  });
+
+  await scenario(h, 'ocean: a Pokémon that can\'t swim wades the shallows but never walks into deep water', async () => {
+    const start = await h.R(() => { const q = OT.find(560, -260, 1, 900); const land = OT.find(q[0], q[1], 0, 400); OT.tp(land[0], land[1]); return { land, q }; });
+    const dir = start.q[0] > start.land[0] ? 'KeyD' : 'KeyA';
+    const dirY = start.q[1] > start.land[1] ? 'KeyS' : 'KeyW';
+    await h.page.keyboard.down(dir); await h.page.keyboard.down(dirY);
+    const s = await sample(h, 3500, 250, () => { const p = __PSX_REG__.Game.player; return PSXAI.Ocean.sample(p.x, p.y).cls; });
+    await h.page.keyboard.up(dir); await h.page.keyboard.up(dirY);
+    const loco = await h.R(() => PSXAI.Ocean.locoOf(__PSX_REG__.Game.player));
+    return { pass: loco === 'walk' && Math.max(...s) <= 1 && s.includes(1), detail: { loco, classes: [...new Set(s)] } };
+  });
+
+  await scenario(h, 'ocean: everyone can enter the shallows; Water types swim in deep water', async () => {
+    const r = await h.R(() => {
+      const O = PSXAI.Ocean, sh = OT.find(0, 300, 1), dp = OT.find(0, 900, 3);
+      return { walk: O.fits('walk', sh[0], sh[1]), swim: O.fits('swim', sh[0], sh[1]), amphi: O.fits('amphi', sh[0], sh[1]), walkDeep: O.fits('walk', dp[0], dp[1]), waterPlayer: O.playerLoco({ mon: { types: ['water'] } }), firePlayer: O.playerLoco({ mon: { types: ['fire'] } }), amphiDeep: O.fits('amphi', dp[0], dp[1]) };
+    });
+    return { pass: r.walk && r.swim && r.amphi && !r.walkDeep && r.waterPlayer === 'amphi' && r.firePlayer === 'walk' && r.amphiDeep, detail: r };
+  });
+
+  await scenario(h, 'ocean: Magikarp, Goldeen and Carvanha never leave the water', async () => {
+    const r = await h.R(async () => {
+      const R = __PSX_REG__, O = PSXAI.Ocean, wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const land = OT.find(450, -300, 0, 600);
+      OT.tp(land[0] - 200, land[1]);
+      const fish = [129, 118, 318].map((dex) => PSXAI.Debug.spawn(dex, { x: land[0], y: land[1], natural: true, temp: 'neutral' }));
+      const live = fish.filter((e) => R.EnemyMgr.all().includes(e));
+      const seen = [];
+      for (let i = 0; i < 12; i++) { await wait(250); for (const e of live) if (!e.dead) seen.push(O.sample(e.x, e.y).cls); }
+      return { locos: [129, 118, 318].map((d) => O.locomotion(d)), spawned: live.length, minCls: seen.length ? Math.min(...seen) : null, vetoed: 3 - live.length };
+    });
+    return { pass: r.locos.every((l) => l === 'swim') && (r.spawned === 0 || r.minCls >= 1), detail: r };
+  });
+
+  await scenario(h, 'ocean: Seel, Shellder and Slowpoke live on the coast (Seel can swim; the others can\'t go deep)', async () => {
+    const r = await h.R(async () => {
+      const R = __PSX_REG__, O = PSXAI.Ocean, wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const deep = OT.find(900, 400, 2, 1500);
+      OT.tp(deep[0] - 300, deep[1] - 300);
+      const out = {};
+      for (const dex of [86, 90, 79]) {
+        const e = PSXAI.Debug.spawn(dex, { x: deep[0], y: deep[1], natural: true, temp: 'neutral' });
+        const alive = R.EnemyMgr.all().includes(e);
+        O.place(e);
+        await wait(300);
+        out[dex] = { loco: O.locomotion(dex), hab: O.habitat(dex), alive, cls: alive ? O.sample(e.x, e.y).cls : null };
+        if (alive) { e.dead = true; }
+      }
+      out.slowpokeDeep = O.fits(O.locomotion(79), deep[0], deep[1]);
+      out.shellderDeep = O.fits(O.locomotion(90), deep[0], deep[1]);
+      out.seelDeep = O.fits(O.locomotion(86), deep[0], deep[1]);
+      return out;
+    });
+    const coastal = [90, 79].every((d) => !r[d].alive || r[d].cls <= 1);
+    return { pass: r[86].loco === 'amphi' && r[90].loco === 'walk' && r[79].loco === 'walk' && r[86].hab === 'rocks' && r[90].hab === 'tidepool' && r[79].hab === 'beach' && coastal && !r.slowpokeDeep && !r.shellderDeep && r.seelDeep, detail: r };
+  });
+
+  await scenario(h, 'ocean: Pokémon that can\'t swim can\'t cross from one island to another', async () => {
+    const r = await h.R(async () => {
+      const R = __PSX_REG__, O = PSXAI.Ocean, wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const o = O.islandById('wingull');
+      let at = null;
+      for (let k = 0; k < 40 && !at; k++) { const a = k / 40 * 6.283, x = o.x + Math.cos(a) * o.R * 0.4, y = o.y + Math.sin(a) * o.R * 0.4; if (O.fits('walk', x, y) && !PSXAI.Decor.blocked(x, y, 12)) at = [x, y]; }
+      OT.tp(o.x - 400, o.y - 400);
+      const e = PSXAI.Debug.spawn(19, { x: at[0], y: at[1], temp: 'neutral' });
+      // shove it toward the harbour, again and again
+      for (let i = 0; i < 30; i++) { e.x += 24; e.y -= 14; R.World.collide(e); await wait(60); }
+      const s = O.sample(e.x, e.y);
+      return { cls: s.cls, onIsle: O.islE(o, e.x, e.y) > -140, d: Math.round(Math.hypot(e.x - o.x, e.y - o.y)), R: o.R };
+    });
+    return { pass: r.cls <= 1 && r.onIsle, detail: r };
+  });
+
+  await scenario(h, 'ocean: shallow, medium, deep and abyssal water are distinct, with reefs and lagoons', async () => {
+    const r = await h.R(() => {
+      const O = PSXAI.Ocean, p = O.plan();
+      const seq = [];
+      for (let x = 150; x < 4500; x += 40) { const c = O.sample(x, -300).cls; if (seq[seq.length - 1] !== c) seq.push(c); }
+      let trench = 0; for (const tr of p.trench.pts) trench = Math.max(trench, O.sample(tr[0], tr[1]).cls);
+      const reef = p.reefs[0], reefC = O.sample(reef.x, reef.y);
+      return { seq, trench, reef: { cls: reefC.cls, k: +reefC.reef.toFixed(2), e: Math.round(reefC.e) }, lagoon: +O.lagoonK(520, -80).toFixed(2), far: O.sample(9000, 9000).cls };
+    });
+    return { pass: r.seq.slice(0, 4).join() === '0,1,2,3' && r.trench === 4 && r.reef.cls === 1 && r.reef.e > 300 && r.lagoon > 0.5 && r.far === 4, detail: r };
+  });
+
+  await scenario(h, 'ocean: tides: the causeway and the sandbar are dry at low tide and drowned at high tide', async () => {
+    const r = await h.R(() => {
+      const O = PSXAI.Ocean, p = O.plan(), c = p.tidal.find((t) => t.id === 'causeway').pts[2], sb = p.sandbar;
+      PSXAI.cfg.oceanTide = -1; const low = [O.sample(c[0], c[1]).cls, O.sample(sb.x, sb.y).cls];
+      PSXAI.cfg.oceanTide = 1; const high = [O.sample(c[0], c[1]).cls, O.sample(sb.x, sb.y).cls, O.fits('walk', c[0], c[1])];
+      PSXAI.cfg.oceanTide = 0; const mid = O.sample(c[0], c[1]).cls;
+      return { low, high, mid, name: O.tideName(-1) + '/' + O.tideName(1) };
+    });
+    return { pass: r.low[0] === 0 && r.low[1] === 0 && r.high[0] >= 2 && r.high[1] >= 1 && r.high[2] === false && r.mid <= 1, detail: r };
+  });
+
+  await scenario(h, 'ocean: caught on a tidal path as the tide comes in, you can always wade out', async () => {
+    const r = await h.R(async () => {
+      const R = __PSX_REG__, O = PSXAI.Ocean, p = R.Game.player, wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const c = O.plan().tidal.find((t) => t.id === 'causeway').pts[2];
+      PSXAI.cfg.oceanTide = -1; OT.tp(c[0], c[1]); await wait(300);
+      const dry = O.sample(p.x, p.y).cls;
+      PSXAI.cfg.oceanTide = 1; await wait(300);
+      const flooded = O.sample(p.x, p.y).cls;
+      const ok = O.fits('walk', p.x, p.y, p), strangerOk = O.fits('walk', p.x, p.y, {});
+      // a walker dropped far out at sea is put back somewhere it can stand
+      // (a walker dropped out at sea is put back somewhere it can stand, or, far from any land, quietly leaves)
+      const e = PSXAI.Debug.spawn(19, { x: c[0] + 900, y: c[1] + 1300 });
+      e._psxOk = null; O.collide(e);
+      const back = O.sample(e.x, e.y).cls, gone = !!e.dead;
+      PSXAI.cfg.oceanTide = null;
+      return { dry, flooded, ok, strangerOk, back, gone };
+    });
+    return { pass: r.dry === 0 && r.flooded >= 2 && r.ok && !r.strangerOk && (r.back <= 1 || r.gone), detail: r };
+  });
+
+  await scenario(h, 'ocean: put back out on deep water without a boat (after a rift, the Judgment…), the nearest boat comes for you', async () => {
+    const r = await h.R(async () => {
+      const R = __PSX_REG__, O = PSXAI.Ocean, p = R.Game.player, wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      OT.tp(0, 0);
+      await wait(200);
+      let dp = null;
+      for (let d = 1200; d < 6000 && !dp; d += 200) for (let k = 0; k < 16 && !dp; k++) { const x = Math.cos(k / 16 * 6.283) * d, y = 1500 + Math.sin(k / 16 * 6.283) * d; if (O.sample(x, y).e > 800) dp = [x, y]; }
+      // (as the game does when it brings you back from an arena you entered while sailing: just puts
+      // you where you were, and where you last stood was the boat)
+      p.x = dp[0]; p.y = dp[1]; p._psxOk = [dp[0], dp[1]];
+      await wait(600);
+      const b = p.psxBoat;
+      return { aboard: !!b, cls: O.sample(p.x, p.y).cls, near: b ? Math.round(Math.hypot(b.x - dp[0], b.y - dp[1])) : null };
+    });
+    return { pass: r.aboard && r.near < 420, detail: r };
+  });
+
+  await scenario(h, 'ocean: weather: a storm turns Carvanha vicious and sends Wingull to land', async () => {
+    const r = await h.R(async () => {
+      const R = __PSX_REG__, O = PSXAI.Ocean, wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const dp = OT.find(300, 1300, 3, 1500);
+      const b = PSXAI.Boats.boats[1]; b.x = dp[0]; b.y = dp[1]; PSXAI.Boats.board(b, R.Game.player); R.Game.player.x = dp[0]; R.Game.player.y = dp[1];
+      PSXAI.Sky.set({ storm: 0, rain: 0, wind: 0.1 });
+      const cv = PSXAI.Debug.spawn(318, { x: dp[0] + 160, y: dp[1], natural: true });
+      const wg = PSXAI.Debug.spawn(278, { x: dp[0] - 160, y: dp[1], natural: true });
+      await wait(700);
+      const calm = cv.psxForceTemp || 'none';
+      PSXAI.Sky.set({ storm: 1, rain: 1, wind: 0.9, cloud: 1 });
+      const land0 = (() => { let best = 1e9; for (let d = 60; d < 2000; d += 60) for (let k = 0; k < 12; k++) { const a = k / 12 * 6.283; if (O.sample(wg.x + Math.cos(a) * d, wg.y + Math.sin(a) * d).cls === 0) { best = Math.min(best, d); } } return best; })();
+      const w0 = [wg.x, wg.y];
+      await wait(2500);
+      return { calm, storm: cv.psxForceTemp, wingullMoved: Math.round(Math.hypot(wg.x - w0[0], wg.y - w0[1])), land0 };
+    });
+    return { pass: r.calm !== 'aggressive' && r.storm === 'aggressive' && r.wingullMoved > 40, detail: r };
+  });
+
+  await scenario(h, 'ocean: storms push the boat about (wind, waves, rough water) but it always answers the helm', async () => {
+    const run = async (storm) => {
+      await h.R((storm) => {
+        const R = __PSX_REG__, b = R.Game.player.psxBoat, dp = OT.find(300, 1300, 3, 1500);
+        b.x = dp[0]; b.y = dp[1]; b.vx = b.vy = 0; b.ang = 0;
+        PSXAI.Sky.set(storm ? { storm: 1, rain: 1, wind: 1, cloud: 1 } : { storm: 0, rain: 0, wind: 0.05, cloud: 0.1 });
+        window.__b0 = [b.x, b.y];
+      }, storm);
+      await h.page.keyboard.down('KeyD'); await h.wait(2200); await h.page.keyboard.up('KeyD');
+      return h.R(() => { const b = __PSX_REG__.Game.player.psxBoat; return b ? { dx: Math.round(b.x - __b0[0]), dy: Math.round(b.y - __b0[1]) } : null; });
+    };
+    const calm = await run(false), storm = await run(true);
+    const r = { calm, storm };
+    return { pass: !!calm && !!storm && calm.dx > 150 && storm.dx > 80 && Math.hypot(storm.dx, storm.dy) !== Math.hypot(calm.dx, calm.dy) && storm.dx < calm.dx, detail: r };
+  });
+
+  await scenario(h, 'ocean: four guardian islands, each its own place and its own encounter', async () => {
+    const r = await h.R(async () => {
+      const O = PSXAI.Ocean, G = PSXAI.Guardians, wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const out = { kinds: ['koko', 'lele', 'bulu', 'fini'].map((id) => O.islandById(id).kind) };
+      const k = O.islandById('koko'), rg = k.ring;
+      out.ringSolid = O.sample(k.x + Math.cos(rg.gap + Math.PI) * (rg.r0 + 15), k.y + Math.sin(rg.gap + Math.PI) * (rg.r0 + 15)).solid;
+      out.rampOpen = !O.sample(k.x + Math.cos(rg.gap) * (rg.r0 + 15), k.y + Math.sin(rg.gap) * (rg.r0 + 15)).solid;
+      out.scenes = {};
+      for (const id of ['koko', 'lele', 'bulu']) {
+        const a = G.arena(id);
+        OT.tp(a.x + 20, a.y + 20);
+        await wait(400);
+        out.scenes[id] = G.st.scene ? G.st.scene.id : null;
+        OT.tp(0, 0);
+        G.reset();
+      }
+      return out;
+    });
+    return { pass: r.kinds.join() === 'thunder,blossom,jungle,souls' && r.ringSolid && r.rampOpen && r.scenes.koko === 'koko' && r.scenes.lele === 'lele' && r.scenes.bulu === 'bulu', detail: r };
+  });
+
+  await scenario(h, 'ocean: the Isle of Lost Souls: graves and dead trees in a fog that thickens toward the summit', async () => {
+    const r = await h.R(() => {
+      const O = PSXAI.Ocean, R = __PSX_REG__, o = O.islandById('fini'), p = R.Game.player;
+      OT.tp(o.x + o.R * 0.9, o.y);
+      const t1 = { fog: 0, wind: 0.5, cloud: 0, rain: 0, storm: 0, snow: 0 }; O.localSky(t1);
+      OT.tp(o.x + 30, o.y + 40);
+      const t2 = { fog: 0, wind: 0.5, cloud: 0, rain: 0, storm: 0, snow: 0 }; O.localSky(t2);
+      const items = PSXAI.Decor.inRect(o.x - o.R, o.y - o.R, o.x + o.R, o.y + o.R, []);
+      return { edgeFog: +t1.fog.toFixed(2), summitFog: +t2.fog.toFixed(2), graves: items.filter((i) => i.k === 'grave').length, dead: items.filter((i) => /haunt_tree/.test(i.n || '')).length };
+    });
+    return { pass: r.summitFog > 0.9 && r.summitFog >= r.edgeFog && r.graves > 3 && r.dead > 1, detail: r };
+  });
+
+  await scenario(h, 'ocean: Tapu Fini\'s challenge (once only) gives both the Red Orb and the Blue Orb, kept between runs', async () => {
+    const r = await h.R(async () => {
+      const G = PSXAI.Guardians, S = PSXAI.Sea, R = __PSX_REG__, wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const q = G.pedestals()[0];
+      OT.tp(q[0], q[1] + 30);
+      await wait(400);
+      const scene = G.st.scene && G.st.scene.id;
+      for (let i = 0; i < 50 && !G.st.battle; i++) await wait(300);
+      const battle = G.st.battle && G.st.battle.e.dex;
+      if (G.st.battle) G.st.battle.e.hurt(G.st.battle.e.hp + 99999);
+      await wait(1800);
+      R.Pickups.clear();
+      const saved = JSON.parse(localStorage.getItem('psx.ocean') || '{}');
+      G.reset();
+      OT.tp(q[0], q[1] + 30);
+      await wait(500);
+      return { scene, battle, red: S.has('red'), blue: S.has('blue'), saved: !!(saved.orbs && saved.orbs.red && saved.orbs.blue), db: !!(R.DB.save.psxOcean && R.DB.save.psxOcean.orbs.blue), again: !!G.st.scene, finiOwned: !!(R.DB.save.owned && R.DB.save.owned[788]), noKyogre: !(R.DB.save.owned && (R.DB.save.owned[382] || R.DB.save.owned[383])) };
+    });
+    return { pass: r.scene === 'fini' && r.battle === 788 && r.red && r.blue && r.saved && r.db && !r.again && r.noKyogre, detail: r };
+  });
+
+  await scenario(h, 'ocean: Birth Island lies in its fog bank, and you\'re told its name when you find it', async () => {
+    const r = await h.R(async () => {
+      const B = PSXAI.Birth, O = PSXAI.Ocean, wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const b = B.isle();
+      if (!b) return { none: true };
+      const fog = O.plan().fogs.some((f) => f.id === 'birth');
+      OT.tp(b.cx, b.cy + 700);
+      await wait(800);
+      return { fog, seen: B.st.seen, art: O.artAt(b.cx, b.cy), pier: O.artAt(b.x + 248 * 2, b.y + 360 * 2) };
+    });
+    return { pass: !r.none && r.fog && r.seen && r.art === 1 && r.pier === 1, detail: r };
+  });
+
+  await scenario(h, 'ocean: the Deoxys triangle: too many steps sends it back; touch it at every place and Deoxys is yours', async () => {
+    const r = await h.R(async () => {
+      const B = PSXAI.Birth, R = __PSX_REG__, wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const touch = async (i) => { const q = B.spot(i); OT.tp(q[0], q[1] + 40); await wait(120); OT.tp(q[0], q[1]); await wait(180); };
+      await touch(0); await touch(1);
+      const before = B.st.i;
+      // wander about too long
+      const q = B.spot(1);
+      for (let k = 0; k < 40; k++) { OT.tp(q[0] + (k % 2 ? 60 : -60), q[1] + 30); await wait(40); }
+      const after = B.st.i;
+      for (let i = 0; i < B.SPOTS.length; i++) await touch(i);
+      const scene = !!B.st.scene;
+      for (let i = 0; i < 50 && !B.st.battle; i++) await wait(300);
+      const dex = B.st.battle && B.st.battle.e.dex;
+      if (B.st.battle) B.st.battle.e.hurt(B.st.battle.e.hp + 99999);
+      await wait(800);
+      R.Pickups.clear();
+      return { before, after, scene, dex, owned: !!(R.DB.save.owned && R.DB.save.owned[386]), kept: !!PSXAI.Sea.save.deoxys };
+    });
+    return { pass: r.before === 2 && r.after === 0 && r.scene && r.dex === 386 && r.owned && r.kept, detail: r };
+  });
+
+  await scenario(h, 'ocean: Manaphy and Phione appear now and then, can\'t be caught, and dive away when you come close; the feather', async () => {
+    const r = await h.R(async () => {
+      const S = PSXAI.Sea, R = __PSX_REG__, O = PSXAI.Ocean, wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.Sky.set({ storm: 0, rain: 0, fog: 0, wind: 0.1, cloud: 0.1, hour: 12 });
+      const sh = OT.find(0, 400, 2, 1200);
+      const b = PSXAI.Boats.boats[2]; b.x = sh[0]; b.y = sh[1]; b.vx = b.vy = 0;
+      if (!R.Game.player.psxBoat) PSXAI.Boats.board(b, R.Game.player);
+      PSXAI.cfg.manaphyChance = 1; S.st.appT = 0; S.st.apps = null;
+      for (let i = 0; i < 20 && !S.st.apps; i++) { S.st.appT = 0; await wait(150); }
+      const ap = S.st.apps;
+      const dexes = ap ? ap.mons.map((m) => m.dex) : [];
+      const enemies = R.EnemyMgr.all().some((e) => e.dex === 489 || e.dex === 490);
+      // sail right up to them
+      if (ap) { const pb = R.Game.player.psxBoat; pb.x = ap.x + 60; pb.y = ap.y; }
+      await wait(2500);
+      const gone = !S.st.apps;
+      // the feather, picked up from the boat
+      const pb = R.Game.player.psxBoat;
+      S.st.feather = { x: pb.x + 50, y: pb.y, t: 0 };
+      await wait(500);
+      PSXAI.cfg.manaphyChance = null;
+      return { appeared: !!ap, dexes, enemies, gone, feather: S.has('feather') };
+    });
+    return { pass: r.appeared && r.dexes.every((d) => d === 489 || d === 490) && !r.enemies && r.gone && r.feather, detail: r };
+  });
+
+  await scenario(h, 'ocean: Lugia\'s shrine rises at low tide; with the feather, Lugia passes overhead (and can\'t be caught)', async () => {
+    const r = await h.R(async () => {
+      const S = PSXAI.Sea, O = PSXAI.Ocean, R = __PSX_REG__, wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const sh = O.plan().shrine;
+      PSXAI.cfg.oceanTide = 1; const high = O.sample(sh.x, sh.y).cls;
+      PSXAI.cfg.oceanTide = -1; const low = O.sample(sh.x, sh.y).cls;
+      const path = O.plan().tidal.find((t) => t.id === 'shrine').pts[1], pathLow = O.sample(path[0], path[1]).cls;
+      S.give('feather'); S.st.cool = {};
+      OT.tp(sh.x, sh.y);
+      await wait(1500);
+      const scene = S.busy();
+      await wait(4500);
+      const box = !!(PSXAI.Talk.boxes.legend && PSXAI.Talk.boxes.legend.who.dex === 249);
+      PSXAI.cfg.oceanTide = null;
+      return { high, low, pathLow, scene, box, lugiaEnemy: R.EnemyMgr.all().some((e) => e.dex === 249), owned: !!(R.DB.save.owned && R.DB.save.owned[249]), tablets: S.TABLETS.length };
+    });
+    return { pass: r.high >= 1 && r.low === 0 && r.pathLow === 0 && r.scene && r.box && !r.lugiaEnemy && !r.owned && r.tablets >= 6, detail: r };
+  });
+
+  await scenario(h, 'ocean: Kyogre is only ever spoken of (inscriptions, the glow in the trench), never caught', async () => {
+    const r = await h.R(() => {
+      const S = PSXAI.Sea, A = PSXAI.Areas, R = __PSX_REG__;
+      const ro = A.ROSTERS[PSXAI.Ocean.BIOME];
+      const inRoster = ro.tiers.some((t) => t.includes(382) || t.includes(383)) || ro.bosses.some((t) => t.includes(382) || t.includes(383));
+      const lore = S.TABLETS.some((t) => /sleeps who raised the seas/.test(t.text)) && S.TABLETS.some((t) => /orbs/.test(t.text));
+      return { inRoster, lore, owned: !!(R.DB.save.owned && R.DB.save.owned[382]) };
+    });
+    return { pass: !r.inRoster && r.lore && !r.owned, detail: r };
+  });
+
+  await scenario(h, 'ocean: at sea the wild Pokémon are sea Pokémon; on a guardian island, that island\'s own', async () => {
+    const r = await h.R(() => {
+      const O = PSXAI.Ocean, R = __PSX_REG__;
+      const p = R.Game.player;
+      const dp = OT.find(300, 1300, 3, 1500);
+      OT.tp(dp[0], dp[1]); if (p.psxBoat) p.psxBoat.x = dp[0];
+      const sea = { karp: O.weight(129), tentacool: O.weight(72), pikachuIsle: O.weight(309), ghost: O.weight(92) };
+      const k = O.islandById('koko'); OT.tp(k.x + k.R * 0.5, k.y);
+      const koko = { electrike: O.weight(309), ralts: O.weight(280), gastly: O.weight(92) };
+      return { sea, koko };
+    });
+    return { pass: r.sea.tentacool > 0.5 && r.sea.pikachuIsle === 0 && r.sea.ghost === 0 && r.koko.electrike >= 4 && r.koko.ralts === 0 && r.koko.gastly === 0, detail: r };
+  });
+
+  await scenario(h, 'ocean: switching the ocean off brings the Ash Volcano back as Level 3', async () => {
+    const r = await h.R(() => {
+      const R = __PSX_REG__, m = R.Maps.LIST.find((x) => x.n === 3);
+      PSXAI.cfg.tropicalOcean = false;
+      const off = { name: m.name, biome: m.biome, tab: R.T('3 · Volcán') };
+      PSXAI.cfg.tropicalOcean = true;
+      return { off, on: { name: m.name, biome: m.biome }, BIOME: PSXAI.Ocean.BIOME };
+    });
+    return { pass: r.off.name === 'Volcán Ceniza' && r.off.biome === 2 && r.on.biome === r.BIOME && r.on.name === 'Océano Tropical', detail: r };
   });
 
   await h.close();

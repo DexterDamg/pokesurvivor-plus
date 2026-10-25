@@ -62,6 +62,10 @@ anything.
   a teammate noticed. Character, not broken AI.
 - **Never lost:** stuck behind something or too far behind, a companion catches up from somewhere
   you're not looking.
+- **At sea** (Level 3, the Tropical Ocean): the ones who can't swim ride in your boat and step
+  off with you; Froakie swims alongside. They have plenty to say about the sea: the boats, a new
+  island, storms and fog on the water, wrecks, the ghost ship, the lighthouse, and the enormous
+  shadow that just passed underneath.
 
 ### Playing like a player (`83-partyplus.js`)
 

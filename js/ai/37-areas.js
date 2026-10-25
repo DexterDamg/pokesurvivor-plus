@@ -41,6 +41,9 @@
     216: ['berry', 'log'], 217: ['log'], 114: ['bush'], 465: ['bush'], 92: ['log'], 93: ['log'], 41: ['tree'], 42: ['tree'], 595: ['bush', 'tree'], 596: ['tree'],
   };
   const RARE = { 25: 0.25, 92: 0.35, 93: 0.4, 123: 0.3, 214: 0.6, 127: 0.6, 198: 0.5, 465: 0.5, 469: 0.5, 182: 0.5 };
+  // the sea: Chinchou and Lanturn light up the night water, Wingull keep to the day; the big ones are rare
+  Object.assign(ACTIVE, { 170: 'night', 171: 'night', 456: 'night', 457: 'night', 278: 'day', 279: 'day', 742: 'day', 743: 'day', 761: 'day', 762: 'day', 763: 'day', 309: 'any', 403: 'any' });
+  Object.assign(RARE, { 130: 0.35, 230: 0.3, 131: 0.25, 321: 0.3, 350: 0.2, 369: 0.45, 477: 0.4, 466: 0.5, 282: 0.45, 475: 0.45, 94: 0.5, 781: 0.6, 26: 0.3 });
 
   // the starting woodland, tier by tier (tiers start at 0, 70, 160, 260, 380, 500 s)
   const ROSTERS = {
@@ -56,9 +59,24 @@
       bosses: [[20, 162, 15, 12, 164], [18, 217, 47, 71], [123, 214, 127, 286], [217, 398, 45, 465], [469, 465, 275]],
     },
   };
+  /* The Tropical Ocean (Level 3): sea Pokémon by habitat, and each guardian island's own (who
+   * actually turns up depends on where you are: 34-ocean.js). Registered once the ocean has its
+   * biome number (see oceanRoster below). */
+  const OCEAN = {
+    tiers: [
+      [129, 72, 278, 90, 79, 86, 118, 116, 98, 120, 222, 170, 318, 366, 341, 54, 370, 309, 403, 100, 81, 280, 742, 546, 753, 761, 406, 92, 355, 353, 200, 425],
+      [129, 72, 278, 90, 79, 86, 118, 116, 98, 120, 222, 170, 318, 223, 211, 456, 690, 751, 767, 739, 183, 309, 403, 100, 81, 702, 777, 280, 742, 764, 546, 753, 761, 548, 285, 736, 406, 92, 93, 355, 353, 200, 425],
+      [73, 119, 117, 87, 80, 91, 171, 319, 279, 224, 99, 342, 226, 320, 457, 458, 55, 222, 211, 404, 310, 82, 737, 281, 743, 547, 754, 762, 315, 286, 93, 356, 354, 426, 200],
+      [73, 121, 130, 230, 199, 367, 368, 369, 691, 752, 768, 781, 319, 171, 279, 87, 405, 738, 466, 282, 475, 763, 407, 94, 429, 477, 354, 356],
+      [121, 130, 230, 199, 367, 368, 369, 321, 131, 350, 781, 768, 319, 171, 279, 405, 738, 466, 282, 475, 763, 407, 94, 429, 477],
+      [130, 230, 321, 131, 350, 369, 781, 121, 199, 319, 171, 405, 466, 282, 475, 763, 407, 94, 429, 477],
+    ],
+    bosses: [[73, 87, 80, 119], [319, 171, 91, 279], [130, 121, 230, 199], [131, 369, 768, 781], [321, 130, 350, 230]],
+  };
+  function oceanRoster() { if (AI.Ocean && AI.Ocean.BIOME >= 0 && !ROSTERS[AI.Ocean.BIOME]) ROSTERS[AI.Ocean.BIOME] = OCEAN; }
 
   function enabled() { return AI.enabled && AI.cfg.areaSpawns !== false; }
-  function roster() { return enabled() ? ROSTERS[AI.Env.biome()] || null : null; }
+  function roster() { if (!enabled()) return null; oceanRoster(); return ROSTERS[AI.Env.biome()] || null; }
   function active(dex) {
     if (ACTIVE[dex]) return ACTIVE[dex];
     const d = AI.R && AI.R.DEX_BY[dex];
@@ -194,6 +212,8 @@
       if (jk > 0.15) w *= types.includes('ghost') ? 1 + jk * 4 : 1 - jk * 0.75;
       // tree-dwellers mostly live in their trees (63-wildlife.js): cocoons never roam, few caterpillars do
       if (AI.Wildlife && AI.cfg.wildlife !== false) { if (AI.Wildlife.COCOON.has(d.dex)) w = 0; else if (AI.Wildlife.CRAWLER.has(d.dex)) w *= 0.35; }
+      // at sea, who lives around you (34-ocean.js)
+      if (AI.Ocean && AI.Ocean.on()) w *= AI.Ocean.weight(d.dex);
       const n = Math.floor(w) + (Math.random() < w - Math.floor(w) ? 1 : 0);
       for (let i = 0; i < n; i++) out.push(d);
     }
@@ -255,6 +275,7 @@
   function place(e) {
     if (!enabled() || e.boss || e.legend) return;
     e.psxNative = true; // lives here: goes home at the end of its day
+    if (AI.Ocean && AI.Ocean.on()) { AI.Ocean.place(e); return; } // (at sea: lagoons, reefs, currents, beaches… 34-ocean.js)
     const R = AI.R;
     const p = R.Game.player;
     const cam = R.Camera;

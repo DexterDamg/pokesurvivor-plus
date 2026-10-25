@@ -616,7 +616,7 @@
 
   function reset() {
     if (st.inside) { st.inside = false; if (st.stashed) try { AI.R.EnemyMgr.restore(); } catch (e) { /* ignore */ } st.stashed = false; }
-    st.built = null; st.cache = null; st.fade = 0; st.fadeTo = 0; st.fadeCb = null; st.transit = false; st.dim = 1; clearCache = null;
+    st.built = null; st.cache = null; st.fade = 0; st.fadeTo = 0; st.fadeCb = null; st.transit = false; st.dim = 1;
   }
 
   AI.define('Mansion', {

@@ -212,6 +212,7 @@
     if (DRY_BIOMES.has(b)) { for (const k of ['drizzle', 'rain', 'storm', 'mist', 'fog', 'deepfog']) if (w[k]) w[k] *= 0.05; }
     if (b === 8) { if (w.breezy) w.breezy *= 2; if (w.gale) w.gale *= 2; } // glacier
     if (b === 16 || b === 20) { for (const k of ['mist', 'fog', 'deepfog']) if (w[k]) w[k] *= 2.5; } // graveyard, enchanted forest
+    if (AI.Ocean && b === AI.Ocean.BIOME) { for (const [k, m] of [['breezy', 1.7], ['gale', 1.5], ['storm', 1.5], ['rain', 1.25], ['fog', 1.2], ['deepfog', 1.3]]) if (w[k]) w[k] *= m; } // the open sea: windier, stormier
     // fog needs calm, damp air: dawn, night, or just after rain; daytime sun burns it off
     const damp = st.hour >= 4.5 && st.hour < 8.5 ? 3 : isNight() ? 1.6 : 0.5;
     for (const k of ['mist', 'fog', 'deepfog']) if (w[k] && step(st.pattern, k) > 0) w[k] *= damp;
@@ -301,6 +302,7 @@
     if (st.hour >= 4.5 && st.hour < 8.5 && !DRY_BIOMES.has(AI.Env.biome())) st.tgt.fog = Math.max(st.tgt.fog, 0.22 * (1 - Math.abs(st.hour - 6.3) / 2.2)); // dawn mist
     drive(dt);
     if (indoor()) { st.tgt.rain = 0; st.tgt.storm = 0; st.tgt.snow = 0; st.tgt.wind = Math.min(st.tgt.wind, 0.1); st.tgt.cloud = 0; }
+    if (AI.Ocean) AI.Ocean.localSky(st.tgt); // (the Tropical Ocean's fog banks and Thundercrest's storm: 34-ocean.js)
     if (st.forced) Object.assign(st.tgt, st.forced);
     // believable transitions: fog creeps in, rain builds up, wind picks up faster than it dies
     // gradual: fog creeps in over minutes, rain builds and fades, a storm grows, peaks and weakens

@@ -47,6 +47,15 @@
 
   function genChunk(cx, cy) {
     const out = [];
+    // the Tropical Ocean dresses its islands, beaches and reefs itself (34-ocean-draw.js)
+    if (AI.Ocean && AI.Ocean.on() && AI.OceanDraw && AI.cfg.newArt) {
+      const ch = CH();
+      let i = 0;
+      const R = () => rnd(cx, cy, i++);
+      const roomy = (x, y, r) => free(x, y, r) && Math.hypot(x, y) > 120 && !out.some((o) => !o.flat && o.r && Math.hypot(o.x - x, o.y - y) < o.r + r);
+      AI.OceanDraw.decor(cx, cy, ch, R, (o) => out.push(item(o)), roomy);
+      return out;
+    }
     const th = themeNow();
     if (!th || !AI.cfg.newArt) return out;
     const ch = CH(), x0 = cx * ch, y0 = cy * ch;
@@ -328,6 +337,8 @@
     let sh = null;
     const s = it.s || 1;
     switch (it.k) {
+      case 'ocean': sh = AI.OceanDraw ? AI.OceanDraw.solidOf(it) : null; break;
+      case 'tree': sh = it.r ? { r: it.r * 0.6 * s } : null; break;
       case 'log': {
         const w = AI.Art && AI.Art.ready ? AI.Art.size(it.n)[0] * s : 60 * s;
         sh = { rect: [it.x - w * 0.42, it.y - 12 * Math.min(1.4, s), it.x + w * 0.42, it.y + 2] };

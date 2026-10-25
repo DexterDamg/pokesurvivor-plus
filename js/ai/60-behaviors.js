@@ -35,6 +35,8 @@
       const d = AI.Forest.depthClass(x, y), l = AI.Forest.locomotion(e.dex);
       if (l === 'swim' ? d === 0 : l === 'walk' && d === 2) return false;
     }
+    // …and the Tropical Ocean's: fish stay in the sea, shore-dwellers on the coast (34-ocean.js)
+    if (AI.Ocean && AI.Ocean.on() && e.dex != null && !AI.Ocean.canBe(e, x, y)) return false;
     if (e.flying) return true;
     if (!E.free(x, y, Math.max(8, e.r * 0.7))) return false;
     if (E.isLiquid(x, y) && (E.hurtsIn(e.types) || (e.psx && e.psx.p.hatesWater))) return false;

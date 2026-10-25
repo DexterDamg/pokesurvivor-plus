@@ -274,6 +274,9 @@
       }
     }
     if (AI.Forest) AI.Forest.lights(L);
+    if (AI.OceanDraw) AI.OceanDraw.lights(L);
+    if (AI.Boats) AI.Boats.lights(L);
+    if (AI.Sea) { AI.Sea.lights(L); AI.Guardians.lights(L); AI.Birth.lights(L); }
     if (AI.Mysteries) AI.Mysteries.lights(L);
     if (AI.Events) AI.Events.lights(L);
     if (AI.Power) AI.Power.lights(L);
@@ -687,7 +690,9 @@
     const time = (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm;
     const lg = AI.lang ? AI.lang() : 'en';
     const w = WX[wxKey()];
-    const label = time + ' · ' + (w[lg] || w.en);
+    let label = time + ' · ' + (w[lg] || w.en);
+    // at sea, the tide too (34-ocean.js)
+    if (AI.Ocean && AI.Ocean.on()) { const tn = AI.Ocean.tideName(); label += ' · ' + ({ high: ['High tide', 'Marea alta'], low: ['Low tide', 'Marea baja'], rising: ['Tide rising', 'Marea subiendo'], falling: ['Tide falling', 'Marea bajando'] }[tn][lg === 'es' ? 1 : 0]); }
     ctx.save();
     ctx.font = '700 12px Pixelify, "Segoe UI", sans-serif';
     const tw = ctx.measureText(label).width;

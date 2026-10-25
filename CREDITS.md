@@ -132,18 +132,18 @@ Los retratos de los cuadros de diálogo (`assets/portraits`) también vienen de
 retratos originales de los juegos de *Mundo Misterioso* de
 [Spike Chunsoft](https://www.spike-chunsoft.com/) (nº 1, 4, 5, 6, 7, 25, 92, 93,
 94, 133, 152, 155, 158, 200, 243, 244, 245, 251, 252, 255, 258, 355, 356, 377, 387,
-390, 391, 392, 393, 394, 395, 429, 477, 488, 491, 492); el resto son obra de estos artistas:
+390, 391, 392, 393, 394, 395, 429, 477, 488, 489, 490, 491, 492; y en parte 249 y 386); el resto son obra de estos artistas:
 
 | Artista | Contacto | Retratos (nº de Pokédex) |
 |---|---|---|
 | 0palite | https://zeropalart.tumblr.com/ | 5, 6, 395 |
-| baronessfaron |  | 355, 356, 391, 429, 488, 491, 640, 656, 657, 680, 681, 724, 897 |
+| baronessfaron |  | 355, 356, 391, 429, 488, 491, 640, 656, 657, 680, 681, 724, 785, 786, 787, 788, 897 |
 | CamusZekeSirius |  | 377 |
 | Cloudy | https://twitter.com/cloudyskys17695 | 656 |
 | distress | https://www.artstation.com/distress/albums/1200843 | 908 |
-| Emmuffin | https://twitter.com/Ernmuffin | 245, 355, 391, 392, 394, 488, 495, 498, 501, 607, 608, 609, 650, 656, 658, 679, 681, 722, 725, 728, 813, 816, 897, 906, 907 |
+| Emmuffin | https://twitter.com/Ernmuffin | 245, 355, 391, 392, 394, 488, 489, 490, 495, 498, 501, 607, 608, 609, 650, 656, 658, 679, 681, 722, 725, 728, 813, 816, 897, 906, 907 |
 | Fable | https://twitter.com/fabledpainter | 728 |
-| G〜 | https://bsky.app/profile/justtr4sh.pmd.social | 356, 477, 653, 656, 679, 810, 816, 893, 907 |
+| G〜 | https://bsky.app/profile/justtr4sh.pmd.social | 249, 356, 477, 653, 656, 679, 810, 816, 893, 907 |
 | JFain |  | 92 |
 | JustAGunk | <@1377429093997477928> | 657, 723, 810, 907 |
 | leafia_barrett |  | 251 |
@@ -152,7 +152,7 @@ retratos originales de los juegos de *Mundo Misterioso* de
 | NeroIntruder | https://twitter.com/NeroIntruder | 813 |
 | Noivern | https://twitter.com/notarealnoivern | 498 |
 | NOLASMOR |  | 657 |
-| Noo | https://artfight.net/~NooNoo_Skidoo | 650 |
+| Noo | https://artfight.net/~NooNoo_Skidoo | 386, 650 |
 | PhillipsYoung | https://twitter.com/PhilliYoung196 | 93 |
 | programmedsleepstate | <@224476380790915072> | 243 |
 | RoyalRust |  | 200 |
@@ -160,6 +160,9 @@ retratos originales de los juegos de *Mundo Misterioso* de
 | Tainted#3886 |  | 356 |
 | Top_Kec | @topkec.bsky.social | 244, 724 |
 | ◥θ┴θ◤ | DC:<@215638650434617345> | 656, 657, 723, 728 |
+
+Uno de los retratos de Deoxys (386) es de un colaborador de SpriteCollab que no figura con
+nombre público (Discord 523152081805115403).
 
 Los retratos de otros Pokémon se descargan de SpriteCollab durante la partida,
 con la misma licencia y la autoría que figura en su repositorio.
@@ -202,6 +205,25 @@ bosque encantado del "entorno vivo" (`assets/env/atlas.png`) salen de estas hoja
   el barro y la orilla del Bosque Umbrío se pintan en el propio juego
   (`js/ai/34-forest.js`).
   *(Falta indicar aquí el autor original de cada una de estas hojas.)*
+
+## Océano Tropical (Nivel 3)
+
+Arte de `assets/ocean` (los originales, tal como se aportaron, en `assets/ocean/src`):
+
+- **Pueblo del puerto** (muelle, faro, ferry, playa): material aportado por DexterDamg para
+  PokéSurvivor+. *(Falta indicar el autor original.)*
+- **Isla Origen**: el mapa de la isla de *Pokémon Rojo Fuego y Verde Hoja / Esmeralda*
+  (Nintendo / Creatures Inc. / GAME FREAK), aportado por DexterDamg; el triángulo de Deoxys está
+  recortado de él.
+- **Isla de los guardianes y su hoja de tiles**: de ella se han recortado las palmeras, los
+  cerezos rosas, las rocas, la rafflesia, el santuario, los tótems y la choza. Aportada por
+  DexterDamg; la imagen lleva una marca de agua de deviantart. *(Falta indicar el autor original.)*
+- **Barcos** rojo, azul y amarillo: material aportado por DexterDamg. *(Falta indicar el autor
+  original.)*
+- El mapa de ruta tropical se aportó pero no se usa.
+- El mar, las islas, el oleaje, la espuma, los corales, las algas, las boyas, los pecios, el haz
+  del faro, el santuario de Lugia y las inscripciones se pintan en el propio juego
+  (`js/ai/34-ocean-draw.js`, `js/ai/82-sea.js`, `js/ai/82-guardians.js`).
 
 Iconos de objetos de `assets/items` (Piedra Espíritu, Orbes, Piedras Oscura y Clara, Trozo Estrella, Célula de Zygarde, amuletos de Mesprit y Azelf, Alas, Botella Prisión, Maximuñequera)
 y las hojas de Megapiedras, Cristales Z y bayas en árbol:
