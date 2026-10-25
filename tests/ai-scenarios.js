@@ -2495,26 +2495,37 @@ async function sample(h, ms, every, fn, arg) {
     return { pass: r.pier === 1 && r.boats.length >= 3 && r.boats.every((b) => b[1] < 500 && b[2] >= 1) && r.lh === 2 && r.lhDist < 700 && r.harbor === 'harbor', detail: r };
   });
 
-  await scenario(h, 'ocean: walking into a boat boards it, the controls steer it, and it carries you', async () => {
-    // (from the pier's edge, pushing toward the boat moored beside it)
+  await scenario(h, 'ocean: near the shallows, click a boat and double-tap Space to board (one tap does nothing, walking into it doesn\'t); the controls steer it', async () => {
+    const at = async () => h.R(() => { const R = __PSX_REG__, b = PSXAI.Boats.boats[0], cam = R.Camera; const cv = [...document.querySelectorAll('canvas')].filter((c) => c.getBoundingClientRect().width > 300).pop(); const bb = cv.getBoundingClientRect(), k = (cam._cw || bb.width) / bb.width; return [bb.left + ((b.x - cam.left()) * cam.scale) / k, bb.top + ((b.y - 20 - cam.top()) * cam.scale) / k]; });
+    // (from the pier's edge beside the boat: walking into it is blocked, it doesn't board)
     const b0 = await h.R(() => { const b = PSXAI.Boats.boats[0], O = PSXAI.Ocean; let y = b.y - 40; while (y > b.y - 200 && !O.fits('walk', b.x, y)) y -= 4; OT.tp(b.x, y); return [b.x, b.y]; });
     await h.page.keyboard.down('KeyS'); await h.wait(700); await h.page.keyboard.up('KeyS');
+    const walked = await h.R(() => !!__PSX_REG__.Game.player.psxBoat);
+    await h.page.keyboard.press('Space'); await h.wait(600);
+    const oneTap = await h.R(() => !!__PSX_REG__.Game.player.psxBoat);
+    const pt = await at(); await h.page.mouse.click(pt[0], pt[1]); await h.wait(150);
+    const picked = await h.R(() => PSXAI.Boats.st.sel === PSXAI.Boats.boats[0]);
+    await h.page.keyboard.press('Space'); await h.wait(120); await h.page.keyboard.press('Space'); await h.wait(300);
     const aboard = await h.R(() => !!__PSX_REG__.Game.player.psxBoat);
     await h.page.keyboard.down('KeyS'); await h.wait(2500); await h.page.keyboard.up('KeyS');
     const r = await h.R((b0) => { const p = __PSX_REG__.Game.player, b = p.psxBoat; return { aboard: !!b, moved: b ? Math.round(Math.hypot(b.x - b0[0], b.y - b0[1])) : 0, seated: b ? Math.hypot(p.x - b.x, p.y - b.y) < 40 : false, cls: PSXAI.Ocean.sample(p.x, p.y).cls }; }, b0);
-    return { pass: aboard && r.aboard && r.moved > 60 && r.seated && r.cls >= 1, detail: Object.assign({ boarded: aboard }, r) };
+    return { pass: !walked && !oneTap && picked && aboard && r.aboard && r.moved > 60 && r.seated && r.cls >= 1, detail: Object.assign({ walked, oneTap, picked, boarded: aboard }, r) };
   });
 
-  await scenario(h, 'ocean: sailing up to the shore and pushing on steps you off onto land (never deep water); the boat stays', async () => {
-    let r = null;
-    await h.page.keyboard.down('KeyW');
-    for (let i = 0; i < 24; i++) { await h.wait(400); r = await h.R(() => ({ aboard: !!__PSX_REG__.Game.player.psxBoat })); if (!r.aboard) break; }
-    await h.page.keyboard.up('KeyW');
-    r = await h.R(() => {
+  await scenario(h, 'ocean: double-tap Space steps you off a boat parked in shallow water (never in deep water); the boat stays', async () => {
+    const dbl = async () => { await h.page.keyboard.press('Space'); await h.wait(120); await h.page.keyboard.press('Space'); await h.wait(300); };
+    // out in deep water: it won't let you off
+    await h.R(() => { const B = PSXAI.Boats, O = PSXAI.Ocean, b = __PSX_REG__.Game.player.psxBoat; for (let r = 400; r < 3000; r += 50) for (let k = 0; k < 16; k++) { const x = Math.cos(k / 16 * 6.283) * r, y = 900 + Math.sin(k / 16 * 6.283) * r; if (O.sample(x, y).cls >= 3 && B.fits(b, x, y, 0)) { b.x = x; b.y = y; b.vx = b.vy = 0; return; } } });
+    await h.wait(300); await dbl();
+    const deep = await h.R(() => !!__PSX_REG__.Game.player.psxBoat);
+    // parked in the shallows: off you step
+    await h.R(() => { const B = PSXAI.Boats, O = PSXAI.Ocean, b = __PSX_REG__.Game.player.psxBoat; for (let r = 300; r < 3000; r += 20) for (let k = 0; k < 24; k++) { const x = 400 + Math.cos(k / 24 * 6.283) * r, y = Math.sin(k / 24 * 6.283) * r; if (O.sample(x, y).cls === 1 && B.fits(b, x, y, 0)) { b.x = x; b.y = y; b.vx = b.vy = 0; window.__bq = [x, y]; return; } } });
+    await h.wait(300); await dbl(); await h.wait(400);
+    const r = await h.R(() => {
       const p = __PSX_REG__.Game.player, O = PSXAI.Ocean, b = PSXAI.Boats.boats[0], s = O.sample(p.x, p.y);
-      return { aboard: !!p.psxBoat, cls: s.cls, solid: s.solid, boat: [Math.round(b.x), Math.round(b.y)], boatCls: O.sample(b.x, b.y).cls, rider: !!b.rider, near: Math.round(Math.hypot(b.x - p.x, b.y - p.y)) };
+      return { aboard: !!p.psxBoat, cls: s.cls, solid: s.solid, boatCls: O.sample(b.x, b.y).cls, rider: !!b.rider, near: Math.round(Math.hypot(b.x - p.x, b.y - p.y)), stayed: Math.round(Math.hypot(b.x - __bq[0], b.y - __bq[1])) };
     });
-    return { pass: !r.aboard && r.cls <= 1 && !r.solid && r.boatCls >= 1 && !r.rider && r.near < 200, detail: r };
+    return { pass: deep && !r.aboard && r.cls <= 1 && !r.solid && r.boatCls >= 1 && !r.rider && r.near < 200 && r.stayed < 20, detail: Object.assign({ stayedAboardInDeep: deep }, r) };
   });
 
   await scenario(h, 'ocean: a Pokémon that can\'t swim wades the shallows but never walks into deep water', async () => {
