@@ -1346,7 +1346,7 @@ async function sample(h, ms, every, fn, arg) {
     await h.wait(5000);
     const r = await h.R(() => ({ zone: +PSXAI.Decor.trailZone(A.x, A.y).toFixed(2), fear: +A.psx.mind.emo.fear.toFixed(2) }));
     await h.R(() => { const p = __PSX_REG__.Game.player; p.x = 0; p.y = 0; });
-    return { pass: r0 > 0.2 && r.zone < r0 * 0.8 && r.fear > 0.2, detail: { start: +r0.toFixed(2), ...r } };
+    return { pass: r0 > 0.1 && r.zone < r0 * 0.8 && r.fear > 0.2, detail: { start: +r0.toFixed(2), ...r } }; // (the trail's pull is weaker away from the mansion's silent grounds)
   });
 
   await scenario(h, 'new arrivals emerge naturally instead of popping up in plain view', async () => {

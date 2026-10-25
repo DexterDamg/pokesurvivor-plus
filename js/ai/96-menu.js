@@ -3,8 +3,8 @@
  * status line says whether you've explored it ("Mansion not explored yet" until the story is done).
  * What's locked behind it (Level 2, Area Zero) says "Complete Level 1 to unlock it", not Arceus.
  * The Tropical Ocean's banner shows the harbour. Each banner has a still picture and an animated
- * layer over it (.pp-bgs); both are swapped (the mansion's animation: candlelight passing behind its
- * windows, drifting fog, a distant flash of lightning).
+ * layer over it (.pp-bgs); both are swapped (the mansion's animation pans from the house down past the
+ * fountain to the gates and back, with candlelight behind the windows and a distant flash of lightning).
  */
 (function () {
   'use strict';
