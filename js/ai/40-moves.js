@@ -139,6 +139,7 @@
   function npcVsNpc(e, m, victim) {
     const S = AI.Species;
     const tm = AI.R.Types.mult(m.type, victim.types || ['normal']);
+    if (tm === 0) return 0; // (immune: no effect at all, 66-types.js)
     const ratio = U.clamp(Math.pow(S.power(e) / Math.max(60, S.power(victim)), 0.45), 0.4, 2.4);
     const buff = (e.psx && e.psx.buff && e.psx.buff.until > AI.time ? e.psx.buff.atk : 1);
     const pct = U.clamp(0.1 * Math.max(0.3, m.power) * tm * ratio * buff, 0.02, 0.5);

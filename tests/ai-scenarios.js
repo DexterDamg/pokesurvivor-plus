@@ -3133,6 +3133,82 @@ async function sample(h, ms, every, fn, arg) {
 
   await h.close();
 
+  // =========================================================== types that matter, a team of six
+  h = await boot({});
+  await h.R(() => { const R = __PSX_REG__; for (const d of [50, 25, 7, 4, 16, 92]) R.DB.grant(d, 'test'); });
+  await h.startRun(50);
+  await h.wait(1200);
+
+  await scenario(h, 'types: real multipliers (×2, ×½, ×4), and immunities are 0: Ground→Flying, Normal→Ghost, Dragon→Fairy, Psychic→Dark, Electric→Ground', async () => {
+    const r = await h.R(() => { const M = __PSX_REG__.Types.mult; return { gf: M('ground', ['normal', 'flying']), ng: M('normal', ['ghost']), fg: M('fighting', ['ghost']), df: M('dragon', ['fairy']), pd: M('psychic', ['dark']), eg: M('electric', ['ground']), ps: M('poison', ['steel']), ew: M('electric', ['water']), ewf: M('electric', ['water', 'flying']), fw: M('fire', ['water']), fwr: M('fire', ['water', 'rock']), nn: M('normal', ['normal']) }; });
+    return { pass: r.gf === 0 && r.ng === 0 && r.fg === 0 && r.df === 0 && r.pd === 0 && r.eg === 0 && r.ps === 0 && r.ew === 2 && r.ewf === 4 && r.fw === 0.5 && r.fwr === 0.25 && r.nn === 1, detail: r };
+  });
+
+  await scenario(h, 'types: a Diglett\'s Ground moves do no damage to a Pidgey ("No effect"), and no burn, poison, slow or stun comes with an immune hit', async () => {
+    const r0 = await h.R(() => { const R = __PSX_REG__, p = R.Game.player; PSXAI.Debug.freeze(true); PSXAI.Debug.clear(true); p.god = true; const e = PSXAI.Debug.spawn(16, { dx: 90, temp: 'aggressive' }); e.maxHp = e.hp = 400; window.PG = e; return { moves: p.moves.map((m) => m.type || (m.def && m.def.type)), n0: PSXAI.Types.st.immune }; });
+    await h.wait(5000);
+    const r = await h.R(() => { const e = PG; e.hurt(0); e.applyBurn(1); e.applyStun(1); return { hp: Math.round(e.hp), max: e.maxHp, burned: e.burnT > 0 || e.burn > 0, stunned: (e.stunT || 0) > 0, immune: PSXAI.Types.st.immune }; });
+    return { pass: r0.moves.every((t) => t === 'ground') && r.hp === r.max && !r.burned && !r.stunned && r.immune > r0.n0, detail: [r0, r] };
+  });
+
+  await scenario(h, 'types: you aren\'t hurt by a type your Pokémon is immune to', async () => {
+    const r = await h.R(() => {
+      const p = __PSX_REG__.Game.player; p.god = false; p.invuln = 0; p.reviveShield = 0; p.shadeInv = 0;
+      const b0 = p.hp; p.hurt(8, 'electric'); const elec = b0 - p.hp; // (Diglett is Ground: immune to Electric)
+      p.invuln = 0; const b1 = p.hp; p.hurt(8, 'water'); const water = b1 - p.hp;
+      p.god = true; return { elec, water };
+    });
+    return { pass: r.elec === 0 && r.water > 0, detail: r };
+  });
+  await h.close();
+
+  h = await boot({});
+  await h.R(() => { const R = __PSX_REG__; for (const d of [25, 7, 4, 16]) R.DB.grant(d, 'test'); R.DB.save.partner = 25; PSXAI.Team.setTeam([25, 7, 4]); });
+  await h.startRun(25);
+  await h.wait(1200);
+
+  await scenario(h, 'team: Z / X switch your Pokémon; each keeps its own moves and HP; one sent out for the first time starts with its own first move', async () => {
+    const snap = () => h.R(() => { const p = __PSX_REG__.Game.player; return { dex: p.dex, hp: Math.round(p.hp), max: p.maxHp, moves: p.moves.map((m) => m.id).join(','), types: p.mon.types.join('/') }; });
+    await h.R(() => { PSXAI.Debug.freeze(true); PSXAI.Debug.clear(true); const p = __PSX_REG__.Game.player; p.hp = Math.round(p.maxHp / 2); });
+    const a = await snap();
+    await h.page.keyboard.press('KeyX'); await h.wait(300);
+    const b = await snap();
+    await h.wait(1300); await h.page.keyboard.press('KeyZ'); await h.wait(300);
+    const c = await snap();
+    return { pass: a.dex === 25 && b.dex === 7 && b.types === 'water' && b.moves !== a.moves && b.hp === b.max && c.dex === 25 && c.moves === a.moves && Math.abs(c.hp - a.hp) <= 1, detail: [a, b, c] };
+  });
+
+  await scenario(h, 'team: when the one out faints the next healthy one comes in; the run ends only when the whole team is down', async () => {
+    const r = await h.R(() => {
+      const R = __PSX_REG__, seq = [];
+      for (let k = 0; k < 14; k++) { const p = R.Game.player; if (p.dead) break; p.god = false; p.invuln = 0; p.reviveShield = 0; p.shadeInv = 0; p.lives = 0; p.hurt(9999, 'normal'); seq.push(p.dex + (p.dead ? '†' : '')); }
+      return { seq: seq.join(' '), team: PSXAI.Team.run.members.map((m) => m.fainted) };
+    });
+    await h.wait(800);
+    const end = await h.R(() => ({ dead: __PSX_REG__.Game.player.dead, state: __PSX_REG__.Game.state }));
+    const species = new Set(r.seq.replace(/†/g, '').split(' '));
+    return { pass: species.size === 3 && /†$/.test(r.seq) && (r.seq.match(/†/g) || []).length === 1 && end.dead, detail: Object.assign(r, end) };
+  });
+  await h.close();
+
+  h = await boot({});
+  await h.startRun(25);
+  await h.wait(600);
+  await scenario(h, 'team: the Team screen picks up to six owned Pokémon; the first leads (and is the partner a run starts with)', async () => {
+    const r = await h.R(() => {
+      const R = __PSX_REG__, Tm = PSXAI.Team;
+      for (const d of [1, 4, 7, 25, 133, 143, 150]) R.DB.grant(d, 'test');
+      Tm.setTeam([4, 7, 25, 133, 143, 150, 1, 999]);
+      const t1 = Tm.chosen();
+      R.DB.save.partner = 25; Tm.setTeam([25, 4, 7]);
+      const btn = !!document.getElementById('psx-team-btn');
+      Tm.open(); const open = document.getElementById('psx-team').style.display === 'flex'; Tm.close();
+      return { t1, t2: Tm.chosen(), partner: R.DB.save.partner, saved: JSON.parse(localStorage.getItem('psx.team.v1')), btn, open };
+    });
+    return { pass: r.t1.length === 6 && !r.t1.includes(999) && r.t2[0] === 25 && r.partner === 25 && r.saved[0] === 25 && r.btn && r.open, detail: r };
+  });
+  await h.close();
+
   const pass = results.filter((r) => r.pass).length;
   console.log('\n' + pass + '/' + results.length + ' scenarios passed');
   process.exit(pass === results.length ? 0 : 1);
