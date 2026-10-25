@@ -89,7 +89,7 @@
     return list;
   }
 
-  // the trees within r of (x, y) (World.propsInCircle only returns destructible props, never trees)
+  // the trees within r of (x, y) (World.propsInCircle only returns destructible props: trees only once they can be broken, 64-breakables.js)
   const treeCam = { _x: 0, _y: 0, w: 0, h: 0, left() { return this._x; }, top() { return this._y; }, sees(x, y, m) { m = m || 0; return x >= this._x - m && x <= this._x + this.w + m && y >= this._y - m && y <= this._y + this.h + m; } };
   function treesIn(x, y, r) {
     treeCam._x = x - r; treeCam._y = y - r; treeCam.w = treeCam.h = r * 2;

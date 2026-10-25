@@ -4,7 +4,8 @@
  * It's placed out of sight, never announced. Up close the air goes cold; at night something drips
  * far, far down, and now and then something whispers back. Stand at its rim to look down, and toss
  * in a coin if you have one. Sometimes the bucket comes up with something. Sometimes something else
- * comes up instead.
+ * comes up instead. While you carry the Odd Keystone it's always somewhere in the forest, and it's
+ * where Spiritomb waits (86-spiritomb.js).
  */
 (function () {
   'use strict';
@@ -13,7 +14,8 @@
 
   const st = { well: null, item: null, rolled: false, at: null, standT: 0, lookT: -99, whisperT: 20, eyes: 0, text: null, uses: 0, found: false, ghost: null };
 
-  function on() { return AI.enabled && AI.cfg.oldWell !== false && AI.Forest && AI.Forest.on() && AI.Decor; }
+  function on() { return AI.enabled && (AI.cfg.oldWell !== false || spiritomb()) && AI.Forest && AI.Forest.on() && AI.Decor; }
+  function spiritomb() { return !!(AI.Spiritomb && AI.Spiritomb.wantsWell()); } // (while you carry the Odd Keystone, it's always there: 86-spiritomb.js)
   function player() { return AI.R.Game.player; }
   function T(en, es) { return (AI.lang && AI.lang() === 'es' && es) || en; }
 
@@ -53,6 +55,7 @@
       st.rolled = true;
       st.wanted = Math.random() < (AI.cfg.wellChance == null ? 0.6 : AI.cfg.wellChance);
     }
+    if (!st.wanted && spiritomb()) st.wanted = true;
     if (st.wanted && !st.well) { st.tryT = (st.tryT || 0) - dt; if (st.tryT <= 0) { st.tryT = 3; place(); } }
     const w = st.well;
     if (!w) return;

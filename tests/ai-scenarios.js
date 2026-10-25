@@ -2857,6 +2857,194 @@ async function sample(h, ms, every, fn, arg) {
 
   await h.close();
 
+  // =========================================================== breakables, no gacha, Spiritomb, dev console
+  h = await boot({});
+  await h.R(() => { PSXAI.Spiritomb.forget(); PSXAI.Catch.resetKills(); });
+  await h.startRun(25);
+  await h.wait(1200);
+  await h.R(() => {
+    window.BT = {
+      // the trees around you whose size is known (they've been drawn)
+      trees() { const R = __PSX_REG__, p = R.Game.player; const cam = { left() { return p.x - 700; }, top() { return p.y - 520; }, w: 1400, h: 1040, sees() { return true; } }; PSXAI.Breakables.markTrees(); return R.World.visibleProps(cam).filter((t) => t.type === 'tree'); },
+    };
+  });
+
+  await scenario(h, 'breakables: your attacks knock a tree down (several hits, more for bigger ones), leaving a stump; ancient giants stand', async () => {
+    const r = await h.R(() => {
+      const R = __PSX_REG__, B = PSXAI.Breakables;
+      const trees = BT.trees();
+      const by = {}; for (const t of trees) if (t._psxStage) (by[t._psxStage] || (by[t._psxStage] = [])).push(t);
+      const out = { stages: Object.keys(by), hp: {} };
+      for (const k of Object.keys(by)) out.hp[k] = by[k][0]._psxB ? by[k][0].hp : 'unbreakable';
+      const t = (by.mature || by.young || by.large || by.sapling || [])[0];
+      if (!t) return out;
+      const dyn0 = PSXAI.Decor.inRect(t.x - 4, t.y - 4, t.x + 4, t.y + 8, []).filter((i) => i.k === 'stump').length;
+      let hits = 0, firstBroke = null;
+      while (t.hp > 0 && hits < 100) { const b = R.World.damageProp(t, 25, '#fff'); if (hits === 0) firstBroke = !!b; hits++; }
+      out.hits = hits; out.firstBroke = firstBroke; out.broken = B.st.trees;
+      out.stump = PSXAI.Decor.inRect(t.x - 4, t.y - 4, t.x + 4, t.y + 8, []).filter((i) => i.k === 'stump').length - dyn0;
+      out.inWorld = BT.trees().includes(t);
+      const anc = by.ancient && by.ancient[0];
+      if (anc) { R.World.damageProp(anc, 99999); out.ancientStands = BT.trees().includes(anc) && anc._psxB === false; }
+      return out;
+    });
+    return { pass: r.hits >= 2 && r.firstBroke === false && r.stump === 1 && !r.inWorld && r.ancientStands !== false, detail: r };
+  });
+
+  await scenario(h, 'breakables: your Pokémon never aims at a tree on its own (rocks and the like, as before)', async () => {
+    const r = await h.R(() => {
+      const R = __PSX_REG__, p = R.Game.player;
+      const t = BT.trees().find((q) => q._psxB);
+      if (!t) return { none: true };
+      const nb = R.World.nearestBreakable(t.x, t.y + 6, 120);
+      return { picked: nb ? nb.type : null };
+    });
+    return { pass: !r.none && r.picked !== 'tree', detail: r };
+  });
+
+  await scenario(h, 'breakables: bushes, logs, stumps and dead saplings break and stay broken; signs, lamps and the like never', async () => {
+    const r = await h.R(() => {
+      const R = __PSX_REG__, D = PSXAI.Decor, B = PSXAI.Breakables, p = R.Game.player;
+      const its = D.inRect(p.x - 1200, p.y - 1200, p.x + 1200, p.y + 1200, []);
+      const kinds = {}; for (const it of its) kinds[it.k] = (kinds[it.k] || 0) + (B.decorBreaks(it) ? 1 : 0);
+      const it = its.find((i) => B.decorBreaks(i));
+      if (!it) return { kinds };
+      const pr = R.World.propsInCircle(it.x, it.y, 16).find((q) => q.psxBreak && q.item === it);
+      let n = 0; while (pr && pr.hp > 0 && n < 60) { R.World.damageProp(pr, 12); n++; }
+      const still = D.inRect(it.x - 2, it.y - 2, it.x + 2, it.y + 2, []).includes(it);
+      return { kinds, k: it.k, solidProxy: pr ? pr.solid : null, n, gone: it._gone && !still, never: ['sign', 'lamp', 'grave', 'fence', 'well', 'tree'].every((k) => !B.decorBreaks({ k })) };
+    });
+    return { pass: r.gone && r.solidProxy === false && r.n >= 2 && r.never, detail: r };
+  });
+
+  await scenario(h, 'no gacha: its menu entry, ticket counter and screen are gone; dropped tickets are PokéCoins', async () => {
+    const r = await h.R(() => {
+      const R = __PSX_REG__;
+      const vis = (sel) => { const e = document.querySelector(sel); return e ? getComputedStyle(e).display !== 'none' : false; };
+      const n0 = R.Pickups.all().length;
+      const p = R.Game.player;
+      R.Pickups.drop('ticket', p.x + 300, p.y, 1);
+      const added = R.Pickups.all().slice(n0).map((q) => q.kind || q.k || q.type);
+      return { menu: vis('.menu-item[data-go="gacha"]'), pill: vis('#tickets-pill'), scr: vis('#scr-gacha'), added };
+    });
+    return { pass: !r.menu && !r.pill && !r.scr && r.added.length === 1 && r.added[0] === 'coin', detail: r };
+  });
+
+  await scenario(h, 'no gacha: a Pokémon you defeat may join you, likelier with every one of it you defeat, sure after enough; never a legendary', async () => {
+    const r = await h.R(() => {
+      const R = __PSX_REG__, C = PSXAI.Catch, p = R.Game.player;
+      const dex = 19; // Rattata
+      const c0 = C.chance(dex);
+      for (let i = 0; i < 10; i++) C.save.kills[dex] = (C.save.kills[dex] || 0) + 1;
+      const c10 = C.chance(dex);
+      const strong = C.chance(149); // Dragonite (rare, strong)
+      const ev = (d, extra) => Object.assign({ victim: Object.assign({ x: p.x, y: p.y }, extra), victimDex: d, killerKey: 'P' }, {});
+      let n = 0; while (!R.DB.owns(dex) && n < 500) { C.onDeath(ev(dex)); n++; }
+      for (let i = 0; i < 400; i++) C.onDeath(ev(150)); // Mewtwo
+      for (let i = 0; i < 400; i++) C.onDeath(ev(442)); // Spiritomb: only through the well
+      for (let i = 0; i < 400; i++) C.onDeath(ev(41, { boss: true })); // a boss Zubat
+      for (let i = 0; i < 400; i++) C.onDeath(Object.assign(ev(52), { killerKey: 7 })); // defeated by someone else
+      return { c0, c10, strong, joined: R.DB.owns(dex), n, mewtwo: R.DB.owns(150), spiritomb: R.DB.owns(442), bossZubat: R.DB.owns(41), notMine: R.DB.owns(52), pity: C.PITY };
+    });
+    return { pass: r.c10 > r.c0 && r.strong < r.c0 && r.joined && r.n <= r.pity[1] + 1 && !r.mewtwo && !r.spiritomb && !r.bossZubat && !r.notMine, detail: r };
+  });
+
+  await scenario(h, 'spiritomb: the Odd Keystone lies in a clearing out of sight; walking onto it picks it up, for good', async () => {
+    const r = await h.R(() => {
+      const R = __PSX_REG__, S = PSXAI.Spiritomb, F = PSXAI.Forest, p = R.Game.player;
+      S.st.stone = null;
+      const placed = S.placeStone();
+      const s = S.st.stone;
+      if (!s) return { placed };
+      const out = { placed, clear: +F.region(s.x, s.y).clear.toFixed(2), seen: R.Camera.sees(s.x, s.y, 0), dist: Math.round(Math.hypot(s.x - p.x, s.y - p.y)) };
+      p.x = s.x; p.y = s.y + 10; PSXAI.Mansion.snapCamera(p);
+      return out;
+    });
+    await h.wait(500);
+    const r2 = await h.R(() => ({ has: PSXAI.Spiritomb.hasKey(), stone: !!PSXAI.Spiritomb.st.stone, stored: JSON.parse(localStorage.getItem('psx.spiritomb.v1') || '{}').keystone > 0 }));
+    return { pass: r.placed && r.clear >= 0.55 && !r.seen && r.dist >= 800 && r2.has && !r2.stone && r2.stored, detail: [r, r2] };
+  });
+
+  await scenario(h, 'spiritomb: defeating an innocent Pokémon in the forest counts; one that attacked you doesn\'t', async () => {
+    const r = await h.R(() => {
+      const S = PSXAI.Spiritomb, n0 = S.save.innocents;
+      const p = __PSX_REG__.Game.player;
+      S.onDeath({ victim: { x: p.x, y: p.y }, killerKey: 'P', victimPeaceful: true });
+      const n1 = S.save.innocents;
+      S.onDeath({ victim: { x: p.x, y: p.y }, killerKey: 'P', victimPeaceful: false });
+      S.onDeath({ victim: { x: p.x, y: p.y, boss: true }, killerKey: 'P', victimPeaceful: true });
+      S.onDeath({ victim: { x: p.x, y: p.y }, killerKey: 3, victimPeaceful: true });
+      // a real one: a calm Pokémon minding its business, defeated by you
+      const e = PSXAI.Debug.spawn(16, { temp: 'timid', dx: 200 });
+      e._psxLast = p; e.hp = 0; e.die();
+      return { n0, n1, n2: S.save.innocents };
+    });
+    return { pass: r.n1 === r.n0 + 1 && r.n2 === r.n1 + 1, detail: r };
+  });
+
+  await scenario(h, 'spiritomb: while you carry the keystone the well is always in the forest; clicking it without 100 innocents does nothing', async () => {
+    const r = await h.R(() => {
+      const S = PSXAI.Spiritomb, W = PSXAI.Well;
+      PSXAI.cfg.oldWell = false; W.reset();
+      const wants = S.wantsWell();
+      PSXAI.Dev.run('well');
+      S.setInnocents(42);
+      const tried = S.clickWell(W.st.well);
+      return { wants, tried, scene: S.busy(), text: S.st.text && S.st.text.text };
+    });
+    return { pass: r.wants && r.tried === false && !r.scene && /42\/100/.test(r.text || ''), detail: r };
+  });
+
+  await scenario(h, 'spiritomb: with the keystone and 100 innocents, clicking the well calls Spiritomb up; beat it and it joins you', async () => {
+    const r0 = await h.R(() => {
+      const R = __PSX_REG__, S = PSXAI.Spiritomb, W = PSXAI.Well, p = R.Game.player;
+      p.god = true;
+      S.give(); S.setInnocents(100);
+      PSXAI.Dev.run('well');
+      const w = W.st.well;
+      p.x = w.x - 90; p.y = w.y; PSXAI.Mansion.snapCamera(p);
+      return { w: [w.x, w.y] };
+    });
+    await h.wait(300);
+    await h.R(() => {
+      const R = __PSX_REG__, w = PSXAI.Well.st.well, cam = R.Camera;
+      const cvs = [...document.querySelectorAll('canvas')].filter((c) => c.getBoundingClientRect().width > 300);
+      const cv = cvs[cvs.length - 1], b = cv.getBoundingClientRect(), k = (cam._cw || b.width) / b.width;
+      const cx = b.left + ((w.x - cam.left()) * cam.scale) / k, cy = b.top + ((w.y - 30 - cam.top()) * cam.scale) / k;
+      cv.dispatchEvent(new MouseEvent('click', { clientX: cx, clientY: cy, bubbles: true }));
+    });
+    const r1 = await h.R(() => ({ scene: PSXAI.Spiritomb.busy(), dark: PSXAI.Spiritomb.st.dark }));
+    await h.wait(13000);
+    const r2 = await h.R(() => { const b = PSXAI.Spiritomb.st.battle; return b ? { dex: b.e.dex, hp: Math.round(b.e.hp), wisps: PSXAI.Spiritomb.st.wisps.length } : null; });
+    await h.R(() => { const b = PSXAI.Spiritomb.st.battle; if (b) { b.e._psxLast = __PSX_REG__.Game.player; b.e.hp = 0; b.e.die(); } });
+    await h.wait(800);
+    const r3 = await h.R(() => ({ owned: __PSX_REG__.DB.owns(442), won: !!PSXAI.Spiritomb.save.won, battle: !!PSXAI.Spiritomb.st.battle, wantsWell: PSXAI.Spiritomb.wantsWell() }));
+    return { pass: r1.scene && r2 && r2.dex === 442 && r3.owned && r3.won && !r3.battle && !r3.wantsWell, detail: [r0, r1, r2, r3] };
+  });
+
+  await scenario(h, 'dev console: F9 opens it; it unlocks every level and every Pokémon, and spawns what you ask for', async () => {
+    await h.page.keyboard.press('F9');
+    const r = await h.R(() => {
+      const R = __PSX_REG__, D = PSXAI.Dev;
+      const open = D.isOpen();
+      const before = Object.keys(R.DB.save.owned).length;
+      const n0 = R.EnemyMgr.all().length;
+      D.exec('spawn gastly 4');
+      const spawned = R.EnemyMgr.all().length - n0;
+      D.exec('unlock all');
+      const owned = Object.keys(R.DB.save.owned).length;
+      const maps = [1, 2, 3].map((n) => R.Maps.isOpen(n));
+      const bad = (() => { try { D.run('spawn notapokemon'); return false; } catch (e) { return true; } })();
+      D.exec('lock stages');
+      return { open, before, owned, spawned, maps, dev: R.DevMenu.on, bad };
+    });
+    await h.page.keyboard.press('F9');
+    const closed = await h.R(() => !PSXAI.Dev.isOpen());
+    return { pass: r.open && r.spawned === 4 && r.owned > 800 && r.maps.every(Boolean) && r.dev === false && r.bad && closed, detail: r };
+  });
+
+  await h.close();
+
   const pass = results.filter((r) => r.pass).length;
   console.log('\n' + pass + '/' + results.length + ' scenarios passed');
   process.exit(pass === results.length ? 0 : 1);

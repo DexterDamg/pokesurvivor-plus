@@ -1,11 +1,12 @@
 # Item icons (supplied by DexterDamg, kept for later use)
 
 Pixel-art item icons at their native size (`*.png`), with the upscaled originals as supplied in
-`src/` (the `@Nx` suffix is the scale they were sent at). Not used by the game yet.
+`src/` (the `@Nx` suffix is the scale they were sent at). Not used by the game yet, except the Odd
+Keystone (`js/ai/86-spiritomb.js`).
 
 | File | Item | For | Size |
 |---|---|---|---|
-| `odd_keystone.png` | Odd Keystone | Spiritomb: ties in with the old well (`js/ai/86-well.js`) | 9×9 |
+| `odd_keystone.png` | Odd Keystone | Spiritomb: picked up in a Shady Forest clearing, used on the Creepy Well (`js/ai/86-spiritomb.js`) | 9×9 |
 | `dark_stone.png` | Dark Stone (black orb) | Zekrom | 17×17 |
 | `light_stone.png` | Light Stone (white orb) | Reshiram | 17×17 |
 | `griseous_orb.png` | Griseous Orb (yellow crystal) | Giratina | 21×23 |

@@ -52,6 +52,10 @@
     oldWell: true, // an old well sometimes stands in the forest (86-well.js)
     mansionMusic: true, // inside the haunted mansion the game's music gives way to its own theme, Old Chateau (97-music.js)
     forestMusic: true, // the Shady Forest plays Viridian Forest instead of the level's track (bosses, rifts and the Judgment keep theirs; 97-music.js)
+    breakables: true, // your attacks can knock down trees (not the ancient giants) and break bushes, dead saplings, logs and stumps (64-breakables.js)
+    noGacha: true, // no gacha: Pokémon are earned by playing (each one you defeat may join you; 65-catch.js)
+    catchRate: 1, // multiplier on the chance a defeated Pokémon joins you (65-catch.js)
+    spiritomb: true, // the Odd Keystone, the Creepy Well and Spiritomb in the Shady Forest (86-spiritomb.js)
     tropicalOcean: true, // Level 3 is the Tropical Ocean: islands, boats, tides, the guardians (34-ocean.js); off = the original Ash Volcano
     birthIslandChance: 0.35, // the share of worlds in which Birth Island can be found (82-birth.js)
     oceanTide: null, // null = tides follow the clock; a number from -1 (low) to 1 (high) holds the tide there

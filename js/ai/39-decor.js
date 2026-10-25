@@ -13,6 +13,15 @@
   let seed = 1;
   const chunks = new Map(); // "cx,cy" → items
   const dyn = []; // items added while playing (dug burrows, storm-felled trees…)
+  // decor broken by attacks this run (64-breakables.js): gone for good, even when its chunk regrows
+  const gone = new Set();
+  const goneKey = (it) => it.k + ':' + Math.round(it.x) + ',' + Math.round(it.y);
+  function breakItem(it) {
+    gone.add(goneKey(it));
+    it._gone = true; it._solid = null;
+    const i = dyn.indexOf(it);
+    if (i >= 0) dyn.splice(i, 1);
+  }
   let nextId = 1;
   let trail = null;
   let cave = null;
@@ -158,6 +167,7 @@
       if (generating) return NONE;
       generating++;
       try { c = genChunk(cx, cy); } finally { generating--; }
+      if (gone.size) for (const it of c) if (gone.has(goneKey(it))) it._gone = true;
       if (chunks.size > 260) chunks.delete(chunks.keys().next().value);
       chunks.set(key, c);
     }
@@ -337,13 +347,14 @@
     for (let cy = Math.floor(y0 / ch); cy <= Math.floor(y1 / ch); cy++)
       for (let cx = Math.floor(x0 / ch); cx <= Math.floor(x1 / ch); cx++)
       {
-        for (const it of chunk(cx, cy)) if (it.x >= x0 && it.x <= x1 && it.y >= y0 && it.y <= y1) out.push(it);
+        for (const it of chunk(cx, cy)) if (!it._gone && it.x >= x0 && it.x <= x1 && it.y >= y0 && it.y <= y1) out.push(it);
         const fx = fixed.get(cx + ',' + cy);
-        if (fx) for (const it of fx) if (it.x >= x0 && it.x <= x1 && it.y >= y0 && it.y <= y1) out.push(it);
+        if (fx) for (const it of fx) if (!it._gone && it.x >= x0 && it.x <= x1 && it.y >= y0 && it.y <= y1) out.push(it);
       }
     if (trail) {
       const EXT = AI.Mansion ? AI.Mansion.EXT : {};
       for (const it of trail.items) {
+        if (it._gone) continue;
         const e = EXT[it.k];
         if (e ? it.x + e[2] >= x0 && it.x + e[0] <= x1 && it.y + e[3] >= y0 && it.y + e[1] <= y1 : it.x >= x0 && it.x <= x1 && it.y >= y0 && it.y <= y1) out.push(it);
       }
@@ -489,6 +500,7 @@
   }
   function shakeOf(key) { return shake.get(key) || 0; }
   function shakeProp(p) { shake.set('p' + p.tx + ',' + p.ty, 0.5); }
+  function shakeItem(it, k) { shake.set('d' + it.id, k || 0.5); }
   function nibble(it) { nibbled.add(it.id); }
   function isNibbled(it) { return nibbled.has(it.id); }
   function addDyn(o) { const it = item(o); dyn.push(it); if (dyn.length > 60) dyn.shift(); return it; }
@@ -562,7 +574,7 @@
   function reset(s) {
     seed = (s | 0) || ((Math.random() * 1e9) | 0);
     chunks.clear(); dyn.length = 0; fixed.clear(); prints.length = 0; mud.clear(); ripples.length = 0;
-    nibbled.clear(); shake.clear(); visitedPatches.clear();
+    nibbled.clear(); shake.clear(); visitedPatches.clear(); gone.clear();
     nextId = 1;
     trail = null; cave = null;
     built = false;
@@ -579,7 +591,7 @@
 
   AI.define('Decor', {
     reset, ensure, tick, chunk, inRect, near, lights, trailZone, footprint, mudAt, trample, puddleAmt, puddlesIn, puddleAt,
-    ripple, ripples, prints, printAt, rustle, shakeOf, shakeProp, nibble, isNibbled, addDyn, addFixed, removeDyn, flame, checkPatch,
+    ripple, ripples, prints, printAt, rustle, shakeOf, shakeProp, shakeItem, breakItem, nibble, isNibbled, addDyn, addFixed, removeDyn, flame, checkPatch,
     ghostly, flameColor, mansionGeom, mansionBox, setTrail, hasChunk, invalidate, solidOf, solidsIn, collide, blocked, get trail() { return trail; }, get cave() { return cave; }, get seed() { return seed; },
   });
 })();

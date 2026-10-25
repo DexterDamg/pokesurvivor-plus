@@ -105,9 +105,11 @@
       if (prop.type === 'tree') {
         const s = prop._psxScale || 1;
         const tall = h * s > 130 ? 0.45 : 1;
-        const sway = swayAt(prop.x, 0.05 * tall) + Math.sin(AI.time * 0.9 + prop.wiggle) * 0.006;
+        const hitK = AI.Decor ? AI.Decor.shakeOf('p' + prop.tx + ',' + prop.ty) : 0; // (struck by an attack: 64-breakables.js)
+        const sway = swayAt(prop.x, 0.05 * tall) + Math.sin(AI.time * 0.9 + prop.wiggle) * 0.006 + (hitK ? Math.sin(AI.time * 46) * hitK * 0.09 : 0);
         const fade = behindCanopy(prop.x, prop.y, w * s, h * s);
         AI.Art.draw(ctx, name, prop.x, prop.y + 2, { flip, sway, scale: s, alpha: fade ? 0.5 : null });
+        if (prop.flash > 0) { ctx.save(); ctx.globalAlpha = Math.min(1, prop.flash * 5) * 0.45; ctx.globalCompositeOperation = 'lighter'; AI.Art.draw(ctx, name, prop.x, prop.y + 2, { flip, sway, scale: s }); ctx.restore(); }
         // ferns and saplings crowd around the roots of big old trees
         if (prop._psxStage === 'large' || prop._psxStage === 'ancient') {
           const n = prop._psxStage === 'ancient' ? 3 : 2;
