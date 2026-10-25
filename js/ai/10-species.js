@@ -297,7 +297,6 @@
     },
     // rough battle power used for intimidation & threat assessment
     power(e) {
-      if (e.psxCompanion) return AI.playerPower(e) * 0.85; // (a Pseudo Player is as strong as a player of its level)
       const p = profile(e.dex);
       let pw = p.bst;
       if (e.boss || e.legend) pw *= 1.8;

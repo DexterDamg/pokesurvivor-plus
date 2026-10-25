@@ -4,14 +4,13 @@
  *   a lost Pokémon   crying under a tree; calm it and its parent comes for it (and thanks you), or walk on
  *   strange tracks   a trail of large prints that leads somewhere, then stops at something buried
  *   lights           at night, lights drifting between the trees: Volbeat, or giggling candle flames
- *   a sudden silence the birds and insects stop; the party grows uneasy; something passes, or doesn't
+ *   a sudden silence the birds and insects stop; something passes, or doesn't
  *   a fallen tree    it comes down across the way; go around, or a Fire-type burns it clear
  *   distant voices   a call for help from nowhere, from the direction of the old house
  *   a campsite       other explorers were here; their fire still smoulders; they left supplies, and a note
  * And the forest keeps its history where you can find it: stone markers, symbols cut into bark,
  * broken signposts, overgrown statues, letters. Stand by one for a moment to read it. The fragments
  * tie the forest to the mansion; some only make sense once you've been inside.
- * The companions notice, talk about it, and remember how you handled it.
  */
 (function () {
   'use strict';
@@ -22,7 +21,6 @@
   const st = { t: 70, loreT: 45, done: {}, last: null, cur: null, props: [], read: new Set(), card: null, silentUntil: 0, lights: [] };
   function on() { return AI.enabled && AI.cfg.forestEvents !== false && AI.Forest && AI.Forest.on() && !(AI.Mansion && AI.Mansion.inside) && !(AI.Totem && AI.Totem.active()); }
   function lead() { return AI.R.Game.player; }
-  function C() { return AI.Companions; }
   function lang() { return AI.lang ? AI.lang() : 'en'; }
 
   // somewhere ahead of you (where you're heading), out of sight, on open dry ground
@@ -45,7 +43,6 @@
     st.done[id] = (st.done[id] || 0) + 1;
     AI.Bus.emit({ type: 'forest-event', what: 'done', id: id + ':' + st.done[id], u, toast, x: lead().x, y: lead().y, loud: 0 });
   }
-  function talk(ctx, vars) { if (C()) C().convo(ctx, vars); }
 
   // ---------------------------------------------------------------- the events
   const EVENTS = {
@@ -70,7 +67,7 @@
         const d = Math.hypot(p.x - kid.x, p.y - kid.y);
         if (ev.phase === 'cry') {
           if (Math.random() < dt * 0.4) { M().say(kid.psx, 'tear', 1.6, 2); if (AI.Ambience) AI.Ambience.myst('call', kid.x, kid.y); }
-          if (!ev.heard && d < 900) { ev.heard = true; talk('lost'); if (AI.Lore) AI.Lore.say(kid, lang() === 'es' ? '¿Mamá…?' : 'Mama…? Where are you…?', 4); }
+          if (!ev.heard && d < 900) { ev.heard = true; if (AI.Lore) AI.Lore.say(kid, lang() === 'es' ? '¿Mamá…?' : 'Mama…? Where are you…?', 4); }
           if (d < 70) ev.calm += dt; else ev.calm = Math.max(0, ev.calm - dt * 0.5);
           if (ev.calm > 1.5) {
             ev.phase = 'calm'; ev.t = 0;
@@ -85,7 +82,7 @@
             void R;
           }
           // you walked on
-          if (ev.heard && d > 1100) { ev.phase = 'gone'; mem('ignored'); setTimeout(() => talk('ignoredLost'), 1200); return false; }
+          if (ev.heard && d > 1100) { ev.phase = 'gone'; return false; }
           return ev.t < 240;
         }
         if (ev.phase === 'calm') {
@@ -97,9 +94,7 @@
             M().say(kid.psx, 'love', 2.5, 3); M().say(par.psx, 'love', 2.5, 3);
             if (AI.Lore) AI.Lore.say(par, lang() === 'es' ? '¡Gracias! Toma, para tu viaje.' : 'Thank you! Please, take this for your journey.', 4);
             gift(par.x, par.y, 'family');
-            mem('helped');
             done('lost', 4, '💛 You helped a lost Pokémon find its family');
-            setTimeout(() => talk('helpedLost'), 1600);
           }
           if (ev.reunited && ev.t > 5) { finish(ev); return false; }
           return ev.t < 60;
@@ -149,7 +144,7 @@
         const ls = [];
         for (let i = 0; i < 5; i++) ls.push({ x: at[0] + U.rand(-90, 90), y: at[1] + U.rand(-60, 60), z: U.rand(14, 40), ph: Math.random() * 6.28, a: 0 });
         st.lights = ls;
-        return { id: 'lights', x: at[0], y: at[1], ghost, ls, t: 0, said: false };
+        return { id: 'lights', x: at[0], y: at[1], ghost, ls, t: 0 };
       },
       tick(ev, dt) {
         ev.t += dt;
@@ -164,7 +159,6 @@
           l.a = l.gone ? Math.max(0, l.a - dt * 1.5) : Math.min(1, l.a + dt * 0.6);
           if (l.a > 0.02) alive++;
         }
-        if (!ev.said && near(ev.x, ev.y, 600)) { ev.said = true; talk('lights'); }
         if (ev.ls.some((l) => l.gone) && !ev.revealed) {
           ev.revealed = true;
           if (ev.ghost) { if (AI.Ambience) AI.Ambience.mansion('laugh', ev.x, ev.y); }
@@ -180,7 +174,6 @@
       max: 2, ok: () => true,
       start() {
         st.silentUntil = AI.time + 18;
-        setTimeout(() => talk('silence'), 2500);
         return { id: 'silence', t: 0, x: lead().x, y: lead().y };
       },
       tick(ev, dt) {
@@ -204,23 +197,16 @@
         if (!at) return null;
         if (AI.Ambience) { AI.Ambience.creak && AI.Ambience.creak(at[0], at[1]); setTimeout(() => { try { AI.Ambience.branch && AI.Ambience.branch(at[0], at[1]); AI.R.Camera.kick(0.5); } catch (e) { /* ignore */ } }, 900); }
         const log = AI.Decor.addDyn({ k: 'log', n: 'log_fallen', x: at[0], y: at[1], s: 1.8, r: 40, felled: true, evt: 'fallen' });
-        setTimeout(() => talk('fallen'), 1400);
         void p;
         return { id: 'fallen', x: at[0], y: at[1], log, t: 0, burn: 0 };
       },
       tick(ev, dt) {
         ev.t += dt;
-        // a Fire-type standing by it can burn it clear (you, or a companion)
+        // a Fire-type player standing by it can burn it clear
         const fire = [...AI.players].find((q) => !q.dead && ((AI.R.DEX_BY[q.dex] || {}).types || []).includes('fire') && Math.hypot(q.x - ev.x, q.y - ev.y) < 80);
         if (fire) {
           ev.burn += dt;
           if (Math.random() < dt * 8) try { AI.R.FX.burst(ev.x + U.rand(-30, 30), ev.y - 8, '#ff9a3a', 3, 60); } catch (e) { /* ignore */ }
-          if (fire.pp && !ev.saidBurn) { ev.saidBurn = true; C().say(fire, 'burnLog', null, true); }
-        }
-        // a fire-type companion offers to help if you're standing at it
-        if (!fire && near(ev.x, ev.y, 140) && C()) {
-          const f = C().alive().find((q) => ((AI.R.DEX_BY[q.dex] || {}).types || []).includes('fire'));
-          if (f && !f.pp.notice) f.pp.notice = { id: 'burn', x: ev.x, y: ev.y - 26, kind: 'burn', t: 0, by: f };
         }
         if (ev.burn > 3) {
           try { AI.R.FX.burst(ev.x, ev.y - 10, '#ffb04a', 30, 160); AI.Decor.addDyn({ k: 'scorch', n: 'x_scorch', x: ev.x, y: ev.y, flat: true }); } catch (e) { /* ignore */ }
@@ -248,7 +234,6 @@
           ev.n++;
           if (AI.Ambience) AI.Ambience.mansion('whisper', ev.x, ev.y);
           st.card = { text: ['…help…', '…is someone… there…?', '…we\'re still… here…', '…don\'t… leave…'][ev.n - 1], t: 0, life: 3.5, faint: true };
-          if (ev.n === 2) talk('voices');
         }
         // walk toward it and it stops, as if it was never there
         const went = (p.x - ev.from[0]) * Math.cos(ev.a) + (p.y - ev.from[1]) * Math.sin(ev.a);
@@ -269,15 +254,14 @@
           D.addDyn({ k: 'stone', n: 'barrel', x: at[0] + 42, y: at[1] - 6, r: 8, evt: 'camp' }),
           D.addDyn({ k: 'litter', n: 'haunt_plaque_a', x: at[0] - 36, y: at[1] + 6, flat: true, evt: 'camp' }),
         ];
-        return { id: 'campsite', x: at[0], y: at[1], items, t: 0, look: 0, said: false };
+        return { id: 'campsite', x: at[0], y: at[1], items, t: 0, look: 0 };
       },
       tick(ev, dt) {
         ev.t += dt;
-        if (!ev.said && near(ev.x, ev.y, 260)) { ev.said = true; talk('campsite'); }
         if (near(ev.x, ev.y, 70)) ev.look += dt; else ev.look = Math.max(0, ev.look - dt * 0.5);
         if (ev.look > 1.5) {
           gift(ev.x, ev.y, 'camp');
-          readLore('camp', true);
+          readLore('camp');
           done('campsite', 3, '⛺ Supplies left at an old campsite');
           return false;
         }
@@ -302,7 +286,6 @@
   function finish(ev) {
     for (const m of [ev.kid, ev.parent]) if (m && !m.dead) { m.psx.lock = { t: 0, update(e, s, dt, it) { this.t += dt; it.x = e.x + 200; it.y = e.y + 80; it.speed = 0.7; if (this.t > 3) { e.dead = true; e.hp = 0; } return true; } }; }
   }
-  function mem(what) { const cm = C() && C().mem; if (!cm) return; if (what === 'helped') { cm.helped++; for (const c of C().alive()) C().bump(c.pp.key, 'P', { trust: 0.06 + ((c.psx.pers.nx && c.psx.pers.nx.compassion) || 0.5) * 0.06, resp: 0.04 }); } if (what === 'ignored') { cm.ignored++; for (const c of C().alive()) { const k = (c.psx.pers.nx && c.psx.pers.nx.compassion) || 0.5; if (k > 0.55) C().bump(c.pp.key, 'P', { trust: -0.05 * k }); } } }
   // what they leave you: oil for the lantern, a berry, coins
   function gift(x, y, kind) {
     const R = AI.R;
@@ -364,13 +347,12 @@
       if (d > 2600) { if (q.it) AI.Decor.removeDyn(q.it); st.props.splice(i, 1); }
     }
   }
-  function readLore(id, quiet) {
+  function readLore(id) {
     const l = LORE.find((q) => q.id === id);
     if (!l || st.read.has(id)) return;
     st.read.add(id);
     st.card = { text: l[lang()] || l.en, t: 0, life: Math.max(5, l.en.length * 0.055) };
     AI.Bus.emit({ type: 'lore', what: 'read', id, x: lead().x, y: lead().y, loud: 0 });
-    if (!quiet) setTimeout(() => talk(l.kind === 'carve' || l.kind === 'marker' ? 'marker' : l.kind === 'sign' ? 'crumb_sign' : l.kind), 1500);
   }
 
   // ---------------------------------------------------------------- scheduling

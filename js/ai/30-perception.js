@@ -15,8 +15,6 @@
     out.length = 0;
     if (R.Game.player) out.push(R.Game.player);
     if (R.Coop && R.Coop.active && R.Coop.puppets) for (const p of R.Coop.puppets()) out.push(p);
-    // the Pseudo Players are part of the party too (83-party.js)
-    if (AI.Companions) for (const c of AI.Companions.list()) if (!c.dead && !c.pp.leaving) out.push(c);
   };
   AI.isPlayer = (ent) => !!ent && AI.players.includes(ent);
   AI.keyOf = (ent) => (!ent ? null : AI.isPlayer(ent) ? 'P' : ent.psx || ent instanceof AI.R.Enemy ? ent.id : null);
@@ -84,8 +82,7 @@
     if (c.near.length > 10) c.near.length = 10;
     s.alone = c.near.length === 0;
 
-    // (a companion's "player" is the one it travels with)
-    const p = e.psxCompanion ? AI.R.Game.player : AI.nearestPlayer(e.x, e.y, e);
+    const p = AI.nearestPlayer(e.x, e.y, e);
     c.player = p;
     c.pd = p ? Math.hypot(p.x - e.x, p.y - e.y) : Infinity;
     let seen = false;

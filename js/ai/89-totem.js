@@ -74,7 +74,7 @@
     if (!t || !t.inside) return false;
     return x > t.o[0] - 300 && y > t.o[1] - 300 && x < t.o[0] + GW * TILE + 300 && y < t.o[1] + GH * TILE + 300;
   }
-  function passesWalls(ent) { return ent && ent !== player() && !ent.pp && (ent.types || []).includes('ghost'); }
+  function passesWalls(ent) { return ent && ent !== player() && (ent.types || []).includes('ghost'); }
   function collide(ent) {
     if (passesWalls(ent)) return false;
     const r = ent.r || 12;

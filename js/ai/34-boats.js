@@ -7,7 +7,7 @@
  * It runs aground on coasts, rocks, reefs and wrecks (it never passes through anything). To step
  * off, sail up to a beach, the shallows or the pier and keep pushing toward them: you step onto
  * the land (never into deep water) and the boat stays where you left it, so it's always there to
- * take you back. Companions who can't swim ride with you; the ones who can swim alongside.
+ * take you back.
  */
 (function () {
   'use strict';
@@ -59,35 +59,21 @@
 
   // ---------------------------------------------------------------- aboard?
   function boatOf(ent) { return (ent && ent.psxBoat) || null; }
-  // something a boat carries (its rider and passengers): the world doesn't push it around
+  // something a boat carries (its rider): the world doesn't push it around
   function riding(ent) { return !!(ent && ent.psxBoat && on()); }
   function board(b, p) {
     b.rider = p;
     p.psxBoat = b;
-    p.psxSeat = 0;
     st.exitT = 0;
     b.moored = false;
-    // companions who can't swim come along
-    try {
-      let seat = 1;
-      for (const c of AI.Companions.list()) {
-        if (!c || c.dead || c.down) continue;
-        if (O().locomotion(c.dex) !== 'walk') continue;
-        if (Math.hypot(c.x - p.x, c.y - p.y) > 700) continue;
-        c.psxBoat = b; c.psxSeat = seat++;
-        if (seat > 3) break;
-      }
-    } catch (e) { /* ignore */ }
     try { AI.R.Audio.sfx('click'); } catch (e) { /* ignore */ }
     AI.Bus.emit({ type: 'boat', what: 'board', x: b.x, y: b.y, loud: 60, boat: b.id });
     if (!st.hinted.steer) { st.hinted.steer = true; st.hint = 5; st.hintText = AI.lang && AI.lang() === 'es' ? 'Navega con WASD · acércate a una playa o a la orilla y sigue empujando para bajar' : 'Steer with WASD · sail into a beach or the shallows and keep pushing to step off'; }
   }
-  function seatPos(b, seat) {
+  // the rider stands at the helm, toward the stern
+  function helmPos(b) {
     const c = Math.cos(b.ang), s = Math.sin(b.ang);
-    // the rider at the helm (toward the stern), passengers forward
-    const k = seat === 0 ? -24 : seat === 1 ? 10 : seat === 2 ? 36 : -48;
-    const side = seat === 1 ? -5 : seat === 2 ? 6 : seat === 3 ? 4 : 0;
-    return [b.x + c * k - s * side, b.y + s * k * 0.7 + c * side * 0.5 - 4];
+    return [b.x - c * 24, b.y - s * 24 * 0.7 - 4];
   }
   function leave(b, at) {
     const p = b.rider;
@@ -97,16 +83,6 @@
     if (p._psxOk) { p._psxOk[0] = p.x; p._psxOk[1] = p.y; }
     b.rider = null; b.vx = b.vy = 0; b.moored = true;
     st.cool = 1.2;
-    // the passengers step off near you
-    try {
-      for (const c of AI.Companions.list()) {
-        if (c.psxBoat !== b) continue;
-        c.psxBoat = null;
-        const q = O().fitNear('walk', at[0] + U.rand(-30, 30), at[1] + U.rand(-20, 20), 200, c) || at;
-        c.x = q[0]; c.y = q[1];
-        if (c._psxOk) { c._psxOk[0] = c.x; c._psxOk[1] = c.y; }
-      }
-    } catch (e) { /* ignore */ }
     AI.Bus.emit({ type: 'boat', what: 'leave', x: at[0], y: at[1], loud: 60, boat: b.id });
   }
   // a spot on land or in the shallows next to the boat, in the direction you're pushing
@@ -205,7 +181,7 @@
   // ---------------------------------------------------------------- per frame
   function tick(dt) {
     // (a rift, the Judgment: the boat lets go of you; you'll be put back aboard when you're back)
-    if (!on()) { if (boats.length && !O().on()) { for (const b of boats) if (b.rider) { b.rider.psxBoat = null; b.rider = null; } try { for (const c of AI.Companions.list()) c.psxBoat = null; } catch (e) { /* ignore */ } } return; }
+    if (!on()) { if (boats.length && !O().on()) { for (const b of boats) if (b.rider) { b.rider.psxBoat = null; b.rider = null; } } return; }
     build();
     const p = player();
     st.cool = Math.max(0, st.cool - dt);
@@ -254,30 +230,17 @@
       return;
     }
   }
-  // after the player has moved (it doesn't, while aboard): sail, and seat everyone
+  // after the player has moved (it doesn't, while aboard): sail, and keep the rider at the helm
   function afterPlayer(p, dt) {
     const b = boatOf(p);
     if (!b || !on()) return;
     sail(b, dt);
     if (!p.psxBoat) return; // (stepped off)
-    const q = seatPos(b, 0);
+    const q = helmPos(b);
     p.x = q[0]; p.y = q[1];
     if (Math.hypot(st.input[0], st.input[1]) > 0.1) p.moveAngle = Math.atan2(st.input[1], st.input[0]);
     p._vx = b.vx; p._vy = b.vy; // (others predict where you're going from this)
     if (p._psxOk) { p._psxOk[0] = p.x; p._psxOk[1] = p.y; }
-  }
-  // after the companions' own update: they sit where they sit
-  function late() {
-    if (!on()) return;
-    try {
-      for (const c of AI.Companions.list()) {
-        const b = c.psxBoat;
-        if (!b) continue;
-        if (!b.rider || c.dead) { c.psxBoat = null; continue; }
-        const q = seatPos(b, c.psxSeat || 1);
-        c.x = q[0]; c.y = q[1];
-      }
-    } catch (e) { /* ignore */ }
   }
 
   // ---------------------------------------------------------------- drawing
@@ -389,5 +352,5 @@
     boats.length = 0; built = false; st.wakes.length = 0; st.exitT = 0; st.cool = 0; st.hint = 0; st.hinted = {};
   }
 
-  AI.define('Boats', { boats, st, riding, boatOf, board, leave, landing, fits, tick, afterPlayer, late, addProps, drawWakes, drawScreen, lights, install, reset, build, HL, HW });
+  AI.define('Boats', { boats, st, riding, boatOf, board, leave, landing, fits, tick, afterPlayer, addProps, drawWakes, drawScreen, lights, install, reset, build, HL, HW });
 })();

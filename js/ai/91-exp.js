@@ -1,14 +1,13 @@
 /* PokéSurvivor+ — Living World AI · EXP for more than fighting
- * Discovery, travel, curiosity, kindness and teamwork level you up too, next to (not instead of)
- * battles. Rewards are measured in "a wild Pokémon's worth" (about what one common battle gives at
- * your level), so they stay in proportion as you grow:
+ * Discovery, travel, curiosity and kindness level you up too, next to (not instead of) battles.
+ * Rewards are measured in "a wild Pokémon's worth" (about what one common battle gives at your
+ * level), so they stay in proportion as you grow:
  *   exploring  new ground reached on foot (never twice, never standing still, never by running in
  *              circles), distance milestones, each kind of place the first time (a clearing, an
  *              ancient grove, the wetwood, the deep forest, the lake shore), special places, the
  *              mansion's route and its door
  *   treasure   chests by rarity, more for a hidden one off the beaten path; each chest pays once
  *   Pokémon    befriending a wild Pokémon, sparing a beaten one, watching wildlife go about its life
- *   teamwork   helping a fallen companion up, saving a hurt one, the companions' own rescues
  *   the world  clues, confirmed mysteries, the old lanterns and fences on the way, forest events
  * A rolling limit keeps it from being farmed: past it, rewards shrink to a quarter.
  */
@@ -134,9 +133,6 @@
         break;
       case 'mercy':
         give(0.6, 'mercy', { kind: 'mercy', max: 6, cd: 20 });
-        break;
-      case 'party-support':
-        give(ev.byYou ? 2 : 0.6, 'teamwork', { kind: ev.byYou ? 'support-you' : 'support', cd: ev.byYou ? 8 : 20 });
         break;
       case 'forest-event':
         if (ev.what === 'done') give(ev.u || 3, 'forest event', { key: 'ev:' + ev.id, toast: ev.toast });

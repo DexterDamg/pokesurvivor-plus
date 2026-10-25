@@ -297,7 +297,6 @@
       sparks(p, out);
     }
     if (R.Coop && R.Coop.active) try { for (const q of R.Coop.puppets()) if (q && !q.dead) bodyLight(q, out); } catch (e) { /* ignore */ }
-    if (AI.Companions) try { for (const c of AI.Companions.list()) if (!c.dead) { bodyLight(c, out); sparks(c, out); } } catch (e) { /* ignore */ }
     for (const e of R.EnemyMgr.queryCircle(cam.x, cam.y, Math.max(cam.w, cam.h) * 0.75)) {
       if (e.dead) continue;
       bodyLight(e, out);

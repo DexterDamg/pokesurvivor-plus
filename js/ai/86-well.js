@@ -62,7 +62,6 @@
       st.found = true;
       if (AI.Exp) AI.Exp.give(2.5, 'the old well', { key: 'well' });
       AI.Bus.emit({ type: 'well', what: 'found', x: w.x, y: w.y, loud: 0 });
-      if (AI.Companions) try { AI.Companions.convo('well'); } catch (e) { /* ignore */ }
     }
     // the cold, and the sounds from below
     const night = AI.Sky && AI.Sky.darkness() > 0.6;
