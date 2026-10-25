@@ -21,7 +21,7 @@
       beasts: [], startedAt: 0, restartAt: 0, overlay: null, musicRate: 1,
     };
     const forest = () => !!(AI.Forest && AI.Forest.on() && R.World && R.World.biome === 0);
-    const stage = () => CUTS.findIndex((n) => st.value < n) + 1;
+    const stage = () => { const i = CUTS.findIndex((n) => st.value < n); return i < 0 ? CUTS.length : i + 1; };
     const maxed = () => st.value >= MAX;
 
     function save() {
@@ -174,6 +174,12 @@
           }, anchor[0] + (i - 1) * 96, anchor[1] - 130 + Math.abs(i - 1) * 22, { hp: 1, spd: 1, dmg: 1 }, true);
           enemy.psxStory = true; enemy.psxPlaced = true; enemy.psxForceTemp = 'aggressive'; enemy.legend = true; enemy.psxKarmaJudgment = true;
           R.EnemyMgr.add(enemy);
+          const originalHurt = enemy.hurt;
+          if (typeof originalHurt === 'function') enemy.hurt = function () {
+            const out = originalHurt.apply(this, arguments);
+            if (this.dead || this.hp <= 0) { this.dead = false; this.hp = Math.max(1, this.maxHp); }
+            return out;
+          };
           st.beasts.push(enemy);
         } catch (e) { AI.warn('karma-beasts', e); }
       }
@@ -188,6 +194,8 @@
 
     function endRun() {
       st.phase = 'restart'; st.restartAt = Date.now() + 6500;
+      const p = R.Game.player;
+      if (p) { p.hp = 0; p.dead = true; }
       for (const e of st.beasts) if (e) { e.dead = true; e.hp = 0; }
       const over = document.getElementById('scr-over');
       const title = document.getElementById('over-title');
@@ -224,6 +232,6 @@
       return oldEnemyUpdate.apply(this, arguments);
     };
 
-    AI.Karma = { get stage() { return stage(); }, get hiddenValue() { return st.value; }, reset };
+    AI.Karma = { reset };
   }
 })();
