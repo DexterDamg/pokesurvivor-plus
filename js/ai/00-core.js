@@ -50,7 +50,8 @@
     exploreExp: true, // EXP for exploring, treasure and kindness too (91-exp.js)
     legendTrio: true, // Raikou, Suicune and Entei can be earned in the Shady Forest (82-trio.js)
     oldWell: true, // an old well sometimes stands in the forest (86-well.js)
-    mansionMusic: true, // inside the haunted mansion the game's music gives way to its own theme (87-mansion.js)
+    mansionMusic: true, // inside the haunted mansion the game's music gives way to its own theme, Old Chateau (97-music.js)
+    forestMusic: true, // the Shady Forest plays Viridian Forest instead of the level's track (bosses, rifts and the Judgment keep theirs; 97-music.js)
     tropicalOcean: true, // Level 3 is the Tropical Ocean: islands, boats, tides, the guardians (34-ocean.js); off = the original Ash Volcano
     birthIslandChance: 0.35, // the share of worlds in which Birth Island can be found (82-birth.js)
     oceanTide: null, // null = tides follow the clock; a number from -1 (low) to 1 (high) holds the tide there

@@ -52,7 +52,6 @@
   }
 
   // ---------------------------------------------------------------- exploring on foot
-  const KIND_NAME = { clear: 'a sunlit clearing', grove: 'an ancient grove', wet: 'the wetwood', deep: 'the deep forest', lake: 'the lake shore' };
   function tick(dt) {
     if (!on()) return;
     const R = AI.R, p = player();
@@ -72,7 +71,7 @@
       if (st.cells.size > 1) {
         st.newGround += CELL;
         if (st.cellT <= 0) { st.cellT = 2.5; give(0.12, 'new ground'); }
-        if (st.newGround >= st.nextMile) { give(1.5, 'distance', { toast: '🧭 ' + Math.round(st.nextMile / 100) / 10 + ' km of new ground explored' }); st.nextMile += 3000 + st.nextMile * 0.5; }
+        if (st.newGround >= st.nextMile) { give(1.5, 'distance'); st.nextMile += 3000 + st.nextMile * 0.5; }
       }
     }
     // a new kind of place, the first time
@@ -82,9 +81,9 @@
         st.kindT = 0.8;
         const r = AI.Forest.region(p.x, p.y);
         const k = r.clear > 0.7 ? 'clear' : r.grove > 0.75 ? 'grove' : r.wet > 0.75 ? 'wet' : r.deep > 0.8 ? 'deep' : null;
-        if (k && !st.kinds.has(k)) { st.kinds.add(k); give(2, 'new place', { toast: '🌲 Discovered ' + KIND_NAME[k] }); }
+        if (k && !st.kinds.has(k)) { st.kinds.add(k); give(2, 'new place'); }
         const w = AI.Forest.water(p.x, p.y + 40);
-        if (w.kind === 'lake' && w.e > -30 && !st.kinds.has('lake')) { st.kinds.add('lake'); give(2, 'new place', { toast: '🌊 Discovered ' + KIND_NAME.lake }); }
+        if (w.kind === 'lake' && w.e > -30 && !st.kinds.has('lake')) { st.kinds.add('lake'); give(2, 'new place'); }
         if (r.site && r.siteK > 0.5 && !st.places.has(r.site)) { st.places.add(r.site); give(3, 'special place', { key: 'site:' + r.site }); }
       }
     }

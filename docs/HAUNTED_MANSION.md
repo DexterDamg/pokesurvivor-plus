@@ -84,7 +84,8 @@ floorboards, cobwebs, and one teddy bear sitting alone in the middle of the floo
   floor after a quick fade.
 - **Music.** Inside, the game's own music stops and the house's theme plays: *Old Chateau* from
   Pokémon Diamond and Pearl (`assets/music/old-chateau.mp3`). It loops at your music volume, fades
-  in as you step through the door and out as you leave. Turn it off with `mansionMusic`.
+  in as you step through the door and out as you leave. Turn it off with `mansionMusic`
+  (`97-music.js`).
 
 - **No wild Pokémon, ever.** While you're inside, the Pokémon outside are set aside (the
   game's own stash, as rifts use) and come back when you leave. Nothing spawns indoors, and
@@ -200,7 +201,10 @@ Story text is written in English and Spanish; French and Chinese fall back to En
 
 The Shady Forest ends at the mansion, so its level banner shows the mansion at dusk (a shot from
 the game itself, `assets/ui/zone-1-mansion.webp`) and its status line reads **Mansion not explored
-yet** until you've seen the story through, then **Mansion explored**, instead of Arceus.
+yet** until you've seen the story through, then **Mansion explored**, instead of Arceus. The banner
+pans slowly down from the house, past the fountain, to the gates and back, with candlelight moving
+behind the windows and a distant flash of lightning. Level 2 and Area Zero, which open once Level 1
+is done, say **Complete Level 1 to unlock it**.
 
 ## Settings
 

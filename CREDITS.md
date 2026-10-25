@@ -220,7 +220,11 @@ bosque encantado del "entorno vivo" (`assets/env/atlas.png`) salen de estas hoja
   escalones y las escaleras interiores se pintan en el propio juego (`js/ai/87-mansion.js`).
 - **Música del interior**: *Old Chateau* (Viejo Château) de *Pokémon Diamante y Perla*
   (Nintendo / Creatures Inc. / GAME FREAK), `assets/music/old-chateau.mp3`, aportada por
-  DexterDamg. Es el único archivo de audio del juego que no es original del proyecto.
+  DexterDamg.
+- **Música del Bosque Umbrío**: *Viridian Forest* (Bosque Verde) de *Pokémon Rojo Fuego y Verde
+  Hoja* (Nintendo / Creatures Inc. / GAME FREAK), `assets/music/viridian-forest.mp3`, aportada por
+  DexterDamg. Junto con la de la mansión, son los únicos archivos de audio del juego que no son
+  originales del proyecto.
 - El fondo del Nivel 1 en el menú (`assets/ui/zone-1-mansion*.webp`) son capturas del propio juego.
 
 ## Océano Tropical (Nivel 3)
@@ -252,7 +256,7 @@ algunas bayas por **DarkusShadow**.
 
 Los sonidos de ambiente (pájaros, grillos, lluvia, viento, truenos, caja de
 música…) se sintetizan en el propio juego; no usan archivos de audio (la música
-de la mansión es la excepción, ver arriba).
+del Bosque Umbrío y la de la mansión son la excepción, ver arriba).
 
 ## Fuente
 

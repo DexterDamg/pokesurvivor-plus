@@ -832,36 +832,6 @@
     return true;
   }
 
-  // ---------------------------------------------------------------- music: the house has its own theme
-  /* Inside, the game's music stops and the Old Chateau theme plays (assets/music/old-chateau.mp3),
-   * looped, at your music volume, fading in as you step through the door and out as you leave. */
-  function music(dt) {
-    const R = AI.R, A = R && R.Audio;
-    if (!A) return;
-    if (!st.musicHooked && typeof A.music === 'function') {
-      st.musicHooked = true;
-      const oMusic = A.music;
-      A.music = function (name) { st.gameTrack = name; return oMusic.call(this, wants() ? null : name); };
-      st.gameMusic = oMusic;
-    }
-    const want = wants();
-    if (want !== st.musicOn) {
-      st.musicOn = want;
-      try { st.gameMusic.call(A, want ? null : st.gameTrack); } catch (e) { /* ignore */ }
-    }
-    const set = A.settings || {};
-    const target = want && !set.muted ? (set.music == null ? 0.55 : set.music) * 0.9 : 0;
-    if (!st.song && target > 0) { try { st.song = new Audio('assets/music/old-chateau.mp3'); st.song.loop = true; st.song.volume = 0; } catch (e) { return; } }
-    const el = st.song;
-    if (!el) return;
-    el.volume = U.clamp(el.volume + U.clamp(target - el.volume, -dt * 0.6, dt * 0.4), 0, 1);
-    if (target > 0 && el.paused) { const pr = el.play(); if (pr && pr.catch) pr.catch(() => { /* not allowed yet: try again later */ }); }
-    if (target === 0 && el.volume <= 0.001 && !el.paused) el.pause();
-  }
-  function wants() { return st.inside && AI.enabled && AI.cfg.mansionMusic !== false; }
-  // (the menus don't tick the house: once you're out of it, the theme still fades away)
-  setInterval(() => { if (st.song && !st.song.paused && !wants()) try { music(0.5); } catch (e) { /* ignore */ } }, 500);
-
   // which floor you're on (0 ground floor, 1 upstairs, 2 the attic)
   function floor() { const it = st.built, p = AI.R && AI.R.Game.player; return it && p && st.inside ? floorOfRow(Math.floor((p.y - it.oy) / TS)) : 0; }
   function goFloor(fl, dir) {
@@ -888,7 +858,6 @@
       st.fade = st.fadeTo > st.fade ? Math.min(st.fadeTo, st.fade + s) : Math.max(st.fadeTo, st.fade - s);
     }
     if (st.fade === st.fadeTo && st.fadeCb) { const cb = st.fadeCb; st.fadeCb = null; try { cb(); } catch (e) { AI.warn('mansion-fade', e); } }
-    try { music(dt); } catch (e) { AI.warn('mansion-music', e); }
     if (!on()) { if (st.inside) exit(); return; }
     const R = AI.R;
     const p = R.Game.player;
@@ -941,7 +910,6 @@
   }
 
   function reset() {
-    if (st.song && !st.song.paused) { st.song.volume = 0; st.song.pause(); }
     if (st.inside) { st.inside = false; if (st.stashed) try { AI.R.EnemyMgr.restore(); } catch (e) { /* ignore */ } st.stashed = false; }
     st.built = null; st.cache = null; st.fade = 0; st.fadeTo = 0; st.fadeCb = null; st.transit = false; st.dim = 1;
   }
