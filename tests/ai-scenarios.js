@@ -3079,6 +3079,23 @@ async function sample(h, ms, every, fn, arg) {
     return { pass: r1.scene && r2 && r2.dex === 442 && r3.owned && r3.won && !r3.battle && !r3.wantsWell, detail: [r0, r1, r2, r3] };
   });
 
+  await scenario(h, 'dev console: the hidden KARMA can be shown, maxed (the forest empties) and cleared', async () => {
+    const r = await h.R(() => {
+      const D = PSXAI.Dev, R = __PSX_REG__, K = PSXAI.Karma;
+      if (!K || !K.set) return { loaded: false };
+      if (!PSXAI.Forest.on()) return { forest: false };
+      PSXAI.Debug.freeze(false);
+      for (let i = 0; i < 4; i++) PSXAI.Debug.spawn(16, { dx: 200 + i * 30, temp: 'timid' });
+      const show = D.run('karma'), n0 = R.EnemyMgr.all().filter((e) => !e.dead).length;
+      D.run('karma max');
+      const maxed = K.maxed, n1 = R.EnemyMgr.all().filter((e) => !e.dead && !e.boss).length;
+      D.run('karma 5'); const five = K.value, stage = K.stage;
+      D.run('karma clear');
+      return { loaded: true, show, n0, maxed, n1, five, stage, cleared: K.value, phase: K.phase };
+    });
+    return { pass: r.loaded && /KARMA 0 \/ 25/.test(r.show) && r.n0 >= 4 && r.maxed && r.n1 === 0 && r.five === 5 && r.stage === 2 && r.cleared === 0 && r.phase === 'quiet', detail: r };
+  });
+
   await scenario(h, 'dev console: F9 opens it; it unlocks every level and every Pokémon, and spawns what you ask for', async () => {
     await h.page.keyboard.press('F9');
     const r = await h.R(() => {

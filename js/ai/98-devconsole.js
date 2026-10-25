@@ -7,6 +7,7 @@
  *   catch <name|dex>                          that Pokémon joins you
  *   spawns on | off                           wild Pokémon keep appearing, or don't
  *   keystone · innocents <n> · spiritomb       the Odd Keystone, the innocent count, Spiritomb's fight now
+ *   karma [max|clear|<n>|judge]               the hidden KARMA (100-karma.js): see it, max it, clear it, or call the judgment
  *   well · mansion                            the old well next to you · the mansion's route now
  *   god · heal · level <n> · coins <n> · kill time <hour> · weather clear|rain|storm|fog|snow
  * The stage unlock is remembered (the game's own developer switch, R.DevMenu); everything else
@@ -116,6 +117,18 @@
     S.startScene(AI.Well.st.well);
     return 'the well answers…';
   }
+  // the hidden KARMA (100-karma.js): how far the forest remembers, and its judgment
+  function karma(k) {
+    const K = AI.Karma;
+    if (!K || !K.set) throw new Error('the KARMA system isn\'t loaded yet');
+    const show = () => 'KARMA ' + K.value + ' / ' + K.MAX + ' · stage ' + K.stage + ' of ' + (K.CUTS.length) + (K.maxed ? ' · MAX: the forest is empty, the mansion gates are shut' : '') + (K.phase !== 'quiet' ? ' · ' + K.phase : '');
+    if (!k) return show() + '  (karma max | clear | <0-' + K.MAX + '> | judge)';
+    if (k === 'max') { K.set(K.MAX); return show(); }
+    if (k === 'clear' || k === 'reset' || k === 'off') { K.set(0); return show(); }
+    if (k === 'judge' || k === 'judgment') { if (!K.judge()) throw new Error('the judgment happens in the Shady Forest, once (start a Level 1 run)'); return 'The forest has not forgotten… (the run ends after the judgment)'; }
+    if (/^\d+$/.test(k)) { K.set(+k); return show(); }
+    throw new Error('karma | karma max | karma clear | karma <0-' + K.MAX + '> | karma judge');
+  }
   function weather(k) {
     const W = { clear: { rain: 0, storm: 0, fog: 0, cloud: 0.1, snow: 0 }, rain: { rain: 0.8, storm: 0, fog: 0.1, cloud: 0.8, snow: 0 }, storm: { rain: 1, storm: 1, fog: 0.1, cloud: 1, snow: 0 }, fog: { rain: 0, storm: 0, fog: 0.95, cloud: 0.5, snow: 0 }, snow: { rain: 0, storm: 0, fog: 0.2, cloud: 0.8, snow: 0.9 }, auto: { release: true } }[k];
     if (!W) throw new Error('weather clear | rain | storm | fog | snow | auto');
@@ -131,6 +144,7 @@
     'unlock stages | pokemon | shiny | all     lock stages',
     'spawn <name|dex> [n] [boss|peaceful]      catch <name|dex>      spawns on|off',
     'keystone      innocents <n>      spiritomb      well      mansion',
+    'karma      karma max | clear | <0-25> | judge   (the hidden KARMA: test it maxed or not)',
     'god      heal      level <n>      coins <n>      kill      time <hour>      weather <clear|rain|storm|fog|snow|auto>',
   ];
   function run(line) {
@@ -157,6 +171,7 @@
       case 'innocents': AI.Spiritomb.setInnocents(+x || AI.Spiritomb.NEED); return 'innocent Pokémon defeated: ' + AI.Spiritomb.save.innocents;
       case 'spiritomb': return spiritombNow();
       case 'well': return wellHere();
+      case 'karma': return karma((x || '').toLowerCase());
       case 'mansion': need(); if (!AI.Forest || !AI.Forest.on()) throw new Error('the mansion is in the Shady Forest'); AI.Journey.establishNow(); return 'the path to the mansion is open';
       case 'god': { const p = need(); p.god = !p.god; return 'god mode ' + (p.god ? 'on' : 'off'); }
       case 'heal': { const p = need(); p.hp = p.maxHp; return 'healed'; }
@@ -181,6 +196,7 @@
     ['God mode', 'god'], ['Heal', 'heal'], ['+5 levels', 'level 5'], ['+10000 coins', 'coins 10000'],
     ['Spawns off', 'spawns off'], ['Spawns on', 'spawns on'], ['Clear Pokémon', 'kill'], ['Mansion now', 'mansion'],
     ['Odd Keystone', 'keystone'], ['100 innocents', 'innocents 100'], ['Well here', 'well'], ['Fight Spiritomb', 'spiritomb'],
+    ['KARMA: show', 'karma'], ['KARMA max', 'karma max'], ['KARMA clear', 'karma clear'], ['KARMA judgment', 'karma judge'],
     ['Noon', 'time 12'], ['Midnight', 'time 0'], ['Clear sky', 'weather clear'], ['Storm', 'weather storm'],
   ];
   function build() {

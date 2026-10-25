@@ -103,6 +103,7 @@ command line for everything (↑/↓ for history):
 | `keystone` · `innocents <n>` | the Odd Keystone · set the innocent count |
 | `spiritomb` · `well` | fight Spiritomb now · put the old well next to you |
 | `mansion` | open the path to the haunted mansion now |
+| `karma` · `karma max` · `karma clear` · `karma <0-25>` · `karma judge` | the hidden KARMA (`100-karma.js`): see where it stands, max it (the forest empties, the mansion gates shut), clear it, set it, or call the Legendary Beasts' judgment now (in the Shady Forest; the run ends after it) |
 | `god` · `heal` · `level <n>` · `coins <n>` · `kill` | the usual |
 | `time <hour>` · `weather clear\|rain\|storm\|fog\|snow\|auto` | the sky |
 
