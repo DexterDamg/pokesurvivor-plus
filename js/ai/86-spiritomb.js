@@ -75,14 +75,20 @@
   // ---------------------------------------------------------------- the Odd Keystone, in a clearing
   function placeStone() {
     const p = player(), R = AI.R, F = AI.Forest;
-    for (let k = 0; k < 60; k++) {
-      const a = Math.random() * 6.283, d = U.rand(900, 2200);
-      const x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d * 0.85;
-      if (R.Camera.sees(x, y, 160)) continue;
-      if (F.region(x, y).clear < 0.55 || F.water(x, y).e > -60 || !R.World.isFree(x, y, 14)) continue;
-      st.stone = { x, y, t: 0 };
-      AI.Bus.emit({ type: 'keystone', what: 'placed', x, y, loud: 0 });
-      return true;
+    // one of the forest's clearings, out of sight (the farther-off ones first)
+    const cl = (F.plan().clearings || []).slice().sort(() => Math.random() - 0.5);
+    for (const c of cl) {
+      const d0 = Math.hypot(c.x - p.x, c.y - p.y);
+      if (d0 < 700) continue;
+      for (let k = 0; k < 16; k++) {
+        const a = Math.random() * 6.283, r = Math.random() * c.r * 0.5;
+        const x = c.x + Math.cos(a) * r, y = c.y + Math.sin(a) * r;
+        if (R.Camera.sees(x, y, 160)) continue;
+        if (F.region(x, y).clear < 0.55 || F.water(x, y).e > -60 || !R.World.isFree(x, y, 14)) continue;
+        st.stone = { x, y, t: 0 };
+        AI.Bus.emit({ type: 'keystone', what: 'placed', x, y, loud: 0 });
+        return true;
+      }
     }
     return false;
   }

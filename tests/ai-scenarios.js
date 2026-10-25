@@ -2962,7 +2962,7 @@ async function sample(h, ms, every, fn, arg) {
     });
     await h.wait(500);
     const r2 = await h.R(() => ({ has: PSXAI.Spiritomb.hasKey(), stone: !!PSXAI.Spiritomb.st.stone, stored: JSON.parse(localStorage.getItem('psx.spiritomb.v1') || '{}').keystone > 0 }));
-    return { pass: r.placed && r.clear >= 0.55 && !r.seen && r.dist >= 800 && r2.has && !r2.stone && r2.stored, detail: [r, r2] };
+    return { pass: r.placed && r.clear >= 0.55 && !r.seen && r.dist >= 600 && r2.has && !r2.stone && r2.stored, detail: [r, r2] };
   });
 
   await scenario(h, 'spiritomb: defeating an innocent Pokémon in the forest counts; one that attacked you doesn\'t', async () => {
