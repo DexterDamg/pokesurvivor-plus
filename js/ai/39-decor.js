@@ -339,6 +339,7 @@
       case 'grave': case 'gargoyle': case 'gpillar': sh = it.r ? { r: Math.max(7, it.r) } : null; break;
       case 'cave': sh = { r: 30 }; break;
       case 'lamp': case 'sign': sh = { r: 6 }; break;
+      case 'well': sh = { r: it.r || 30 }; break;
       default: sh = null;
     }
     if (sh && sh.r) sh.c = [it.x, it.y - 2];

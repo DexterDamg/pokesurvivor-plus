@@ -164,10 +164,11 @@
    *   calm ↔ wind: fair – breezy – gale
    * A front has momentum: once clouds start to gather they tend to keep building to rain (or a
    * storm) and then clear away the same way, instead of flip-flopping. Fog never turns straight into
-   * sunshine or wind, and a storm never comes out of a clear sky. Each spell lasts 2–3 minutes. */
+   * sunshine or wind, and a storm never comes out of a clear sky. The weather moves on about once a
+   * minute, blending into the next step over half a minute or so: smooth, never abrupt. */
   const HOLD = {
-    clear: [120, 180], fair: [120, 180], cloudy: [120, 180], drizzle: [120, 180], rain: [120, 180], storm: [120, 180],
-    mist: [120, 180], fog: [120, 180], deepfog: [120, 180], breezy: [120, 180], gale: [120, 180],
+    clear: [55, 65], fair: [55, 65], cloudy: [55, 65], drizzle: [55, 65], rain: [55, 65], storm: [55, 65],
+    mist: [55, 65], fog: [55, 65], deepfog: [55, 65], breezy: [55, 65], gale: [55, 65],
   };
   const NEXT = {
     clear: { fair: 1 },
@@ -193,7 +194,7 @@
     return 0;
   }
   function holdFor(name) {
-    const h = HOLD[name] || [120, 180];
+    const h = HOLD[name] || [55, 65];
     return U.rand(h[0], h[1]) * Math.max(0.1, AI.cfg.weatherDuration == null ? 1 : AI.cfg.weatherDuration);
   }
   function pickPattern() {
@@ -214,7 +215,7 @@
     // fog needs calm, damp air: dawn, night, or just after rain; daytime sun burns it off
     const damp = st.hour >= 4.5 && st.hour < 8.5 ? 3 : isNight() ? 1.6 : 0.5;
     for (const k of ['mist', 'fog', 'deepfog']) if (w[k] && step(st.pattern, k) > 0) w[k] *= damp;
-    if ((st.pattern === 'mist' || st.pattern === 'fog') && st.hour > 9 && st.hour < 17) { if (w.fair) w.fair *= 2; if (w.mist) w.mist *= 2; }
+    if ((st.pattern === 'mist' || st.pattern === 'fog') && st.hour > 11 && st.hour < 17) { if (w.fair) w.fair *= 2; if (w.mist) w.mist *= 2; } // (the sun burns it off by midday; a morning fog can linger)
     // and it doesn't turn straight back into what it just was (rain → storm → rain → storm…)
     if (st.prev && w[st.prev] && Object.keys(w).filter((k) => w[k] > 0).length > 1) w[st.prev] *= 0.04;
     const f = Math.max(0, AI.cfg.weatherFreq == null ? 1 : AI.cfg.weatherFreq);
@@ -303,7 +304,8 @@
     if (st.forced) Object.assign(st.tgt, st.forced);
     // believable transitions: fog creeps in, rain builds up, wind picks up faster than it dies
     // gradual: fog creeps in over minutes, rain builds and fades, a storm grows, peaks and weakens
-    const RATE = { cloud: 0.012, rain: 0.012, fog: 0.007, wind: 0.03, storm: 0.01, snow: 0.012 };
+    // (one step of the chain blends in over roughly 20–40 s, well inside its minute)
+    const RATE = { cloud: 0.025, rain: 0.028, fog: 0.022, wind: 0.04, storm: 0.03, snow: 0.025 };
     for (const k in st.cur) {
       const r = (st.forced && k in st.forced ? 3 : 1) * RATE[k] * dt;
       const d = st.tgt[k] - st.cur[k];

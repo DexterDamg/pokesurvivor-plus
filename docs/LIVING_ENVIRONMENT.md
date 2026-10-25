@@ -113,9 +113,9 @@ breezy, gale) through gradual transitions. The living sky is purely atmospheric:
 weather and terrain events (type boosts such as Misty Terrain, their banners and the HUD pill) are
 switched off (setting `gameWeather` turns them back on).
 
-- **Weather is consistent and logical.** Each spell lasts 2–3 minutes (setting `weatherDuration`
-  scales them all), and every change blends in slowly: clouds gather over about a minute, fog
-  creeps in over two. The weather only ever takes one step at a time along one of three chains:
+- **Weather is consistent and logical.** It moves on about once a minute (setting
+  `weatherDuration` scales that), and every change blends in smoothly over half a minute or so,
+  never abruptly. The weather only ever takes one step at a time along one of three chains:
   - dry ↔ wet: clear – fair – cloudy – drizzle – rain – storm
   - calm ↔ fog: fair / cloudy / drizzle – mist – fog – dense fog (needs calm, damp air: dawn, night
     or after rain; the daytime sun burns it off)

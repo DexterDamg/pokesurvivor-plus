@@ -278,6 +278,7 @@
     if (AI.Events) AI.Events.lights(L);
     if (AI.Power) AI.Power.lights(L);
     if (AI.Totem) AI.Totem.lights(L);
+    if (AI.Trio) AI.Trio.lights(L);
     // lightning lights up everything around where it strikes
     for (const s of AI.Sky.st.strikes) L.push({ x: s.x, y: s.y - 40, r: 520, c: [220, 230, 255], i: Math.max(0, 1 - s.t / 0.5) * s.power * 1.4 });
     creatures(cam, L);

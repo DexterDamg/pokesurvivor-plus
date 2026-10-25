@@ -742,7 +742,7 @@
   }
 
   AI.define('Mysteries', {
-    MY, ORDER, tick, reset, drawScreen, addProps, lights, spawnOk, toggle, note, status, entry, sanctuary,
+    MY, ORDER, tick, reset, drawScreen, addProps, lights, spawnOk, toggle, note, status, entry, sanctuary, spawnApp, leave, confirmed,
     get journal() { return J; }, get open() { return open; }, get page() { return page; }, journals, run,
     resetJournal() { J = { v: 1, m: {} }; save(); },
     // debugging: summon a mystery's appearance at its site regardless of the hour

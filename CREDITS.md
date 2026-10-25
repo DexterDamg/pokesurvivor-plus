@@ -132,20 +132,20 @@ Los retratos de los cuadros de diálogo (`assets/portraits`) también vienen de
 retratos originales de los juegos de *Mundo Misterioso* de
 [Spike Chunsoft](https://www.spike-chunsoft.com/) (nº 1, 4, 5, 6, 7, 25, 92, 93,
 94, 133, 152, 155, 158, 200, 243, 244, 245, 251, 252, 255, 258, 355, 356, 377, 387,
-390, 393, 429, 477, 488, 491, 492); el resto son obra de estos artistas:
+390, 391, 392, 393, 394, 395, 429, 477, 488, 491, 492); el resto son obra de estos artistas:
 
 | Artista | Contacto | Retratos (nº de Pokédex) |
 |---|---|---|
-| 0palite | https://zeropalart.tumblr.com/ | 5, 6 |
-| baronessfaron |  | 355, 356, 429, 488, 491, 640, 656, 657, 680, 681, 897 |
+| 0palite | https://zeropalart.tumblr.com/ | 5, 6, 395 |
+| baronessfaron |  | 355, 356, 391, 429, 488, 491, 640, 656, 657, 680, 681, 724, 897 |
 | CamusZekeSirius |  | 377 |
 | Cloudy | https://twitter.com/cloudyskys17695 | 656 |
 | distress | https://www.artstation.com/distress/albums/1200843 | 908 |
-| Emmuffin | https://twitter.com/Ernmuffin | 245, 355, 488, 495, 498, 501, 607, 608, 609, 650, 656, 658, 679, 681, 722, 725, 728, 813, 816, 897, 906, 907 |
+| Emmuffin | https://twitter.com/Ernmuffin | 245, 355, 391, 392, 394, 488, 495, 498, 501, 607, 608, 609, 650, 656, 658, 679, 681, 722, 725, 728, 813, 816, 897, 906, 907 |
 | Fable | https://twitter.com/fabledpainter | 728 |
 | G〜 | https://bsky.app/profile/justtr4sh.pmd.social | 356, 477, 653, 656, 679, 810, 816, 893, 907 |
 | JFain |  | 92 |
-| JustAGunk | <@1377429093997477928> | 657, 810, 907 |
+| JustAGunk | <@1377429093997477928> | 657, 723, 810, 907 |
 | leafia_barrett |  | 251 |
 | Mojo |  | 492 |
 | Morei | https://bsky.app/profile/murpia57.bsky.social | 200 |
@@ -158,8 +158,8 @@ retratos originales de los juegos de *Mundo Misterioso* de
 | RoyalRust |  | 200 |
 | Soulja | https://twitter.com/OlSoulja | 893 |
 | Tainted#3886 |  | 356 |
-| Top_Kec | @topkec.bsky.social | 244 |
-| ◥θ┴θ◤ | DC:<@215638650434617345> | 656, 657, 728 |
+| Top_Kec | @topkec.bsky.social | 244, 724 |
+| ◥θ┴θ◤ | DC:<@215638650434617345> | 656, 657, 723, 728 |
 
 Los retratos de otros Pokémon se descargan de SpriteCollab durante la partida,
 con la misma licencia y la autoría que figura en su repositorio.
