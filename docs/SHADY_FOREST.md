@@ -144,8 +144,9 @@ The Haunted Mansion is the Shady Forest's end stage and the only way to complete
 
 ## The old well (`86-well.js`)
 
-Some runs (about three in five), an old stone well stands somewhere in the forest: mossy stones, a
-rotten little roof, a rope that ends in nothing, a bucket on its side in the weeds. It's placed out
+Some runs (about three in five), the Creepy Well stands somewhere in the forest: blood-streaked
+stones furred with moss, cobwebs strung between rotten posts, a broken roof, a rope that ends in
+nothing (`assets/env/creepy_well.png`). It's placed out
 of sight and never announced; finding it is worth a little EXP.
 
 - Up close the air goes still and a cold mist breathes out of the shaft. At night something drips
@@ -155,6 +156,9 @@ of sight and never announced; finding it is worth a little EXP.
   you feel a little wiser (EXP), sometimes nothing, and sometimes something climbs out of the dark,
   giggling (more often at night).
 - It's solid, and stays where it is for the rest of the run.
+- **The Creepy Well:** while you carry the Odd Keystone, the well is in every run, and it's where
+  Spiritomb waits. Click it with the keystone and 100 innocent Pokémon defeated (see
+  [EARNING_POKEMON.md](EARNING_POKEMON.md)).
 
 ## Wildlife that lives by its biology (`63-wildlife.js`)
 

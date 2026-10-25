@@ -1,10 +1,12 @@
 /* PokéSurvivor+ — Living World AI · the old well
  * Some runs, somewhere in the Shady Forest, an old stone well stands where no one has drawn water
- * for a very long time: a ring of mossy stones, a rotten little roof, a rope that ends in nothing.
+ * for a very long time: blood-streaked stones furred with moss, cobwebs, a rotten roof, a rope that
+ * ends in nothing (assets/env/creepy_well.png).
  * It's placed out of sight, never announced. Up close the air goes cold; at night something drips
  * far, far down, and now and then something whispers back. Stand at its rim to look down, and toss
  * in a coin if you have one. Sometimes the bucket comes up with something. Sometimes something else
- * comes up instead.
+ * comes up instead. While you carry the Odd Keystone it's always somewhere in the forest, and it's
+ * where Spiritomb waits (86-spiritomb.js).
  */
 (function () {
   'use strict';
@@ -13,7 +15,8 @@
 
   const st = { well: null, item: null, rolled: false, at: null, standT: 0, lookT: -99, whisperT: 20, eyes: 0, text: null, uses: 0, found: false, ghost: null };
 
-  function on() { return AI.enabled && AI.cfg.oldWell !== false && AI.Forest && AI.Forest.on() && AI.Decor; }
+  function on() { return AI.enabled && (AI.cfg.oldWell !== false || spiritomb()) && AI.Forest && AI.Forest.on() && AI.Decor; }
+  function spiritomb() { return !!(AI.Spiritomb && AI.Spiritomb.wantsWell()); } // (while you carry the Odd Keystone, it's always there: 86-spiritomb.js)
   function player() { return AI.R.Game.player; }
   function T(en, es) { return (AI.lang && AI.lang() === 'es' && es) || en; }
 
@@ -53,6 +56,7 @@
       st.rolled = true;
       st.wanted = Math.random() < (AI.cfg.wellChance == null ? 0.6 : AI.cfg.wellChance);
     }
+    if (!st.wanted && spiritomb()) st.wanted = true;
     if (st.wanted && !st.well) { st.tryT = (st.tryT || 0) - dt; if (st.tryT <= 0) { st.tryT = 3; place(); } }
     const w = st.well;
     if (!w) return;
@@ -136,8 +140,40 @@
     AI.Bus.emit({ type: 'well', what: 'rise', dex, x: w.x, y: w.y, loud: 300 });
   }
 
-  // ---------------------------------------------------------------- drawing (procedural, in the forest's palette)
+  // ---------------------------------------------------------------- drawing
+  // the Creepy Well (assets/env/creepy_well.png, cut from DexterDamg's art at its pixel grid): blood on
+  // the stones, moss, cobwebs, a rotten roof. The cold mist and the eyes deep down are drawn over it.
+  const IMG = new Image();
+  IMG.onload = () => { IMG.ok = true; };
+  IMG.src = 'assets/env/creepy_well.png';
+  const S = 0.9, AX = 53, BOT = 161, SHAFT = [52, 110]; // (scale, anchor column, bottom row, shaft centre in the art)
   function draw(ctx, it) {
+    if (!IMG.ok) return drawPlain(ctx, it);
+    const x = Math.round(it.x), y = Math.round(it.y);
+    const night = AI.Sky ? AI.Sky.darkness() : 0;
+    ctx.save();
+    ctx.fillStyle = 'rgba(10,12,8,0.4)';
+    ctx.beginPath(); ctx.ellipse(x, y + 2, 44, 14, 0, 0, 6.283); ctx.fill();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(IMG, Math.round(x - AX * S), Math.round(y + 8 - BOT * S), Math.round(IMG.width * S), Math.round(IMG.height * S));
+    const sx = x + (SHAFT[0] - AX) * S, sy = y + 8 - (BOT - SHAFT[1]) * S;
+    // eyes, deep down, at night
+    if (st.eyes > 0 && it === st.item) {
+      const a = Math.min(1, st.eyes, (2.2 - st.eyes) * 3) * (0.5 + night * 0.5);
+      ctx.fillStyle = 'rgba(255,60,60,' + a.toFixed(3) + ')';
+      ctx.fillRect(Math.round(sx - 5), Math.round(sy), 2, 1); ctx.fillRect(Math.round(sx + 3), Math.round(sy), 2, 1);
+    }
+    // a breath of cold mist from the shaft
+    const mist = 0.08 + night * 0.12;
+    for (let k = 0; k < 3; k++) {
+      const t = (AI.time * 0.25 + k / 3) % 1;
+      ctx.fillStyle = 'rgba(200,210,225,' + (mist * (1 - t)).toFixed(3) + ')';
+      ctx.beginPath(); ctx.ellipse(sx + Math.sin(AI.time + k) * 4, sy - 2 - t * 26, 10 + t * 12, 4 + t * 3, 0, 0, 6.283); ctx.fill();
+    }
+    ctx.restore();
+  }
+  // (until the art has loaded: drawn by hand, in the forest's palette)
+  function drawPlain(ctx, it) {
     const x = Math.round(it.x), y = Math.round(it.y);
     const night = AI.Sky ? AI.Sky.darkness() : 0;
     ctx.save();
