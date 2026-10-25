@@ -25,6 +25,11 @@ Pixel-art item icons at their native size (`*.png`), with the upscaled originals
 | `dusk_stone.png` | Dusk Stone | evolution stone | 20×20 |
 | `moon_stone.png` | Moon Stone | evolution stone | 24×24 |
 | `leaf_stone.png` | Leaf Stone | evolution stone | 19×21 |
+| `metal_coat.png` | Metal Coat | evolution item | 18×21 |
+| `everstone.png` | Everstone (sent as a smoothed webp, sampled back to its pixel grid) | stops evolution | 22×19 |
+| `thunder_stone.png` | Thunder Stone | evolution stone | 20×20 |
+| `link_stone.png` | Link Stone | trade evolutions | 19×21 |
+| `dawn_stone.png` | Dawn Stone | evolution stone | 19×20 |
 
 ## Sheets (`sheets/`, kept exactly as sent)
 
