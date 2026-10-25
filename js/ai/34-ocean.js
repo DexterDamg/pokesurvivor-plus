@@ -507,7 +507,9 @@
     } else {
       // dropped somewhere it can't be (spawned, knocked, teleported): to the nearest place it can
       const q = fitNear(loco, ent.x, ent.y, 640, ent);
-      if (q) { ent.x = q[0]; ent.y = q[1]; } else if (o) { ent.x = o[0]; ent.y = o[1]; }
+      if (q) { ent.x = q[0]; ent.y = q[1]; }
+      else if (ent.psx && !ent.pp && !ent.psxStory && !ent.boss && !ent.legend && !isPlayerEnt(ent)) { ent.dead = true; ent.hp = 0; } // (a wild one far out at sea with nowhere to stand: it quietly leaves)
+      else if (o) { ent.x = o[0]; ent.y = o[1]; }
     }
     if (ent.psx) ent.psx.waterBlockT = AI.time;
     return true;

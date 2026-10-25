@@ -2821,13 +2821,14 @@ async function sample(h, ms, every, fn, arg) {
       const flooded = O.sample(p.x, p.y).cls;
       const ok = O.fits('walk', p.x, p.y, p), strangerOk = O.fits('walk', p.x, p.y, {});
       // a walker dropped far out at sea is put back somewhere it can stand
+      // (a walker dropped out at sea is put back somewhere it can stand, or, far from any land, quietly leaves)
       const e = PSXAI.Debug.spawn(19, { x: c[0] + 900, y: c[1] + 1300 });
       e._psxOk = null; O.collide(e);
-      const back = O.sample(e.x, e.y).cls;
+      const back = O.sample(e.x, e.y).cls, gone = !!e.dead;
       PSXAI.cfg.oceanTide = null;
-      return { dry, flooded, ok, strangerOk, back };
+      return { dry, flooded, ok, strangerOk, back, gone };
     });
-    return { pass: r.dry === 0 && r.flooded >= 2 && r.ok && !r.strangerOk && r.back <= 1, detail: r };
+    return { pass: r.dry === 0 && r.flooded >= 2 && r.ok && !r.strangerOk && (r.back <= 1 || r.gone), detail: r };
   });
 
   await scenario(h, 'ocean: put back out on deep water without a boat (after a rift, the Judgment…), the nearest boat comes for you', async () => {
@@ -2837,8 +2838,9 @@ async function sample(h, ms, every, fn, arg) {
       await wait(200);
       let dp = null;
       for (let d = 1200; d < 6000 && !dp; d += 200) for (let k = 0; k < 16 && !dp; k++) { const x = Math.cos(k / 16 * 6.283) * d, y = 1500 + Math.sin(k / 16 * 6.283) * d; if (O.sample(x, y).e > 800) dp = [x, y]; }
-      // (as the game does when it brings you back from an arena: just puts you where you were)
-      p.x = dp[0]; p.y = dp[1];
+      // (as the game does when it brings you back from an arena you entered while sailing: just puts
+      // you where you were, and where you last stood was the boat)
+      p.x = dp[0]; p.y = dp[1]; p._psxOk = [dp[0], dp[1]];
       await wait(600);
       const b = p.psxBoat;
       return { aboard: !!b, cls: O.sample(p.x, p.y).cls, near: b ? Math.round(Math.hypot(b.x - dp[0], b.y - dp[1])) : null };
