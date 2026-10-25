@@ -979,6 +979,7 @@ async function sample(h, ms, every, fn, arg) {
       const wait = (ms) => new Promise((res) => setTimeout(res, ms));
       PSXAI.cfg.exploreExp = true;
       X.reset(); PSXAI.Debug.freeze(false);
+      for (const k of ['clear', 'grove', 'wet', 'deep', 'lake']) X.st.kinds.add(k); // (a first sight of a new kind of place pays on its own; this is about ground)
       const xp = () => X.st.total;
       // standing still (after whatever the starting spot itself is worth)
       await wait(1500);
