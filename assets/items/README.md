@@ -30,6 +30,13 @@ Pixel-art item icons at their native size (`*.png`), with the upscaled originals
 | `thunder_stone.png` | Thunder Stone | evolution stone | 20×20 |
 | `link_stone.png` | Link Stone | trade evolutions | 19×21 |
 | `dawn_stone.png` | Dawn Stone | evolution stone | 19×20 |
+| `reaper_cloth.png` | Reaper Cloth | evolution item (Dusclops) | 26×28 |
+| `water_stone.png` | Water Stone | evolution stone | 26×26 |
+| `sun_stone.png` | Sun Stone | evolution stone | 30×30 |
+| `fire_stone.png` | Fire Stone | evolution stone | 26×28 |
+| `shiny_stone.png` | Shiny Stone | evolution stone | 25×25 |
+
+(These five were sent as 192×192 webp at 6× and sampled back to a 32-pixel grid.)
 
 ## Sheets (`sheets/`, kept exactly as sent)
 
