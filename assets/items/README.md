@@ -19,4 +19,14 @@ Pixel-art item icons at their native size (`*.png`), with the upscaled originals
 | `red_orb.png` | Red Orb | Groudon | 14×16 |
 | `blue_orb.png` | Blue Orb | Kyogre | 14×14 |
 | `silver_wing.png` | Silver Wing (silvery-blue feather) | Lugia (to be confirmed) | 22×17 |
+| `prison_bottle.png` | Prison Bottle | Hoopa (Unbound) | 16×30 |
+| `dynamax_band.png` | Dynamax Band | Dynamax (for when Eternatus exists) | 16×16 |
 | `rainbow_wing.png` | Rainbow Wing (red, white and green feather) | Ho-Oh (to be confirmed) | 12×22 |
+
+## Sheets (`sheets/`, kept exactly as sent)
+
+| File | What's on it | Size |
+|---|---|---|
+| `mega_stones.png` | every Mega Stone, labelled, in three columns (X/Y, ORAS, Legends Z-A) | 232×777 |
+| `z_crystals.jpg` | the Z-Crystals (JPEG: the colours bleed a little at the edges) | 507×187 |
+| `berry_trees.webp` | berry trees, each in three stages (sprout → growing → bearing fruit) | 134×2000 |
