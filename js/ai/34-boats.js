@@ -1,13 +1,14 @@
 /* PokéSurvivor+ — Living World AI · boats (the Tropical Ocean)
- * Three boats are moored at the harbour's pier (red, blue, yellow: assets/ocean/boats.png). Walk
- * into one and you're aboard; steer with the usual controls. A boat has weight: it speeds up and
- * slows down, turns wider when it's going fast, slides a little sideways, floats and bobs, and leaves
- * a wake. The sea pushes back: currents carry it, the wind leans on it, gusts make it skid, rough
- * water slows it and storm waves shove it about, but it always answers the helm.
- * It runs aground on coasts, rocks, reefs and wrecks (it never passes through anything). To step
- * off, sail up to a beach, the shallows or the pier and keep pushing toward them: you step onto
- * the land (never into deep water) and the boat stays where you left it, so it's always there to
- * take you back.
+ * Three boats are moored at the harbour's pier (red, blue, yellow: assets/ocean/boats.png).
+ * Getting aboard: while a boat is near the shallows, walk up to it, click it, and double-tap Space
+ * (or double-click it). Getting off: park it in shallow water and double-tap Space; you step into
+ * the shallows or onto the shore beside it, never into deep water, and the boat stays where you
+ * left it, so it's always there to take you back. A moored boat is solid to walk against.
+ * Steer with the usual controls: the bow swings round toward where you steer. A boat has weight:
+ * it speeds up and slows down, turns wider when it's going fast, slides a little sideways, floats
+ * and bobs, and leaves a wake. The sea pushes back: currents carry it, the wind leans on it, gusts
+ * make it skid, rough water slows it and storm waves shove it about, but it always answers the
+ * helm. It runs aground on coasts, rocks, reefs and wrecks (it never passes through anything).
  */
 (function () {
   'use strict';
@@ -69,7 +70,7 @@
     b.moored = false;
     try { AI.R.Audio.sfx('click'); } catch (e) { /* ignore */ }
     AI.Bus.emit({ type: 'boat', what: 'board', x: b.x, y: b.y, loud: 60, boat: b.id });
-    if (!st.hinted.steer) { st.hinted.steer = true; st.hint = 5; st.hintText = AI.lang && AI.lang() === 'es' ? 'Navega con WASD · acércate a una playa o a la orilla y sigue empujando para bajar' : 'Steer with WASD · sail into a beach or the shallows and keep pushing to step off'; }
+    if (!st.hinted.steer) { st.hinted.steer = true; st.hint = 5; st.hintText = AI.lang && AI.lang() === 'es' ? 'Navega con WASD · en aguas poco profundas, pulsa Espacio dos veces para bajar' : 'Steer with WASD · in shallow water, double-tap Space to step off'; }
   }
   // the rider stands at the helm, toward the stern
   function helmPos(b) {
@@ -181,12 +182,6 @@
     if (fits(b, nx, ny, b.ang)) { b.x = nx; b.y = ny; }
     sp = Math.hypot(b.vx, b.vy);
     b.hit = hit;
-    // stepping off: keep pushing toward the land you've run up against
-    if (want && st.cool <= 0) {
-      const at = hit ? landing(b, ax, ay) : null;
-      if (at) { st.exitT += dt; if (st.exitT > 0.28) leave(b, at); }
-      else st.exitT = Math.max(0, st.exitT - dt * 2);
-    } else st.exitT = 0;
     // the wake
     if (sp > 45 && Math.random() < dt * 22) st.wakes.push({ x: b.x - c * HL * 0.9, y: b.y - s * HL * 0.6 + 6, t: 0, a: b.ang, k: Math.min(1, sp / MAX) });
   }
@@ -195,6 +190,110 @@
     b.vx *= Math.exp(-2 * dt); b.vy *= Math.exp(-2 * dt);
     const nx = b.x + b.vx * dt, ny = b.y + b.vy * dt;
     if (fits(b, nx, ny, b.ang)) { b.x = nx; b.y = ny; }
+  }
+
+  // ---------------------------------------------------------------- getting on and off: click the boat, double-tap Space
+  function T(en, es) { return (AI.lang && AI.lang() === 'es' && es) || en; }
+  function say(text, t) { st.hint = t || 3; st.hintText = text; }
+  // where the hull is, in its own frame: < 1 inside
+  function hullK(b, x, y) {
+    const c = Math.cos(b.ang), s = Math.sin(b.ang);
+    const dx = x - b.x, dy = (y - b.y) / 0.7;
+    const u = (dx * c + dy * s) / (HL + 6), v = (-dx * s + dy * c) / (HW + 12);
+    return [u, v, c, s];
+  }
+  // you can't walk through a moored boat: you're slid out to its side
+  function bump(b, p) {
+    const [u, v, c, s] = hullK(b, p.x, p.y);
+    const k = u * u + v * v;
+    if (k >= 1 || k < 1e-6) return;
+    const f = 1 / Math.sqrt(k);
+    const nu = u * f * (HL + 6), nv = v * f * (HW + 12);
+    const nx = b.x + nu * c - nv * s, ny = b.y + (nu * s + nv * c) * 0.7;
+    if (O().fits(O().locoOf(p), nx, ny, p)) { p.x = nx; p.y = ny; if (p._psxOk) { p._psxOk[0] = nx; p._psxOk[1] = ny; } }
+  }
+  // the boat is near the shallows (in them, or right beside them or the shore)
+  function nearShallow(b) {
+    for (const q of hullPts(b.x, b.y, b.ang)) if (O().sample(q[0], q[1]).cls <= 1) return true;
+    for (let k = 0; k < 12; k++) { const a = k / 12 * 6.283; if (O().sample(b.x + Math.cos(a) * (HL + 50), b.y + Math.sin(a) * (HL + 50) * 0.7).cls <= 1) return true; }
+    return false;
+  }
+  // the boat is sitting in shallow water (any of its hull in the shallows)
+  function inShallow(b) {
+    for (const q of hullPts(b.x, b.y, b.ang)) if (O().sample(q[0], q[1]).cls === 1) return true;
+    return false;
+  }
+  function reachOf(b, p) { return Math.hypot(b.x - p.x, b.y - p.y) < HL + 150; } // (from the pier, a boat moored beyond the railing is in reach)
+  // board the boat you picked (or the nearest one in reach)
+  function tryBoard(p) {
+    let b = st.sel && !st.sel.rider && reachOf(st.sel, p) ? st.sel : null;
+    if (!b) { let bd = HL + 80; for (const o of boats) { if (o.rider) continue; const d = Math.hypot(o.x - p.x, o.y - p.y); if (d < bd) { bd = d; b = o; } } }
+    if (!b) { if (st.sel) say(T('Get closer to the boat', 'Acércate a la barca'), 2.5); return false; }
+    if (!nearShallow(b)) { say(T('The boat is too far out: it must be near the shallows', 'La barca está demasiado lejos: tiene que estar cerca de la orilla'), 3); return false; }
+    st.hint = 0;
+    board(b, p);
+    st.sel = null;
+    return true;
+  }
+  // step off the boat into the shallows (or onto the shore right beside it)
+  function stepOff(b) {
+    const p = b.rider;
+    if (!p) return false;
+    if (!inShallow(b)) { say(T('Too deep to step off here: sail into the shallows first', 'Demasiado hondo para bajar: lleva la barca a la orilla'), 3); return false; }
+    const loco = O().locoOf(p);
+    let best = null, bd = Infinity;
+    const ax = st.input[0], ay = st.input[1], want = Math.hypot(ax, ay) > 0.1;
+    for (const d of [HW + 26, HW + 44, HL * 0.8, HL + 20, HL + 44]) for (let k = 0; k < 16; k++) {
+      const a = k / 16 * 6.283, x = b.x + Math.cos(a) * d, y = b.y + Math.sin(a) * d * 0.75;
+      const sp = O().sample(x, y);
+      if (sp.solid || sp.cls > 1 || !O().fits(loco, x, y, p)) continue;
+      if (hullK(b, x, y).slice(0, 2).reduce((m, v) => m + v * v, 0) < 1.15) continue; // (not on the deck)
+      if (AI.Decor && AI.Decor.blocked(x, y, 10)) continue;
+      // (toward where you're steering if you are; else the nearest, preferring dry land a little)
+      const score = d + (sp.cls === 0 ? -10 : 0) - (want ? (Math.cos(a) * ax + Math.sin(a) * ay) * 60 : 0);
+      if (score < bd) { bd = score; best = [x, y]; }
+    }
+    if (!best) { say(T('No room to step off here', 'No hay sitio para bajar aquí'), 2.5); return false; }
+    st.hint = 0;
+    leave(b, best);
+    return true;
+  }
+  // a double tap of Space (within ~0.45 s): aboard, step off; ashore, board the boat you picked
+  function onSpace() {
+    const p = player();
+    if (!p || p.dead || !on()) return;
+    const now = performance.now();
+    const dbl = now - (st.spaceT || -1e9) < 450;
+    st.spaceT = dbl ? -1e9 : now;
+    if (!dbl) return;
+    const b = boatOf(p);
+    if (b) stepOff(b); else tryBoard(p);
+  }
+  // Space belongs to the boat whenever you're aboard, or a boat you picked is in reach (so the first
+  // tap doesn't Mega Evolve you on the beach)
+  function spaceIsBoat() {
+    const p = player();
+    if (!p || p.dead || !on() || AI.R.Game.state !== 'playing') return false;
+    if (boatOf(p)) return true;
+    if (st.sel && !st.sel.rider && reachOf(st.sel, p)) return true;
+    for (const o of boats) if (!o.rider && Math.hypot(o.x - p.x, o.y - p.y) < HL + 60) return true;
+    return false;
+  }
+  // clicking (or tapping) a boat picks it; clicking it again quickly climbs aboard
+  function onClick(ev) {
+    const R = AI.R, p = player();
+    if (!on() || !p || R.Game.state !== 'playing' || boatOf(p) || !(ev.target instanceof HTMLCanvasElement)) return;
+    const cam = R.Camera, bb = ev.target.getBoundingClientRect();
+    const k = (cam._cw || bb.width) / Math.max(1, bb.width);
+    const wx = cam.left() + ((ev.clientX - bb.left) * k) / cam.scale, wy = cam.top() + ((ev.clientY - bb.top) * k) / cam.scale;
+    let hit = null;
+    for (const b of boats) { if (b.rider) continue; const [u, v] = hullK(b, wx, wy + 18); if (u * u + v * v < 1.4) { hit = b; break; } }
+    if (!hit) return;
+    ev.stopPropagation();
+    const now = performance.now();
+    if (st.sel === hit && now - (st.clickT || 0) < 450 && reachOf(hit, p)) { tryBoard(p); return; }
+    st.sel = hit; st.clickT = now;
+    say(reachOf(hit, p) ? (nearShallow(hit) ? T('Double-tap Space to climb aboard', 'Pulsa Espacio dos veces para subir') : T('The boat is too far out: it must be near the shallows', 'La barca está demasiado lejos: tiene que estar cerca de la orilla')) : T('Walk up to the boat, then double-tap Space', 'Acércate a la barca y pulsa Espacio dos veces'), 3);
   }
 
   // ---------------------------------------------------------------- per frame
@@ -218,24 +317,15 @@
     // boat, revived at sea…): the nearest boat comes for you
     if (!mine && !O().fitNear(O().locoOf(p), p.x, p.y, 200, p)) { rescue(p); return; }
     if (!mine) {
-      // walk into a boat to board it
-      // (or step aboard from the pier or the shore: push toward one moored right beside you)
-      const ax = st.axis || [0, 0], pushing = Math.hypot(ax[0], ax[1]) > 0.1;
-      let near = null;
-      if (st.cool <= 0) for (const b of boats) {
+      // a boat is solid to walk against; near one, say how to get aboard
+      for (const b of boats) {
         if (b.rider) continue;
-        const c = Math.cos(b.ang), s = Math.sin(b.ang);
-        const dx = p.x - b.x, dy = (p.y - b.y) / 0.7;
-        const u = (dx * c + dy * s) / (HL + 10), v = (-dx * s + dy * c) / (HW + 16);
-        if (u * u + v * v < 1) { board(b, p); break; }
-        // (pressing against the pier's railing toward a boat moored just beyond it)
-        const d = Math.hypot(b.x - p.x, b.y - p.y), al = d > 1 ? (ax[0] * (b.x - p.x) + ax[1] * (b.y - p.y)) / (d * Math.hypot(ax[0], ax[1])) : 1;
-        const stuck = Math.hypot(p._vx || 0, p._vy || 0) < 30;
-        if (pushing && al > 0.55 && (d < HL + 30 || (stuck && d < 140))) near = b;
-        if (!st.hinted.board && Math.hypot(dx, dy) < 160) { st.hinted.board = true; st.hint = 4; st.hintText = AI.lang && AI.lang() === 'es' ? 'Camina hacia una barca para subir' : 'Walk into a boat to climb aboard'; }
+        bump(b, p);
+        if (!st.hinted.board && Math.hypot(p.x - b.x, p.y - b.y) < 180) { st.hinted.board = true; st.hint = 5; st.hintText = T('Click a boat, then double-tap Space to climb aboard', 'Haz clic en una barca y pulsa Espacio dos veces para subir'); }
       }
-      if (near && !p.psxBoat) { st.stepT = (st.stepT || 0) + dt; if (st.stepT > 0.25) { st.stepT = 0; board(near, p); } } else st.stepT = 0;
-    }
+      // (the boat you clicked stays picked while you're anywhere near it)
+      if (st.sel && (st.sel.rider || Math.hypot(st.sel.x - p.x, st.sel.y - p.y) > 500)) st.sel = null;
+    } else st.sel = null;
   }
   function rescue(p) {
     let best = null, bd = Infinity;
@@ -282,6 +372,11 @@
     // to the heading as seen on screen (never upside down); a little hysteresis around straight up
     // and down so it doesn't flicker between sides
     const { rot, flip } = orient(b);
+    // the boat you clicked: a soft ring on the water around it
+    if (b === st.sel) {
+      ctx.save(); ctx.globalAlpha = 0.55 + 0.25 * Math.sin(AI.time * 5); ctx.strokeStyle = '#fff6b0'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(b.x, b.y + 4, w * 0.58, h * 0.36, rot, 0, 6.283); ctx.stroke(); ctx.restore();
+    }
     ctx.save();
     // its shadow on the water
     ctx.fillStyle = 'rgba(0,25,45,0.28)';
@@ -362,6 +457,16 @@
   // ---------------------------------------------------------------- wiring
   function install() {
     const R = AI.R;
+    // double-tap Space to get on and off (taken before the game sees it, so it doesn't Mega Evolve)
+    addEventListener('keydown', (ev) => {
+      if (ev.code !== 'Space' || !AI.enabled) return;
+      const t = ev.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+      if (!spaceIsBoat()) return;
+      ev.preventDefault(); ev.stopImmediatePropagation();
+      if (!ev.repeat) onSpace();
+    }, true);
+    addEventListener('click', (ev) => { if (AI.enabled) try { onClick(ev); } catch (e) { AI.warn('boat-click', e); } }, true);
     // aboard, the controls steer the boat, not your feet
     const oAxis = R.Input.axis;
     R.Input.axis = function () {
@@ -384,5 +489,5 @@
     boats.length = 0; built = false; st.wakes.length = 0; st.exitT = 0; st.cool = 0; st.hint = 0; st.hinted = {};
   }
 
-  AI.define('Boats', { boats, st, orient, FACE, riding, boatOf, board, leave, landing, fits, tick, afterPlayer, addProps, drawWakes, drawScreen, lights, install, reset, build, HL, HW });
+  AI.define('Boats', { boats, st, orient, FACE, tryBoard, stepOff, nearShallow, inShallow, onSpace, spaceIsBoat, bump, riding, boatOf, board, leave, landing, fits, tick, afterPlayer, addProps, drawWakes, drawScreen, lights, install, reset, build, HL, HW });
 })();

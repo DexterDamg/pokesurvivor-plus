@@ -101,8 +101,12 @@ shows the tide while you're at sea.
 
 ## Boats
 
-- **Boarding:** walk into a boat to climb aboard. From the pier, push toward a boat moored just
-  beyond the railing. The usual controls steer it.
+- **Boarding:** while a boat is near the shallows (in them, or right beside them, the shore or the
+  pier), walk up to it, **click it**, and **double-tap Space**. Double-clicking it works too (handy
+  on a touch screen). A single tap does nothing, and walking into a moored boat doesn't board it:
+  it's solid, and you're slid along its side. From the pier you can reach a boat moored beyond the
+  railing. While a boat is in reach, Space belongs to the boat, so the first tap never sets off a
+  Mega Evolution on the beach.
 - **Handling:**
   - The bow swings round toward wherever you steer: quickly when the boat is slow, wider when
     it's going fast. Steer the opposite way and it turns around (slowing as it swings); it never
@@ -119,9 +123,9 @@ shows the tide while you're at sea.
   - Rough water lowers its top speed, and storm waves shove it about.
 - **Collisions:** it runs aground on coasts, rocks, coral heads and wrecks, sliding along them
   where it can. It never passes through anything, and it never turns its hull into the pier.
-- **Stepping off:** run up against a beach, the pier, an island or the shallows right at the
-  shore, and keep pushing toward it.
-  - You step onto land, never into open water.
+- **Stepping off:** park the boat in **shallow water** and **double-tap Space**.
+  - You step into the shallows or onto the shore beside it (toward where you're steering, if you
+    are), never into open water. In deeper water it tells you to sail into the shallows first.
   - The boat stays exactly where you left it, so a way back is always there.
 - **Co-op:** each player's game sails its own boats. A player seen out on deep water is drawn
   in a boat.
