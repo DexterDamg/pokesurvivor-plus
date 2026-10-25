@@ -150,7 +150,14 @@
         continue;
       }
       switch (kind) {
-        case 1: col = PAL.junglek[lvl(tone + (cth - 0.5) * 0.5)]; if (vn(wx / 26, wy / 26, s + 9409) > 0.7) col = lerp3(col, [80, 150, 70], 0.4); break;
+        case 1:
+          if (f.solid[Math.round(gy) * GN + Math.round(gx)]) { col = PAL.junglek[lvl(tone + (cth - 0.5) * 0.5)]; if (vn(wx / 26, wy / 26, s + 9409) > 0.7) col = lerp3(col, [80, 150, 70], 0.4); break; }
+          // the mainland you can roam: forest floor, sunny glades, and worn trails between them
+          col = PAL.jungle[lvl(tone + (cth - 0.5) * 0.45)];
+          { const gl = vn(wx / 420, wy / 420, s + 9416); if (gl > 0.6) col = lerp3(col, PAL.grass[lvl(cth)], Math.min(1, (gl - 0.6) * 4)); }
+          if (vn(wx / 40, wy / 40, s + 9411) > 0.72) col = lerp3(col, [20, 50, 22], 0.3);
+          { const tr = Math.abs(vn(wx / 700, wy / 700, s + 9417) - 0.5); if (tr < 0.018 + cth * 0.006) col = lerp3(col, PAL.dirt ? PAL.dirt[lvl(cth) % PAL.dirt.length] : [150, 120, 80], 0.75); }
+          break;
         case 2: col = PAL.basalt[lvl(tone + (hsh - 0.5) * 0.35)]; if (vn(wx / 16, wy / 16, s + 9410) > 0.8 && cth > 0.45) col = lerp3(col, PAL.scrub[lvl(cth) % 3], 0.55); if (hsh > 0.996) col = [255, 220, 90]; break;
         case 3: col = PAL.bloom[lvl(tone + (hsh - 0.5) * 0.35)]; if (hsh > 0.975) col = PAL.petal[(hsh * 300 | 0) % 3]; break;
         case 4: col = PAL.jungle[lvl(tone + (cth - 0.5) * 0.45)]; if (vn(wx / 40, wy / 40, s + 9411) > 0.7) col = lerp3(col, [20, 50, 22], 0.35); break;
@@ -464,8 +471,25 @@
       const z = Object.assign({}, Oc.zoneAt(x, y));
       const shore = -s.e;
       if (z.id === 'harbor') {
-        // the mainland: palms along its beaches; nothing walks into the jungle behind
-        if (shore > 30 && shore < 70 && r1 < 0.5 && ok(x, y, 10)) push({ k: 'ocean', n: r2 < 0.5 ? 'palm_a' : 'palm_b', x, y, f, r: 8, sway: true });
+        // the mainland: palms along its beaches, then palm groves, glades, ferns and big old trees inland
+        if (shore > 30 && shore < 70) { if (r1 < 0.5 && ok(x, y, 10)) push({ k: 'ocean', n: r2 < 0.5 ? 'palm_a' : 'palm_b', x, y, f, r: 8, sway: true }); continue; }
+        if (shore < 70 || !Oc.mainland(x, y) || !ok(x, y, 10)) continue;
+        if (Math.abs(Oc.vn(x / 700, y / 700, p.seed + 9417) - 0.5) < 0.03) continue; // (the trails stay clear)
+        const glade = Oc.vn(x / 420, y / 420, p.seed + 9416) > 0.6;
+        if (glade) {
+          if (r1 < 0.28) push({ k: 'flower', n: ['flower_a1', 'flower_b4', 'flower_c0', 'flower_s2', 'flower_a3'][(r2 * 5) | 0], x, y, s: 0.8, f, flat: true });
+          else if (r1 < 0.4) push({ k: 'tuft', n: 'tuft_1', x, y, f, flat: true });
+          else if (r1 < 0.45) push({ k: 'ocean', n: r2 < 0.5 ? 'palm_a' : 'palm_b', x, y, f, r: 8, sway: true });
+          else if (r1 < 0.48) push({ k: 'stone', n: r2 < 0.5 ? 'w_moss_stone_a' : 'w_moss_stone_b', x, y, f, r: 9 });
+          continue;
+        }
+        if (r1 < 0.16) push({ k: 'ocean', n: r2 < 0.5 ? 'palm_a' : 'palm_b', x, y, f, s: 1.1, r: 8, sway: true });
+        else if (r1 < 0.26) push({ k: 'tree', n: BIG_TREES[(r2 * BIG_TREES.length) | 0], x, y, f, r: 14, sway: true, s: 1.05 });
+        else if (r1 < 0.44) push({ k: 'plant', n: ['w_fern_a', 'w_fern_b', 'w_fern_c', 'fern', 'w_bracken'][(r2 * 5) | 0], x, y, s: 1.05, f, hab: 'bush', r: 0 });
+        else if (r1 < 0.52) push({ k: 'bush', n: ['bushball_00', 'bushball_11', 'bush_wide', 'bushtiny_13'][(r2 * 4) | 0], x, y, f, hab: 'bush', r: 0 });
+        else if (r1 < 0.54) push({ k: 'ocean', n: r2 < 0.5 ? 'tiki_a' : 'tiki_b', x, y, f, r: 7 });
+        else if (r1 < 0.57) push({ k: 'log', n: 'log_fallen', x, y, f, r: 18 });
+        else if (r1 < 0.6) push({ k: 'plant', n: 'vines', x, y, f, r: 0 });
         continue;
       }
       const o = z.isl;

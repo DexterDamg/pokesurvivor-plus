@@ -431,7 +431,7 @@
       sg.ellipse(e.x + lx, e.y + ly, (e.r || 14) * 0.85 + Math.abs(lx) * 0.6, (e.r || 14) * 0.38 + Math.abs(ly) * 0.5, Math.atan2(ly, lx || 0.001), 0, 6.283);
       sg.fill();
     };
-    for (const e of R.EnemyMgr.drawables(cam)) if (!e.dead && !(e.psx && e.psx.vis && e.psx.vis.alpha < 0.3)) ent(e, AI.Scale.top(e));
+    for (const e of R.EnemyMgr.drawables(cam)) if (!e.dead && !(e.psx && e.psx.vis && (e.psx.vis.alpha < 0.3 || e.psx.vis.subNow > 0.3))) ent(e, AI.Scale.top(e)); // (none for one down in the water)
     const pl = R.Game.player;
     if (pl && !pl.dead) ent(pl, pl.bodyH || 40);
     ctx.save();

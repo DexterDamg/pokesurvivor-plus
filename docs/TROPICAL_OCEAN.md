@@ -28,8 +28,15 @@ placed so that the middle of the pier is where you stand. Around you: three boat
 pier, a ferry, crates and barrels, Wingull, palms along the beach, the town, and the
 **lighthouse** on the rocky headland to the west.
 
-The mainland carries on from the painting's edges as jungle no one can walk through, with beaches
-along its coast. The sea opens to the south and east.
+Behind the town the **mainland** is yours to roam: about 14 km² of land you can walk, more than
+ten times the town alone. Palm groves, ferny forest floor under big old trees, sunny glades full
+of flowers, worn trails winding between them, tiki carvings, fallen logs, and beaches along its
+coast. It has its own forest Pokémon (Pikipek, Yungoos, Exeggcute, Aipom, Oddish, Paras, Caterpie,
+Ledyba and Lotad early on; Exeggutor, Ambipom, Parasect, Ludicolo, Tropius, Scyther and Pinsir
+later), and deep inland, out of sight of the sea, sea Pokémon don't turn up. About 3 km from the
+town (more in places) the jungle closes in for good, a wall of canopy no one walks through, and
+here and there inside the forest stands a thicket too dense to enter. The sea opens to the south
+and east.
 
 Every world is laid out from its seed, so the same seed always gives the same sea:
 
@@ -97,10 +104,15 @@ shows the tide while you're at sea.
 - **Boarding:** walk into a boat to climb aboard. From the pier, push toward a boat moored just
   beyond the railing. The usual controls steer it.
 - **Handling:**
-  - It speeds up and slows down, turns wider when it's going fast, and slides a little
-    sideways.
+  - The bow swings round toward wherever you steer: quickly when the boat is slow, wider when
+    it's going fast. Steer the opposite way and it turns around (slowing as it swings); it never
+    backs off in reverse.
+  - The boat is drawn pointing where it's heading: left, right, up, down or anywhere between,
+    whichever way its sprite was painted.
+  - It speeds up and slows down, and slides a little sideways.
   - It floats and bobs, and leaves a wake.
-  - At low speed it can ease away from a pier it can't yet turn from.
+  - Pinned against the pier where it can't swing round, it shuffles free or eases away the way
+    you steer. Bumping a boat no one is sailing nudges it out of the way.
 - **The sea pushes back, but you always keep control:**
   - Currents carry the boat, and the wind leans on it.
   - Gusts make it skid sideways.
@@ -127,6 +139,12 @@ How a species moves decides where it can go, not just its type:
 | **Amphibious** | Seel, Dewgong, Psyduck, Poliwag, Marill… | anywhere wet or dry |
 | **Flies or floats** | Wingull, Pelipper, Gastly, Drifloon… | over everything |
 | **Walks** | everyone else | land and shallows |
+
+Fish keep clear of the surf line: they never come up onto the sand, not even at the water's
+edge. In the water, swimmers sit low: about half of a fish is under the surface (more out in deep
+water, a little less in the shallows), with a ripple ring where it meets the water and no shadow on
+the seabed. Waders sit lower in the shallows too. Some sea Pokémon the game makes hover (Luvdisc…)
+are swimmers like the rest.
 
 So a land Pokémon can never path from one island to another. Your own Pokémon follows the same
 rules: **Water types swim** anywhere, and everyone else wades the shallows and takes a boat

@@ -355,6 +355,8 @@
       if (AI.enabled && !AI.Population.allowAdd(e)) return e;
       const r = oAdd.apply(this, arguments);
       if (AI.enabled) try { AI.Scale.apply(e); } catch (err) { AI.warn('scale', err); }
+      // a swimmer the game made a hoverer (Luvdisc…) is in the water, not over it: it keeps to the water and sits low in it
+      if (AI.enabled && e.flying && !e.boss && e.dex != null) try { const W = AI.Ocean && AI.Ocean.on() ? AI.Ocean : AI.Forest && AI.Forest.on() ? AI.Forest : null; if (W && W.locomotion(e.dex) === 'swim') { e.flying = false; e.psxWasFlying = true; } } catch (err) { /* ignore */ }
       if (AI.enabled && (e.boss || e.legend)) AI.Bus.emit({ type: 'legend', x: e.x, y: e.y, loud: 760, dex: e.dex, kind: 'boss', power: 1.1 });
       return r;
     };
