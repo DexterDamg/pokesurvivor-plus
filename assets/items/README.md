@@ -22,6 +22,9 @@ Pixel-art item icons at their native size (`*.png`), with the upscaled originals
 | `prison_bottle.png` | Prison Bottle | Hoopa (Unbound) | 16×30 |
 | `dynamax_band.png` | Dynamax Band | Dynamax (for when Eternatus exists) | 16×16 |
 | `rainbow_wing.png` | Rainbow Wing (red, white and green feather) | Ho-Oh (to be confirmed) | 12×22 |
+| `dusk_stone.png` | Dusk Stone | evolution stone | 20×20 |
+| `moon_stone.png` | Moon Stone | evolution stone | 24×24 |
+| `leaf_stone.png` | Leaf Stone | evolution stone | 19×21 |
 
 ## Sheets (`sheets/`, kept exactly as sent)
 
@@ -30,3 +33,5 @@ Pixel-art item icons at their native size (`*.png`), with the upscaled originals
 | `mega_stones.png` | every Mega Stone, labelled, in three columns (X/Y, ORAS, Legends Z-A) | 232×777 |
 | `z_crystals.jpg` | the Z-Crystals (JPEG: the colours bleed a little at the edges) | 507×187 |
 | `berry_trees.webp` | berry trees, each in three stages (sprout → growing → bearing fruit) | 134×2000 |
+| `berries_chart.jpg` | berries: the Pokéblock/contest berries by condition, and the EV-reducing and level berries | 627×716 |
+| `berry_crops.png` | twelve berry crops with their icons, each in four stages (sprout → bloom → fruit). **Credit needed if used:** kuo, touga and chilan berry icons by Ponylover888, eggplant tree by Anarlaurendil, tree and some berries by DarkusShadow | 853×739 |

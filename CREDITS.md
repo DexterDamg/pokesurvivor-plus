@@ -207,6 +207,10 @@ Iconos de objetos de `assets/items` (Piedra Espíritu, Orbes, Piedras Oscura y C
 y las hojas de Megapiedras, Cristales Z y bayas en árbol:
 material aportado por DexterDamg para PokéSurvivor+.
 
+Hoja de cultivos de bayas (`assets/items/sheets/berry_crops.png`, todavía sin usar): iconos de las
+bayas kuo, touga y chilan por **Ponylover888**, árbol de berenjena por **Anarlaurendil**, árbol y
+algunas bayas por **DarkusShadow**.
+
 Los sonidos de ambiente (pájaros, grillos, lluvia, viento, truenos, caja de
 música…) se sintetizan en el propio juego; no usan archivos de audio.
 
