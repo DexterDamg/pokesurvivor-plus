@@ -995,7 +995,7 @@ async function sample(h, ms, every, fn, arg) {
       const c0 = xp();
       X.onBreak({ type: 'chest', x: 123, y: 456 }); const chest = xp() - c0;
       X.onBreak({ type: 'chest', x: 123, y: 456 }); const again = xp() - c0 - chest;
-      const d0 = xp(); X.onBreak({ type: 'bigchest', x: 999, y: 456 }); const big = xp() - d0;
+      const d0 = xp(); X.onBreak({ type: 'bigchest', x: 131, y: 456 }); const big = xp() - d0; // (right beside it: equally hidden, or not)
       PSXAI.Debug.freeze(true);
       return { still, circle, walk, tele, chest, again, big, unit: Math.round(X.unit()) };
     });
@@ -2364,7 +2364,7 @@ async function sample(h, ms, every, fn, arg) {
         for (let k = 3; k < 9 && !ap; k++) { const q = sp.path[k]; p.x = q[0]; p.y = q[1]; PSXAI.Mansion.snapCamera(p); await wait(700); ap = M.run.apps.find((a) => a.id === 'spectrier'); }
         if (ap) await wait(1500);
         out.spectrier = !!ap;
-        if (ap) { const e = sp.path[9]; p.x = e[0]; p.y = e[1]; await wait(500); out.trail = ap.trail.length > 0; out.leaving = ap.state === 'out' || !M.run.apps.includes(ap); }
+        if (ap) { p.x += (ap.x - p.x) * 0.75; p.y += (ap.y - p.y) * 0.75; await wait(500); out.trail = ap.trail.length > 0; out.leaving = ap.state === 'out' || !M.run.apps.includes(ap); } // (walk right up to it)
         out.noEnemy = !R.EnemyMgr.all().some((e) => e.dex === 897);
       }
       return out;

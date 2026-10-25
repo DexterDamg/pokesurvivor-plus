@@ -218,7 +218,7 @@ toward one ends the sighting. Nothing ever starts a legendary fight on its own.
 | **Raikou** | the Thunder Ridge | night thunderstorms | in a lightning flash a silhouette stands on the ridge; by the next strike it's gone |
 | **Suicune** | the Clear Pool | fog, or misty dawns | something stands on the water and walks away across it into the mist |
 | **Entei** | the Scorched Clearing: burnt paw prints, warm glowing stones, drifting embers | rarely | a roar shakes the trees; a great beast watches from across the clearing, then is gone in a gust of heat |
-| **Spectrier** | the Forgotten Path: a narrow dark trail with an old marker | night, only on the path | a horse at the path's end turns its head, looks at you and gallops off without a sound, leaving a violet trail. It never fights |
+| **Spectrier** | the Forgotten Path: a narrow dark trail with an old marker | night, only on the path | a horse further along the path, toward its end, turns its head, looks at you and gallops off without a sound, leaving a violet trail. It never fights |
 | **Shaymin** | the Gratitude Meadow | sunny days | peeks out of the flowers, then burrows away |
 | **Cresselia** | the Moonlit Refuge: a small pool and moon-facing bluebells | clear nights with a bright moon | glides over the pool trailing moonlight, then rises into the sky |
 | **Virizion** | the Emerald Glade | daytime | stands in the glade, then leaps away |

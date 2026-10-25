@@ -440,10 +440,16 @@
     },
     spectrier(st, p, d) {
       if (!st.path || Sky().darkness() < 0.5 || !ready('spectrier')) return;
-      const end = st.path[st.path.length - 1];
-      if (AI.Forest.pathDist(p.x, p.y) > 30 || d > 420 || d < 150 || !onScreen(end[0], end[1] - 30, -30)) return; // only on the path itself
+      if (AI.Forest.pathDist(p.x, p.y) > 30 || d > 420) return; // only on the path itself, toward its end
+      // it stands on the path ahead of you: as far along it as you can see, never right on top of you
+      let at = null;
+      for (let i = st.path.length - 1; i >= 0 && !at; i--) {
+        const q = st.path[i], dq = Math.hypot(q[0] - p.x, q[1] - p.y);
+        if (dq >= 125 && dq <= 420 && Math.hypot(q[0] - st.x, q[1] - st.y) < d && onScreen(q[0], q[1], -12)) at = q; // (the screen shows little above and below you)
+      }
+      if (!at) return;
       cool('spectrier', 180);
-      spawnApp('spectrier', end[0], end[1], { flee: 120, life: 2.6, fade: 1.4, face: true, maxAlpha: 0.95, leave: 'run', speed: 340, outFade: 1.4, trailCol: '170,110,255',
+      spawnApp('spectrier', at[0], at[1], { flee: 120, life: 2.6, fade: 1.4, face: true, maxAlpha: 0.95, leave: 'run', speed: 340, outFade: 1.4, trailCol: '170,110,255',
         custom(ap) { if (ap.state === 'stay' && ap.t > 2.2 && ap.a) ap.a.play && ap.a.play('Idle'); } });
     },
     shaymin(st, p, d) {
