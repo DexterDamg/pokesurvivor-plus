@@ -20,13 +20,22 @@
   } catch (e) { img.src = 'assets/env/atlas.png'; }
 
   const PX = 2; // the game's pixel scale
+  // extra sheets (the Old Chateau furniture, 87-mansion.js): their sprites carry their own image
+  function addSheet(src, idx) {
+    const im = new Image();
+    im.src = src;
+    for (const k in idx) IDX[k] = idx[k].slice(0, 4).concat([im]);
+    return im;
+  }
+  const imgOf = (r) => r[4] || img;
+  const readyOf = (r) => (r[4] ? r[4].complete && r[4].naturalWidth > 0 : ready);
   function has(name) { return !!IDX[name]; }
   function size(name) { const r = IDX[name]; return r ? [r[2] * PX, r[3] * PX] : [0, 0]; }
 
   // draw a sprite with its bottom-centre at (x, y)
   function draw(ctx, name, x, y, o) {
     const r = IDX[name];
-    if (!ready || !r) return false;
+    if (!r || !readyOf(r)) return false;
     const s = (o && o.scale) || 1;
     const w = r[2] * PX * s, h = r[3] * PX * s;
     const sway = (o && o.sway) || 0;
@@ -36,10 +45,10 @@
       ctx.translate(Math.round(x), Math.round(y));
       if (sway) ctx.transform(1, 0, sway, 1, 0, 0); // lean from the base, like wind on a trunk
       if (o.flip) ctx.scale(-1, 1);
-      ctx.drawImage(img, r[0], r[1], r[2], r[3], Math.round(-w / 2), Math.round(-h), Math.round(w), Math.round(h));
+      ctx.drawImage(imgOf(r), r[0], r[1], r[2], r[3], Math.round(-w / 2), Math.round(-h), Math.round(w), Math.round(h));
       ctx.restore();
     } else {
-      ctx.drawImage(img, r[0], r[1], r[2], r[3], Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h));
+      ctx.drawImage(imgOf(r), r[0], r[1], r[2], r[3], Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h));
     }
     return true;
   }
@@ -49,14 +58,14 @@
   const silCanvas = new WeakMap();
   function silhouette(src) {
     if (typeof src === 'string') {
-      if (!ready || !IDX[src]) return null;
+      if (!IDX[src] || !readyOf(IDX[src])) return null;
       let c = sil.get(src);
       if (c) return c;
       const r = IDX[src];
       c = document.createElement('canvas');
       c.width = r[2]; c.height = r[3];
       const g = c.getContext('2d');
-      g.drawImage(img, r[0], r[1], r[2], r[3], 0, 0, r[2], r[3]);
+      g.drawImage(imgOf(r), r[0], r[1], r[2], r[3], 0, 0, r[2], r[3]);
       g.globalCompositeOperation = 'source-in';
       g.fillStyle = '#000';
       g.fillRect(0, 0, r[2], r[3]);
@@ -163,7 +172,7 @@
   }
 
   AI.define('Art', {
-    PX, img, IDX, has, size, draw, silhouette, theme, treeFor, underFor, stages, GIANTS, GREEN, TREES, UNDER, EVERGREEN, BROADLEAF,
+    PX, img, IDX, addSheet, has, size, draw, silhouette, theme, treeFor, underFor, stages, GIANTS, GREEN, TREES, UNDER, EVERGREEN, BROADLEAF,
     get ready() { return ready; },
   });
 })();

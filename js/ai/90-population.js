@@ -42,6 +42,8 @@
     // nothing wild ever comes into the haunted mansion
     if (AI.Mansion && AI.Mansion.inInterior(e.x, e.y) && !e.psxStory) { AI.stats.spawnVetoed++; return false; }
     if (AI.Totem && AI.Totem.inside(e.x, e.y) && !e.psxTrial) { AI.stats.spawnVetoed++; return false; }
+    // and none appear on or around its grounds either: dead silence (bosses still come when they're due)
+    if (AI.Mansion && AI.Mansion.silentAt(e.x, e.y) && !e.psxStory && !exempt(e)) { AI.stats.spawnVetoed++; return false; }
     // nobody appears in water they couldn't be in (34-forest.js moves them to a spot that suits them)
     if (AI.Forest && !e.psxStory && !AI.Forest.spawnOk(e)) { AI.stats.spawnVetoed++; return false; }
     if (AI.Ocean && !e.psxStory && !AI.Ocean.spawnOk(e)) { AI.stats.spawnVetoed++; return false; }

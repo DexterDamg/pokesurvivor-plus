@@ -4,9 +4,11 @@
  * fence are solid, and the front door leads inside.
  * The interior is a separate space far from the forest: walking through the door fades to black,
  * the Pokémon outside are set aside (the game's own stash, like a rift) and the house is drawn
- * instead of the forest, room by room, from the supplied mansion sheet: a foyer with a barricaded
+ * instead of the forest, room by room, from the supplied mansion sheet: a foyer with a grand
  * staircase, a gallery of portraits and armour, a dining hall, a locked ballroom, a study and a long
- * hallway that ends in a tall old mirror. No wild Pokémon ever come in here.
+ * hallway that ends in a tall old mirror. Up the stairs (the Old Chateau furniture sheet): a library,
+ * an upper gallery, a guest room, a long corridor, the landing, the master bedroom and a nursery; and
+ * up a narrow stair at the corridor's end, the attic. No wild Pokémon ever come in here.
  * The hauntings (88-haunt.js) and the story (89-story.js) play out on top of this.
  */
 (function () {
@@ -15,7 +17,9 @@
   const U = AI.U;
 
   const TS = 32;
-  const COLS = 46, ROWS = 36;
+  const COLS = 46, ROWS = 130;
+  const FLOORS = [0, 50, 105]; // the first row of each floor (ground floor, upstairs, attic)
+  function floorOfRow(r) { return r >= FLOORS[2] ? 2 : r >= FLOORS[1] ? 1 : 0; }
   const st = {
     inside: false,
     fade: 0, fadeTo: 0, fadeCb: null, fadeSpeed: 2.4,
@@ -41,8 +45,8 @@
     const ix = g.interior[0] - COLS * TS / 2, iy = g.interior[1];
     if (x > ix - 600 && x < ix + COLS * TS + 600 && y > iy - 600 && y < iy + ROWS * TS + 600) return true;
     if (x < bx[0] || y < bx[1] || x > bx[2] || y > bx[3]) return false;
-    const [dx, dy] = g.D;
-    if (x > dx - g.SW - 90 && x < dx + g.SW + 90 && y > dy - 330 && y < g.G[1] + 70) return true;
+    const [dx] = g.D;
+    if (x > dx - g.SW - 90 && x < dx + g.SW + 90 && y > g.top - 90 && y < g.G[1] + 70) return true;
     for (const p of g.dense) if (Math.abs(p[0] - x) < 70 && Math.abs(p[1] - y) < 70 && Math.hypot(p[0] - x, p[1] - y) < 70) return true;
     return false;
   }
@@ -52,16 +56,170 @@
     const g = geom();
     if (!g) return null;
     if (g._rects) return g._rects;
-    const [dx, dy] = g.D, gy = g.G[1], SW = g.SW;
+    const [dx, dy] = g.D, gy = g.G[1], SW = g.SW, GO = g.GO, top = g.top;
     const r = [];
-    r.push([dx - SW - 4, dy - 270, dx + SW + 4, dy - 6]); // the house (and the wall pieces to the fence)
+    r.push([dx - g.HW, dy - g.HH + 14, dx + g.HW, dy - 6]); // the house
+    r.push([dx - SW - 6, top - 8, dx + SW + 6, top + 8]); // the back fence
     for (const sd of [-1, 1]) {
-      r.push(sd < 0 ? [dx - SW - 6, gy - 8, dx - 48, gy + 8] : [dx + 48, gy - 8, dx + SW + 6, gy + 8]); // gate fence
-      r.push(sd < 0 ? [dx - SW - 8, dy - 6, dx - SW + 8, gy + 8] : [dx + SW - 8, dy - 6, dx + SW + 8, gy + 8]); // side fences
-      r.push([dx + sd * 64 - 10, dy + 4, dx + sd * 64 + 10, dy + 16]); // gargoyles
+      r.push(sd < 0 ? [dx - SW - 6, gy - 8, dx - GO + 16, gy + 8] : [dx + GO - 16, gy - 8, dx + SW + 6, gy + 8]); // the fence either side of the gate
+      r.push(sd < 0 ? [dx - SW - 8, top - 8, dx - SW + 8, gy + 8] : [dx + SW - 8, top - 8, dx + SW + 8, gy + 8]); // side fences
+      r.push([dx + sd * 78 - 11, dy + 6, dx + sd * 78 + 11, dy + 18]); // gargoyles
     }
+    r.push([g.F[0] - 90, g.F[1] - 54, g.F[0] + 90, g.F[1] + 30]); // the fountain
+    r.push([g.shed[0] - 98, g.shed[1] - 74, g.shed[0] + 98, g.shed[1] - 2]); // the shed
     g._rects = r;
     return r;
+  }
+  // the grounds and a wide band around them are silent: no wild Pokémon appear there at all
+  function silentAt(x, y) {
+    if (!on() || st.inside) return false;
+    const g = geom();
+    if (!g) return false;
+    return x > g.D[0] - g.SW - 520 && x < g.D[0] + g.SW + 520 && y > g.top - 520 && y < g.G[1] + 420;
+  }
+
+  // ---------------------------------------------------------------- exterior: drawing the house and its grounds
+  const ART = window.PSXAI_MANSION_ART || { mansion: { w: 466, h: 170, wins: [] }, shed: { w: 61, h: 60 } };
+  // the Old Chateau furniture sheet: its sprites are drawn like any other ('c_bed', 'c_sofa'…)
+  if (AI.Art && AI.Art.addSheet && ART.chateau) AI.Art.addSheet('assets/mansion/chateau.png', ART.chateau);
+  const img = (src) => { const i = new Image(); i.src = src; return i; };
+  const IMG = { house: img('assets/env/mansion_big.png'), shed: img('assets/env/shed.png') };
+  const ok = (i) => i.complete && i.naturalWidth > 0;
+  // how far each big piece reaches from its anchor, so it isn't culled while any of it is on screen
+  const EXT = { mansion: [-470, -350, 470, 0], mgate: [-240, -330, 240, 10], fountain: [-110, -150, 110, 40], shed: [-110, -200, 110, 6] };
+  function drawItem(ctx, it) {
+    switch (it.k) {
+      case 'mansion': {
+        const A = ART.mansion;
+        if (ok(IMG.house)) ctx.drawImage(IMG.house, Math.round(it.x - A.w), Math.round(it.y - A.h * 2), A.w * 2, A.h * 2);
+        // worn stone steps up to the door
+        ctx.fillStyle = '#4a4450'; ctx.fillRect(Math.round(it.x - 46), Math.round(it.y - 4), 92, 8);
+        ctx.fillStyle = '#5c5662'; ctx.fillRect(Math.round(it.x - 40), Math.round(it.y + 4), 80, 6);
+        break;
+      }
+      case 'mgate': drawGate(ctx, it); break;
+      case 'fountain': drawFountain(ctx, it); break;
+      case 'shed': drawShed(ctx, it); break;
+      case 'mcandle': drawCandle(ctx, it); break;
+    }
+  }
+  // tall gate leaves standing open under a wrought-iron arch
+  function drawGate(ctx, it) {
+    const x = Math.round(it.x), y = Math.round(it.y) - 10, w = it.w;
+    const H = 156; // the pillars' height
+    ctx.save();
+    ctx.strokeStyle = '#1e1a22'; ctx.fillStyle = '#1e1a22';
+    // the open leaves, swung back against the inside of the fence
+    for (const sd of [-1, 1]) {
+      const x0 = x + sd * (w - 18), x1 = x + sd * (w - 84);
+      for (let k = 0; k <= 7; k++) {
+        const t = k / 7, bx = x0 + (x1 - x0) * t, by = y - 6 - t * 34;
+        ctx.fillRect(Math.round(bx) - 1, Math.round(by - 104), 3, 104);
+        ctx.fillRect(Math.round(bx) - 2, Math.round(by - 112), 5, 6); // spear tips
+      }
+      ctx.lineWidth = 3;
+      for (const hy of [92, 54, 14]) { ctx.beginPath(); ctx.moveTo(x0, y - 6 - hy); ctx.lineTo(x1, y - 40 - hy); ctx.stroke(); }
+    }
+    // the arch: two bands of iron between the pillar tops, scrollwork and spikes along the top
+    ctx.lineWidth = 4;
+    for (const off of [0, 16]) {
+      ctx.beginPath(); ctx.moveTo(x - w, y - H + 4 + off);
+      ctx.quadraticCurveTo(x, y - H - 120 + off, x + w, y - H + 4 + off); ctx.stroke();
+    }
+    ctx.lineWidth = 2;
+    for (let k = -5; k <= 5; k++) {
+      const t = (k + 5) / 10, ax = x - w + 2 * w * t, ay = (1 - t) * (1 - t) * (y - H + 4) + 2 * (1 - t) * t * (y - H - 120) + t * t * (y - H + 4);
+      ctx.beginPath(); ctx.moveTo(ax, ay + 4); ctx.lineTo(ax, ay + 12); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax, ay - 10); ctx.stroke();
+      ctx.beginPath(); ctx.arc(ax, ay + 8, 3, 0, 6.283); ctx.stroke();
+    }
+    // a crest in the middle, its letters long rusted away
+    ctx.fillStyle = '#2c2630'; ctx.beginPath(); ctx.arc(x, y - H - 54, 15, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = '#5a4c5e'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#7a3e8a'; ctx.fillRect(x - 3, y - H - 60, 6, 10);
+    ctx.restore();
+  }
+  // a fountain that stopped working long ago: a dry basin, cracked tiers, moss and dead leaves
+  function drawFountain(ctx, it) {
+    ctx.save();
+    ctx.translate(Math.round(it.x), Math.round(it.y)); ctx.scale(1.4, 1.4);
+    const x = 0, y = 0;
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(x, y + 10, 72, 26, 0, 0, 6.283); ctx.fill();
+    // the basin
+    ctx.fillStyle = '#5d5862'; ctx.beginPath(); ctx.ellipse(x, y - 6, 66, 30, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = '#4a4550'; ctx.fillRect(x - 66, y - 6, 132, 14); ctx.beginPath(); ctx.ellipse(x, y + 8, 66, 30, 0, 0, Math.PI); ctx.fill();
+    ctx.fillStyle = '#2a2530'; ctx.beginPath(); ctx.ellipse(x, y - 8, 56, 22, 0, 0, 6.283); ctx.fill(); // dry, dark inside
+    ctx.fillStyle = '#3a4a2c'; for (const [mx, my, mw] of [[-38, -10, 14], [20, -2, 10], [-6, -18, 8], [30, -14, 12]]) ctx.fillRect(x + mx, y + my, mw, 3); // moss
+    ctx.fillStyle = '#6b4a2a'; for (const [lx, ly] of [[-24, -4], [12, -14], [34, -6], [-44, -14], [4, 0]]) ctx.fillRect(x + lx, y + ly, 4, 2); // dead leaves
+    ctx.strokeStyle = '#1c1820'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + 46, y - 18); ctx.lineTo(x + 38, y - 4); ctx.lineTo(x + 44, y + 10); ctx.stroke(); // a crack in the rim
+    // the pedestal and its tiers
+    ctx.fillStyle = '#6a6470'; ctx.fillRect(x - 9, y - 58, 18, 52);
+    ctx.fillStyle = '#7a7480'; ctx.fillRect(x - 9, y - 58, 4, 52);
+    ctx.fillStyle = '#5d5862'; ctx.beginPath(); ctx.ellipse(x, y - 58, 32, 10, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = '#2a2530'; ctx.beginPath(); ctx.ellipse(x, y - 60, 24, 6, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = '#6a6470'; ctx.fillRect(x - 5, y - 86, 10, 26);
+    ctx.fillStyle = '#5d5862'; ctx.beginPath(); ctx.ellipse(x, y - 86, 16, 6, 0, 0, 6.283); ctx.fill();
+    // what's left of the figure on top: a broken stump
+    ctx.fillStyle = '#7a7480'; ctx.fillRect(x - 4, y - 100, 8, 14); ctx.fillStyle = '#4a4550'; ctx.fillRect(x - 4, y - 102, 3, 4); ctx.fillRect(x + 1, y - 100, 3, 2);
+    // a stain where the water used to run
+    ctx.fillStyle = 'rgba(30,50,40,0.5)'; ctx.fillRect(x - 3, y - 56, 2, 50); ctx.fillRect(x + 4, y - 84, 2, 24);
+    ctx.restore();
+  }
+  // the shed: its double doors bang open and shut on their own (shedDoor in tick)
+  function drawShed(ctx, it) {
+    ctx.save();
+    ctx.translate(Math.round(it.x), Math.round(it.y)); ctx.scale(1.6, 1.6);
+    const A = ART.shed, x = 0, y = 0;
+    if (ok(IMG.shed)) ctx.drawImage(IMG.shed, x - A.w, y - A.h * 2, A.w * 2, A.h * 2);
+    const open = st.shedOpen || 0;
+    ctx.fillStyle = '#0a070c'; ctx.fillRect(x - 22, y - 50, 44, 48); // the dark inside
+    for (const sd of [-1, 1]) {
+      const k = sd < 0 ? open : open * 0.6;
+      const w = Math.max(3, Math.round(22 * (1 - k)));
+      const dx = sd < 0 ? x - 22 : x + 22 - w;
+      ctx.fillStyle = '#4a3428'; ctx.fillRect(dx, y - 50, w, 48);
+      ctx.fillStyle = '#2e2018'; ctx.fillRect(dx + (sd < 0 ? w - 2 : 0), y - 50, 2, 48);
+      if (w > 10) { ctx.fillStyle = '#6a5040'; ctx.fillRect(dx + 2, y - 40, w - 4, 2); ctx.fillRect(dx + 2, y - 16, w - 4, 2); }
+    }
+    ctx.restore();
+  }
+  // a small candle; now and then its flame turns purple for a moment
+  function drawCandle(ctx, it) {
+    const x = Math.round(it.x), y = Math.round(it.y);
+    ctx.fillStyle = '#2a2228'; ctx.fillRect(x - 4, y - 2, 8, 3);
+    ctx.fillStyle = '#e8dcc4'; ctx.fillRect(x - 2, y - 11, 4, 9);
+    ctx.fillStyle = '#c8b898'; ctx.fillRect(x + 1, y - 11, 1, 9);
+    if (!it.lit) return;
+    const purple = AI.Decor.ghostly(it);
+    const fl = Math.sin(AI.time * 13 + it.id) > 0 ? 1 : 0;
+    ctx.fillStyle = purple ? '#b070ff' : '#ffb040'; ctx.fillRect(x - 1, y - 16 - fl, 3, 5);
+    ctx.fillStyle = purple ? '#e8d0ff' : '#fff0b0'; ctx.fillRect(x, y - 14 - fl, 1, 2);
+  }
+  // the shed's doors bang now and then while you're anywhere near
+  function shedDoor(dt) {
+    const g = geom(), p = AI.R.Game.player;
+    if (!g || !p) return;
+    const d = Math.hypot(p.x - g.shed[0], p.y - g.shed[1]);
+    if (st.shedT == null) st.shedT = 3;
+    st.shedT -= dt;
+    if (st.shedPh > 0) {
+      st.shedPh -= dt;
+      st.shedOpen = Math.sin(Math.min(1, 1 - st.shedPh / 0.5) * Math.PI) * 0.9;
+      if (st.shedPh <= 0) { st.shedOpen = 0; if (d < 900) sfx('slam', g.shed[0], g.shed[1]); }
+    } else if (st.shedT <= 0 && d < 1100) {
+      st.shedT = U.rand(4, 11);
+      st.shedPh = 0.5;
+      if (Math.random() < 0.35) st.shedT = 0.8; // and sometimes twice in a row
+    }
+  }
+  // any wild Pokémon still on or around the grounds slips away: the place is dead silent
+  function hush() {
+    const R = AI.R;
+    if (R.Coop && R.Coop.active && !R.Coop.isHost) return;
+    for (const e of R.EnemyMgr.all()) {
+      if (e.dead || e.psxStory || e.boss || e.legend || e.judge || e.remote || !silentAt(e.x, e.y)) continue;
+      try { if (AI.EnvBeh) AI.EnvBeh.removeNpc(e); else e.dead = true; } catch (err) { e.dead = true; }
+    }
   }
   function pushOut(ent, rects) {
     const rr = ent.r || 12;
@@ -86,7 +244,7 @@
     if (!on() || !ent) return false;
     const g = geom();
     if (!g) return false;
-    if (Math.abs(ent.x - g.D[0]) > g.SW + 80 || ent.y < g.D[1] - 340 || ent.y > g.G[1] + 60) return false;
+    if (Math.abs(ent.x - g.D[0]) > g.SW + 80 || ent.y < g.top - 40 || ent.y > g.G[1] + 60) return false;
     return pushOut(ent, exteriorRects());
   }
   function blockedExterior(x, y, r) {
@@ -98,7 +256,8 @@
 
   // ---------------------------------------------------------------- the interior layout
   /* A grid of 32 px tiles:  ' ' void  '#' wall  'W' wall face (north walls seen from the front)
-   * '.' floor  'd' doorway  'L' locked door  'S' staircase  'E' the front door (from inside) */
+   * '.' floor  'd' doorway  'L' locked door  'S' staircase  'E' the front door (from inside)
+   * 'U' stairs up  'D' stairs down (walk onto them to change floor) */
   const ROOMS = [
     { id: 'dining', x0: 2, y0: 6, x1: 13, y1: 16, floor: 'wood', wins: [1] },
     { id: 'ballroom', x0: 16, y0: 6, x1: 30, y1: 15, floor: 'pink', wins: [1, 2] },
@@ -106,7 +265,19 @@
     { id: 'study', x0: 38, y0: 12, x1: 44, y1: 21, floor: 'wood', wins: [] },
     { id: 'gallery', x0: 2, y0: 24, x1: 13, y1: 33, floor: 'wood', wins: [1] },
     { id: 'foyer', x0: 16, y0: 22, x1: 30, y1: 33, floor: 'pink', wins: [] },
+    // upstairs
+    { id: 'library', x0: 2, y0: 56, x1: 15, y1: 65, floor: 'wood', wins: [1], fl: 1 },
+    { id: 'upgallery', x0: 18, y0: 56, x1: 28, y1: 64, floor: 'pink', wins: [1], fl: 1 },
+    { id: 'bedroom', x0: 31, y0: 56, x1: 44, y1: 65, floor: 'wood', wins: [1, 2], fl: 1 },
+    { id: 'corridor', x0: 2, y0: 70, x1: 44, y1: 73, floor: 'wood', wins: [2, 5, 8], fl: 1 },
+    { id: 'landing', x0: 16, y0: 78, x1: 30, y1: 88, floor: 'pink', wins: [], fl: 1 },
+    { id: 'master', x0: 2, y0: 78, x1: 13, y1: 88, floor: 'wood', wins: [1], fl: 1 },
+    { id: 'nursery', x0: 33, y0: 78, x1: 44, y1: 88, floor: 'pink', wins: [1], fl: 1 },
+    // the attic
+    { id: 'attic', x0: 3, y0: 111, x1: 43, y1: 124, floor: 'wood', wins: [2, 6], fl: 2 },
   ];
+  // where each staircase takes you: [tile x, tile y] you arrive at
+  const ARRIVE = { up0: [23.5, 87.3], down1: [23.5, 23.4], up1: [40.6, 123.4], down2: [41, 72.6] };
   function build(g) {
     const grid = [];
     for (let y = 0; y < ROWS; y++) grid.push(new Array(COLS).fill(' '));
@@ -132,7 +303,15 @@
     door([[31, 9], [32, 9], [31, 10], [32, 10]], 'L'); // ballroom ↔ hall: locked
     door([[36, 16], [37, 16], [36, 17], [37, 17]], 'd'); // hall ↔ study
     for (let y = 17; y <= 23; y++) { set(7, y, 'd'); set(8, y, 'd'); } // gallery ↔ dining
-    for (let y = 18; y <= 21; y++) for (let x = 19; x <= 26; x++) set(x, y, 'S'); // staircase
+    for (let y = 18; y <= 21; y++) for (let x = 19; x <= 26; x++) set(x, y, 'U'); // the grand staircase, up
+    // upstairs: doors off the corridor and the landing
+    const span = (x0, x1, y0, y1, c) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) set(x, y, c); };
+    span(8, 9, 66, 69, 'd'); span(23, 24, 65, 69, 'd'); span(37, 38, 66, 69, 'd'); // library, upper gallery, guest room
+    span(22, 24, 74, 77, 'd'); span(7, 8, 74, 77, 'd'); span(38, 39, 74, 77, 'd'); // landing, master bedroom, nursery
+    span(14, 15, 83, 84, 'd'); span(31, 32, 83, 84, 'd'); // the landing's side doors
+    span(19, 26, 89, 90, 'D'); // the grand staircase, down
+    span(42, 44, 70, 71, 'U'); // the narrow attic stair
+    span(21, 25, 125, 126, 'D'); // and back down from the attic
     for (let x = 22; x <= 24; x++) set(x, 34, 'E'); // the front door
     const ox = g.interior[0] - COLS * TS / 2, oy = g.interior[1];
     const I = { g, grid, ox, oy, props: [], doors: [], faces: [], lights: [], chandeliers: [], windows: [], portraits: [], webs: [], key: g.interior.join(',') };
@@ -153,7 +332,6 @@
     const tx = (x) => I.ox + x * TS, ty = (y) => I.oy + y * TS;
     // foyer
     P({ n: 'm_stairs', x: tx(23), y: ty(22), room: 'foyer', flat: true, kind: 'stairs' });
-    P({ n: 'm_barricade', x: tx(23), y: ty(22) + 14, room: 'foyer', kind: 'barricade', solid: [104, 24] });
     P({ n: 'm_rubble', x: tx(20.2), y: ty(22.6), room: 'foyer', flat: true });
     P({ n: 'm_rubble', x: tx(25.6), y: ty(22.5), room: 'foyer', flat: true, f: true });
     P({ n: 'm_column', x: tx(18.6), y: ty(22) + 2, room: 'foyer', s: 0.55, solid: [18, 12] });
@@ -212,6 +390,82 @@
     I.doors.push({ id: 'ballroom', cells: [[31, 9], [32, 9], [31, 10], [32, 10]], side: true, open: false, locked: true, t: 0 });
     I.doors.push({ id: 'study', cells: [[36, 16], [37, 16], [36, 17], [37, 17]], side: true, open: true, locked: false, t: 0 });
     I.doors.push({ id: 'dining', cells: [[7, 23], [8, 23]], side: false, open: true, locked: false, t: 0 });
+    furnishUpstairs(I, P, tx, ty, face);
+  }
+  // upstairs and the attic, furnished from the Old Chateau sheet
+  function furnishUpstairs(I, P, tx, ty, face) {
+    const C = (room, n, x, y, o) => P(Object.assign({ n, x: tx(x), y: ty(y), room }, o || {}));
+    const candle = (room, x, y, lit, o) => C(room, 'c_candelabra', x, y, Object.assign({ s: 0.9, solid: [14, 8], kind: 'candles', lit, light: { r: 100, c: [255, 180, 100] } }, o || {}));
+    // the library
+    C('library', 'c_rug_torn', 8.5, 63.5, { flat: true });
+    for (const x of [3.6, 6.4]) C('library', 'c_bookshelf', x, 56.2, { solid: [100, 14], kind: 'shelf' });
+    for (const x of [11, 13.8]) C('library', 'm_bookshelf', x, 56.2, { solid: [62, 14], kind: 'shelf' });
+    C('library', 'm_table', 8.5, 62.4, { s: 0.55, solid: [96, 36], kind: 'table' });
+    candle('library', 8.5, 60.6, true, { onTable: true, solid: null });
+    C('library', 'm_stool', 8.5, 64.2, { s: 0.55, solid: [24, 12], kind: 'chair' });
+    C('library', 'c_plant_dead', 2.8, 65.4, { solid: [30, 10] });
+    C('library', 'm_web_a', 2.5, 52.5, { flat: true, wall: true });
+    // the upper gallery: busts, armour, a rug
+    C('upgallery', 'm_rug_green', 23.5, 61.5, { flat: true });
+    C('upgallery', 'c_bust', 19.2, 56.4, { solid: [36, 12], kind: 'bust' });
+    C('upgallery', 'c_bust_small', 27.8, 56.4, { solid: [36, 12], kind: 'bust' });
+    C('upgallery', 'm_armor', 21.2, 56.4, { solid: [26, 12], kind: 'armor' });
+    C('upgallery', 'm_armor', 25.8, 56.4, { solid: [26, 12], kind: 'armor', f: true });
+    candle('upgallery', 18.6, 64.4, false);
+    candle('upgallery', 28.4, 64.4, true);
+    // the guest room
+    C('bedroom', 'c_rug_red', 37.5, 62, { flat: true, s: 0.9 });
+    C('bedroom', 'c_bed', 34.6, 59.6, { solid: [150, 70], kind: 'bed' });
+    C('bedroom', 'c_ottoman', 37.8, 63.4, { solid: [40, 16], kind: 'chair' });
+    C('bedroom', 'c_pot_purple', 43.4, 56.8, { solid: [40, 12] });
+    C('bedroom', 'c_plant_dead2', 31.8, 65.4, { solid: [30, 10] });
+    C('bedroom', 'm_chair_r', 41.8, 61.6, { s: 0.65, solid: [28, 16], kind: 'chair' });
+    candle('bedroom', 43.4, 65.3, true);
+    C('bedroom', 'm_web_b', 44.5, 52.5, { flat: true, wall: true, f: true });
+    // the corridor: pots and busts along the walls, a bust whose eyes glow
+    for (const [n, x] of [['c_pot_red', 4.2], ['c_pot_red2', 13], ['c_pot_red', 28.5], ['c_pot_red2', 34.8]]) C('corridor', n, x, 70.6, { s: 0.8, solid: [34, 10] });
+    C('corridor', 'c_bust_eyes', 19.5, 70.6, { solid: [36, 12], kind: 'bust', eyes: true });
+    C('corridor', 'c_plant_dead', 40, 70.6, { s: 0.85, solid: [30, 10] });
+    for (const [x, lit] of [[10.5, true], [17, false], [31.5, true], [38, false]]) candle('corridor', x, 73.6, lit, { s: 0.8 });
+    // the landing: the top of the grand staircase, the clock, a bust
+    C('landing', 'c_carpet', 23.5, 89.2, { flat: true });
+    C('landing', 'c_clock', 17.4, 78.4, { solid: [40, 14], kind: 'clock2' });
+    C('landing', 'c_bust', 29.4, 78.4, { solid: [36, 12], kind: 'bust' });
+    C('landing', 'c_pot_purple2', 17, 88.4, { solid: [40, 12] });
+    C('landing', 'c_pot_purple', 30, 88.4, { solid: [40, 12] });
+    candle('landing', 20.4, 78.6, true);
+    candle('landing', 26.6, 78.6, false);
+    // the master bedroom
+    C('master', 'c_rug_red', 7.5, 85, { flat: true });
+    C('master', 'c_bed', 4.8, 81.6, { solid: [150, 70], kind: 'bed' });
+    C('master', 'c_sofa', 10.4, 86.6, { solid: [110, 34], kind: 'chair' });
+    C('master', 'c_table', 10.6, 81.4, { s: 0.7, solid: [70, 30], kind: 'table' });
+    candle('master', 10.6, 80, true, { onTable: true, solid: null, s: 0.7 });
+    C('master', 'c_shell', 2.8, 88.4, { solid: [30, 10] });
+    C('master', 'm_web_a', 2.5, 74.5, { flat: true, wall: true });
+    // the nursery: a little bed, teddy bears, toys on the floor
+    C('nursery', 'c_rug_torn', 38.5, 84.5, { flat: true, s: 0.8 });
+    C('nursery', 'c_bed', 41.8, 81, { s: 0.7, solid: [104, 48], kind: 'bed' });
+    C('nursery', 'c_teddy', 36, 84.6, { kind: 'teddy' });
+    C('nursery', 'c_teddy2', 43.4, 88.4, { kind: 'teddy' });
+    C('nursery', 'c_rocks', 35, 87.6, { flat: true, s: 0.7 });
+    C('nursery', 'm_stool', 39.2, 86.6, { s: 0.5, solid: [22, 10], kind: 'chair' });
+    candle('nursery', 33.6, 78.6, false);
+    // the attic: dust, clutter, a broken clock, one teddy bear sitting alone in the middle
+    for (const [n, x, y, o] of [['barrel', 5, 112.5, { solid: [30, 12] }], ['barrel', 6.4, 112.8, { solid: [30, 12] }], ['c_sofa', 11, 113, { solid: [110, 30], kind: 'chair' }],
+      ['m_clock', 17, 111.4, { s: 0.6, solid: [36, 12], kind: 'clock2' }], ['c_bust_eyes', 30, 111.4, { solid: [36, 12], kind: 'bust', eyes: true }], ['m_bookshelf', 36.5, 111.2, { solid: [62, 14], kind: 'shelf' }],
+      ['barrel', 41.5, 112.6, { solid: [30, 12] }], ['c_pot_purple2', 42.4, 122.8, { solid: [40, 12] }], ['c_plant_dead2', 4.2, 123.6, { solid: [30, 10] }], ['m_table', 34, 119.4, { s: 0.45, solid: [80, 30], kind: 'table' }],
+      ['c_teddy2', 23, 117.6, { kind: 'teddy', alone: true }], ['c_shell2', 9, 121.6, { solid: [30, 12] }]]) C('attic', n, x, y, o);
+    for (const [x, y, f] of [[14, 118, false], [28, 121, true], [38.5, 115, false]]) C('attic', 'm_floor_hole', x, y, { flat: true, s: 0.4, f });
+    for (const [x, y] of [[8, 117], [20, 123], [32, 114], [40, 120]]) C('attic', 'm_rubble', x, y, { flat: true });
+    for (const [x, f] of [[3.5, false], [43.5, true], [23, false]]) C('attic', 'm_web_a', x, 107.5, { flat: true, wall: true, f });
+    candle('attic', 34, 118, true, { onTable: true, solid: null, s: 0.7 });
+    candle('attic', 12.5, 123.8, false);
+    // chandeliers upstairs, portraits on the walls, doors that can open and close
+    I.chandeliers.push({ id: 'landing', x: tx(23.5), y: ty(83), lit: 0.4, sway: 0 }, { id: 'master', x: tx(7.5), y: ty(83), lit: 0.2, sway: 0 });
+    I.portraits.push(face('upgallery', 20.6, 'lord'), face('upgallery', 26.4, 'lady'), face('master', 9, 'lady'), face('nursery', 38.5, 'child'), face('corridor', 25, 'lord'));
+    I.doors.push({ id: 'master', cells: [[14, 83], [15, 83], [14, 84], [15, 84]], side: true, open: true, locked: false, t: 0 });
+    I.doors.push({ id: 'nursery', cells: [[31, 83], [32, 83], [31, 84], [32, 84]], side: true, open: false, locked: false, t: 0 });
   }
 
   // ---------------------------------------------------------------- queries
@@ -234,7 +488,7 @@
   function doorAtCell(it, cx, cy) { return it.doors.find((d) => d.cells.some(([x, y]) => x === cx && y === cy)); }
   function solidCell(it, cx, cy) {
     const c = it.at(cx, cy);
-    if (c === ' ' || c === '#' || c === 'W' || c === 'S') return true;
+    if (c === ' ' || c === '#' || c === 'W' || c === 'S') return true; // ('U' and 'D' stairs can be walked onto)
     if (c === 'L' || c === 'd') { const d = doorAtCell(it, cx, cy); return !!(d && !d.open); }
     return false;
   }
@@ -310,7 +564,7 @@
     g.fillStyle = '#07050a';
     g.fillRect(0, 0, c.width, c.height);
     const atc = (x, y) => it.at(x, y);
-    const isFloor = (ch) => ch === '.' || ch === 'd' || ch === 'L' || ch === 'E';
+    const isFloor = (ch) => ch === '.' || ch === 'd' || ch === 'L' || ch === 'E' || ch === 'U' || ch === 'D';
     // floors, tiled from the sheet, clipped to each room
     const tile = (name, x0, y0, w, h) => {
       const [tw, th] = A.size(name);
@@ -334,7 +588,7 @@
       const n = Math.ceil((r.x1 - r.x0 + 1) / 4);
       g.save(); g.beginPath(); g.rect(r.x0 * TS, (r.y0 - 4) * TS, (r.x1 - r.x0 + 1) * TS, 4 * TS); g.clip();
       for (let b = 0; b < n; b++) {
-        const name = r.wins.includes(b) ? (b % 2 ? 'm_wall_win2' : 'm_wall_win') : 'm_wall';
+        const name = r.wins.includes(b) ? (b % 2 ? 'm_wall_win2' : 'm_wall_win') : r.fl ? (U.hash(b, r.x0, 41) < 0.3 ? 'c_wall_stain' : 'c_wall') : 'm_wall';
         A.draw(g, name, (r.x0 + b * 4) * TS + 64, r.y0 * TS);
       }
       g.restore();
@@ -343,7 +597,7 @@
       grd.addColorStop(0, 'rgba(8,4,12,0.55)'); grd.addColorStop(1, 'rgba(8,4,12,0)');
       g.fillStyle = grd; g.fillRect(r.x0 * TS, r.y0 * TS, (r.x1 - r.x0 + 1) * TS, 22);
     }
-    // the staircase, rising into the dark
+    // the grand staircase, rising into the dark
     const stairs = it.props.find((p) => p.kind === 'stairs');
     if (stairs) {
       A.draw(g, 'm_stairs', stairs.x - it.ox, stairs.y - it.oy);
@@ -351,6 +605,17 @@
       grd.addColorStop(0, 'rgba(4,2,8,0.95)'); grd.addColorStop(1, 'rgba(4,2,8,0)');
       g.fillStyle = grd; g.fillRect(19 * TS, 18 * TS, 8 * TS, 3 * TS);
     }
+    // stairwells going down: steps fading into the dark, a carpet runner, and a rail either side
+    for (const [x0, y0, w] of [[19, 89, 8], [21, 125, 5]]) {
+      for (let k = 0; k < 8; k++) { g.fillStyle = k % 2 ? '#3a2a30' : '#4a3640'; g.fillRect(x0 * TS, y0 * TS + k * 8, w * TS, 8); }
+      g.fillStyle = 'rgba(120,40,60,0.55)'; g.fillRect((x0 + w / 2 - 1) * TS, y0 * TS, 2 * TS, 2 * TS);
+      const gd = g.createLinearGradient(0, y0 * TS, 0, (y0 + 2) * TS); gd.addColorStop(0, 'rgba(4,2,8,0)'); gd.addColorStop(1, 'rgba(4,2,8,0.95)');
+      g.fillStyle = gd; g.fillRect(x0 * TS, y0 * TS, w * TS, 2 * TS);
+      g.fillStyle = '#6a4a3a'; g.fillRect(x0 * TS - 4, y0 * TS - 6, 4, 2 * TS + 6); g.fillRect((x0 + w) * TS, y0 * TS - 6, 4, 2 * TS + 6);
+    }
+    // the narrow attic stair at the corridor's end
+    for (let k = 0; k < 8; k++) { g.fillStyle = k % 2 ? '#4a3640' : '#5a4450'; g.fillRect(42 * TS, 70 * TS + k * 8, 3 * TS, 8); }
+    { const gd = g.createLinearGradient(0, 72 * TS, 0, 70 * TS); gd.addColorStop(0, 'rgba(4,2,8,0)'); gd.addColorStop(1, 'rgba(4,2,8,0.9)'); g.fillStyle = gd; g.fillRect(42 * TS, 70 * TS, 3 * TS, 2 * TS); }
     // wall tops, with a lighter rim where they meet a room
     for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
       if (atc(x, y) !== '#') continue;
@@ -501,9 +766,9 @@
       if (p.kind !== 'candles' || !p.lit) continue;
       const [, h] = AI.Art.size(p.n);
       const f = 0.82 + Math.sin(AI.time * 11 + p.id) * 0.06 + Math.sin(AI.time * 6.7 + p.id * 3) * 0.05;
-      out.push({ x: p.x + p.ox, y: p.y + p.oy - h * p.s - 4, r: p.light.r, c: p.light.c, i: f * (st.dim == null ? 1 : st.dim), src: p });
+      out.push({ x: p.x + p.ox, y: p.y + p.oy - h * p.s - 4, r: p.light.r, c: p.light.c, i: f * (st.dim == null ? 1 : st.dim) * (st.flick == null ? 1 : st.flick), src: p });
     }
-    for (const c of it.chandeliers) if (c.lit > 0.05 && !c.hidden) out.push({ x: c.x, y: c.y, r: 150 + 120 * c.lit, c: [255, 196, 120], i: c.lit * (0.8 + Math.sin(AI.time * 7 + c.x) * 0.05) * (st.dim == null ? 1 : st.dim) });
+    for (const c of it.chandeliers) if (c.lit > 0.05 && !c.hidden) out.push({ x: c.x, y: c.y, r: 150 + 120 * c.lit, c: [255, 196, 120], i: c.lit * (0.8 + Math.sin(AI.time * 7 + c.x) * 0.05) * (st.dim == null ? 1 : st.dim) * (st.flick == null ? 1 : st.flick) });
     const day = AI.Sky ? 1 - AI.Sky.darkness() : 0;
     for (const w of it.windows) out.push({ x: w.x, y: w.y + 90, r: 190, c: day > 0.5 ? [170, 180, 210] : [120, 140, 220], i: 0.35 + day * 0.35 });
     const p = AI.R.Game.player;
@@ -567,6 +832,55 @@
     return true;
   }
 
+  // ---------------------------------------------------------------- music: the house has its own theme
+  /* Inside, the game's music stops and the Old Chateau theme plays (assets/music/old-chateau.mp3),
+   * looped, at your music volume, fading in as you step through the door and out as you leave. */
+  function music(dt) {
+    const R = AI.R, A = R && R.Audio;
+    if (!A) return;
+    if (!st.musicHooked && typeof A.music === 'function') {
+      st.musicHooked = true;
+      const oMusic = A.music;
+      A.music = function (name) { st.gameTrack = name; return oMusic.call(this, wants() ? null : name); };
+      st.gameMusic = oMusic;
+    }
+    const want = wants();
+    if (want !== st.musicOn) {
+      st.musicOn = want;
+      try { st.gameMusic.call(A, want ? null : st.gameTrack); } catch (e) { /* ignore */ }
+    }
+    const set = A.settings || {};
+    const target = want && !set.muted ? (set.music == null ? 0.55 : set.music) * 0.9 : 0;
+    if (!st.song && target > 0) { try { st.song = new Audio('assets/music/old-chateau.mp3'); st.song.loop = true; st.song.volume = 0; } catch (e) { return; } }
+    const el = st.song;
+    if (!el) return;
+    el.volume = U.clamp(el.volume + U.clamp(target - el.volume, -dt * 0.6, dt * 0.4), 0, 1);
+    if (target > 0 && el.paused) { const pr = el.play(); if (pr && pr.catch) pr.catch(() => { /* not allowed yet: try again later */ }); }
+    if (target === 0 && el.volume <= 0.001 && !el.paused) el.pause();
+  }
+  function wants() { return st.inside && AI.enabled && AI.cfg.mansionMusic !== false; }
+  // (the menus don't tick the house: once you're out of it, the theme still fades away)
+  setInterval(() => { if (st.song && !st.song.paused && !wants()) try { music(0.5); } catch (e) { /* ignore */ } }, 500);
+
+  // which floor you're on (0 ground floor, 1 upstairs, 2 the attic)
+  function floor() { const it = st.built, p = AI.R && AI.R.Game.player; return it && p && st.inside ? floorOfRow(Math.floor((p.y - it.oy) / TS)) : 0; }
+  function goFloor(fl, dir) {
+    const it = st.built, a = ARRIVE[dir + fl];
+    if (!it || !a) return false;
+    st.transit = true;
+    sfx('creak', 0, 0);
+    fadeTo(1, () => {
+      const p = AI.R.Game.player;
+      p.x = it.wx(a[0]); p.y = it.wy(a[1]); p._vx = p._vy = 0;
+      snapCamera(p);
+      st.transit = false;
+      st.stairT = AI.time + 0.9;
+      AI.Bus.emit({ type: 'mansion', what: 'floor', floor: floor(), x: p.x, y: p.y, loud: 0 });
+      fadeTo(0, null, 3.2);
+    }, 5);
+    return true;
+  }
+
   function tick(dt) {
     // fades
     if (st.fade !== st.fadeTo) {
@@ -574,6 +888,7 @@
       st.fade = st.fadeTo > st.fade ? Math.min(st.fadeTo, st.fade + s) : Math.max(st.fadeTo, st.fade - s);
     }
     if (st.fade === st.fadeTo && st.fadeCb) { const cb = st.fadeCb; st.fadeCb = null; try { cb(); } catch (e) { AI.warn('mansion-fade', e); } }
+    try { music(dt); } catch (e) { AI.warn('mansion-music', e); }
     if (!on()) { if (st.inside) exit(); return; }
     const R = AI.R;
     const p = R.Game.player;
@@ -581,6 +896,9 @@
     const g = geom();
     if (!g) return;
     if (!st.inside) {
+      shedDoor(dt);
+      st.hushT = (st.hushT || 0) - dt;
+      if (st.hushT <= 0) { st.hushT = 0.5; hush(); }
       // the front door
       const [dx, dy] = g.D;
       const ay = (R.Input && R.Input._rawAxis) ? (R.Input._rawAxis() || [0, 0])[1] : -1;
@@ -594,9 +912,17 @@
     // a wild Pokémon that somehow got in is gently shown out (the host decides, in co-op)
     if (!(R.Coop && R.Coop.active && !R.Coop.isHost)) for (const e of R.EnemyMgr.all()) if (!e.dead && inInterior(e.x, e.y) && !e.psxStory) { try { if (AI.EnvBeh) AI.EnvBeh.removeNpc(e); else e.dead = true; } catch (err) { e.dead = true; } }
     // the way out
-    if (tileAt(p.x, p.y + 14) === 'E' || p.y > it.oy + 33.9 * TS) {
+    if (tileAt(p.x, p.y + 14) === 'E' || (floor() === 0 && p.y > it.oy + 33.9 * TS)) {
       const ay = (R.Input && R.Input._rawAxis) ? (R.Input._rawAxis() || [0, 0])[1] : 1;
       if ((ay > 0.3 || (p._vy || 0) > 20) && !(AI.Story && AI.Story.blockExit && AI.Story.blockExit())) exit();
+    }
+    // the stairs: walk onto them (heading their way) to go up or down a floor
+    if (!st.transit && (st.stairT || 0) <= AI.time) {
+      const c = tileAt(p.x, p.y - 4);
+      const ay = (R.Input && R.Input._rawAxis) ? (R.Input._rawAxis() || [0, 0])[1] : 0;
+      const fl = floor();
+      if (c === 'U' && (ay < -0.3 || (p._vy || 0) < -20)) goFloor(fl, 'up');
+      else if (c === 'D' && (ay > 0.3 || (p._vy || 0) > 20)) goFloor(fl, 'down');
     }
     // decay of shakes
     for (const q of it.props) if (q.shake > 0) q.shake = Math.max(0, q.shake - dt * 1.5);
@@ -615,12 +941,13 @@
   }
 
   function reset() {
+    if (st.song && !st.song.paused) { st.song.volume = 0; st.song.pause(); }
     if (st.inside) { st.inside = false; if (st.stashed) try { AI.R.EnemyMgr.restore(); } catch (e) { /* ignore */ } st.stashed = false; }
     st.built = null; st.cache = null; st.fade = 0; st.fadeTo = 0; st.fadeCb = null; st.transit = false; st.dim = 1;
   }
 
   AI.define('Mansion', {
-    st, TS, COLS, ROWS, ROOMS, geom, on, clearAt, collideExterior, blockedExterior, exteriorRects,
+    st, TS, COLS, ROWS, ROOMS, FLOORS, ARRIVE, EXT, floor, goFloor, geom, on, clearAt, silentAt, drawItem, collideExterior, blockedExterior, exteriorRects,
     interior: I, inInterior, tileAt, roomAt, solidsNear, collide, freeAt, openDoor, closeDoor, propRect,
     drawInterior, visibleProps, drawProp, drawAir, lights, ambient, enter, exit, fadeTo, tick, drawScreen, reset, sfx, snapCamera,
     get inside() { return st.inside; },

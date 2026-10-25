@@ -265,12 +265,13 @@
         else if (it.k === 'hanglamp') {
           // two lanterns hang from the beam
           const w = AI.Art.size(it.n)[0] * (it.s || 1), h = AI.Art.size(it.n)[1] * (it.s || 1);
-          L.push({ x: it.x - w * 0.09, y: it.y - h * 0.55, r: it.light.r, c: it.light.c, i: f, src: it });
+          L.push({ x: it.x - w * 0.09, y: it.y - h * 0.55, r: it.light.r, c: AI.Decor.flameColor(it), i: f, src: it });
           lx = it.x + w * 0.09; ly = it.y - h * 0.55;
         } else if (it.k === 'mwin') ly = it.y;
         else if (it.k === 'mush') ly = it.y - 8;
         else if (it.k === 'candle') ly = it.y - 14;
-        L.push({ x: lx, y: ly, r: it.light.r * (0.85 + f * 0.15), c: it.light.c, i: f, src: it });
+        else if (it.k === 'mcandle') ly = it.y - 10;
+        L.push({ x: lx, y: ly, r: it.light.r * (0.85 + f * 0.15), c: AI.Decor.flameColor(it), i: f, src: it });
       }
     }
     if (AI.Forest) AI.Forest.lights(L);

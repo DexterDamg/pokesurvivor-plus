@@ -304,8 +304,10 @@
       if (AI.Decor && AI.Decor.trailZone(p.x, p.y) > 0) stones += 3;
     }
     const tree = U.clamp(trees / 8, 0, 1), stone = U.clamp(stones / 5, 0, 1);
-    const quiet = (1 - U.clamp((fog - 0.6) / 0.35, 0, 0.92)) * (AI.Events && AI.Events.silent() ? 0.04 : 1); // deep fog (or a sudden silence) swallows the forest's voice
-    const wind = S.windNow();
+    // the mansion's grounds are dead silent: no birds, no insects, hardly a breath of wind
+    const hush = p && AI.Mansion && AI.Mansion.silentAt(p.x, p.y) ? 0.03 : 1;
+    const quiet = (1 - U.clamp((fog - 0.6) / 0.35, 0, 0.92)) * (AI.Events && AI.Events.silent() ? 0.04 : 1) * hush; // deep fog (or a sudden silence) swallows the forest's voice
+    const wind = S.windNow() * (hush < 1 ? 0.25 : 1);
     set(layers.wind.g.gain, Math.min(0.32, wind * 0.22) * (fog > 0.8 ? 0.4 : 1));
     set(layers.wind.f.frequency, 300 + wind * 500 + S.gust * 300, 0.8);
     set(layers.leaves.g.gain, rain * (0.06 + tree * 0.16));

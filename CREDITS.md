@@ -206,6 +206,23 @@ bosque encantado del "entorno vivo" (`assets/env/atlas.png`) salen de estas hoja
   (`js/ai/34-forest.js`).
   *(Falta indicar aquí el autor original de cada una de estas hojas.)*
 
+## La mansión encantada, por dentro y por fuera
+
+- **Fachada grande** (tres plantas, torres de cuatro, alas) y **cobertizo**: compuestos por
+  `tools/mansion_art.py` a partir de la fachada de la mansión del atlas (ver arriba).
+- **Muebles del Viejo Château** (cama, sofá, alfombras, estantería, reloj de pie, candelabros,
+  bustos, osos de peluche, macetas, paredes moradas, alfombra de la escalera), recortados en
+  `assets/mansion/chateau.png`; el **mapa del vestíbulo del Viejo Château** (referencia de la
+  escalera doble) y una **fachada de mansión** (todavía sin usar), en `assets/mansion/src`:
+  material aportado por DexterDamg para PokéSurvivor+, en el estilo de *Pokémon Diamante y Perla*
+  (Nintendo / Creatures Inc. / GAME FREAK). *(Falta indicar el autor original de la hoja.)*
+- La verja con su arco, la fuente seca, las puertas del cobertizo, las velas pequeñas, los
+  escalones y las escaleras interiores se pintan en el propio juego (`js/ai/87-mansion.js`).
+- **Música del interior**: *Old Chateau* (Viejo Château) de *Pokémon Diamante y Perla*
+  (Nintendo / Creatures Inc. / GAME FREAK), `assets/music/old-chateau.mp3`, aportada por
+  DexterDamg. Es el único archivo de audio del juego que no es original del proyecto.
+- El fondo del Nivel 1 en el menú (`assets/ui/zone-1-mansion*.webp`) son capturas del propio juego.
+
 ## Océano Tropical (Nivel 3)
 
 Arte de `assets/ocean` (los originales, tal como se aportaron, en `assets/ocean/src`):
@@ -234,7 +251,8 @@ bayas kuo, touga y chilan por **Ponylover888**, árbol de berenjena por **Anarla
 algunas bayas por **DarkusShadow**.
 
 Los sonidos de ambiente (pájaros, grillos, lluvia, viento, truenos, caja de
-música…) se sintetizan en el propio juego; no usan archivos de audio.
+música…) se sintetizan en el propio juego; no usan archivos de audio (la música
+de la mansión es la excepción, ver arriba).
 
 ## Fuente
 

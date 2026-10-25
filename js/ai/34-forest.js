@@ -57,7 +57,7 @@
     const M = null; // (the mansion is placed later, by the journey, away from all of this)
     const feats = []; // [x, y, r] areas others must keep away from
     const nearPath = (x, y, r) => M && M.dense.some((q) => Math.abs(q[0] - x) < r && Math.abs(q[1] - y) < r && Math.hypot(q[0] - x, q[1] - y) < r);
-    const inMansion = (x, y, r) => M && x > M.D[0] - M.SW - 200 - r && x < M.D[0] + M.SW + 200 + r && y > M.D[1] - 400 - r && y < M.G[1] + 160 + r;
+    const inMansion = (x, y, r) => M && x > M.D[0] - M.SW - 200 - r && x < M.D[0] + M.SW + 200 + r && y > M.top - 80 - r && y < M.G[1] + 160 + r;
     const free = (x, y, r, gap) => {
       if (Math.hypot(x, y) < 650 + r) return false; // the start stays open
       if (inMansion(x, y, r) || nearPath(x, y, r + 120)) return false;

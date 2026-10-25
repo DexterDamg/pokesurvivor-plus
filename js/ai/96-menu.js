@@ -2,15 +2,16 @@
  * The Shady Forest ends at the Haunted Mansion, not at Arceus: its banner shows the mansion and its
  * status line says whether you've explored it ("Mansion not explored yet" until the story is done).
  * The Tropical Ocean's banner shows the harbour. Each banner has a still picture and an animated
- * layer over it (.pp-bgs); both are swapped.
+ * layer over it (.pp-bgs); both are swapped (the mansion's animation: candlelight passing behind its
+ * windows, drifting fog, a distant flash of lightning).
  */
 (function () {
   'use strict';
   const AI = window.PSXAI;
 
   const NOT = 'Mansión aún no explorada', DONE = 'Mansión explorada';
-  function picture(n) {
-    if (n === 1) return 'assets/ui/zone-1-mansion.webp';
+  function picture(n, anim) {
+    if (n === 1) return anim ? 'assets/ui/zone-1-mansion-anim.webp' : 'assets/ui/zone-1-mansion.webp';
     if (n === 3 && AI.cfg.tropicalOcean !== false) return 'assets/ocean/zone.webp';
     return null;
   }
@@ -24,7 +25,7 @@
     const url = m && picture(+m[1]);
     if (!url) return;
     el.style.backgroundImage = 'url(' + url + ')';
-    for (const i of el.querySelectorAll('.pp-bgs i')) if (/zone-\d-anim\.webp/.test(i.style.backgroundImage || '')) i.style.backgroundImage = 'url(' + url + ')';
+    for (const i of el.querySelectorAll('.pp-bgs i')) if (/zone-\d-anim\.webp/.test(i.style.backgroundImage || '')) i.style.backgroundImage = 'url(' + picture(+m[1], true) + ')';
   }
 
   function install(R) {
