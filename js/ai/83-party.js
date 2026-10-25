@@ -902,6 +902,9 @@
     if (ev.type === 'mansion' && ev.what === 'exit') setTimeout(followOutside, 300);
     if (ev.type === 'wildlife' && ev.what === 'harden' && Math.random() < 0.2) convo('cocoon');
     if (ev.type === 'clue') convo('clue');
+    // at sea (34-boats.js, 82-sea.js)
+    if (ev.type === 'boat' && ev.what === 'board') convo('boat');
+    if (ev.type === 'sea' && ['island', 'wreck', 'ghostwreck', 'lighthouse', 'shadow'].includes(ev.what)) convo(ev.what);
     if (ev.type === 'lightning' || (ev.type === 'boom' && ev.thunder)) convo('thunder');
   }
   function followInside() {
@@ -919,6 +922,51 @@
       char: [['Okay, team! Stay close. My tail will keep us warm.', 'warm'], ['W-wow, this forest is big… let\'s stick together, okay?', 'scared'], ['Let\'s go! Anything that wants a fight, I\'m ready!', 'bold']],
       froa: [['…Lots of tracks around here. Watch your step.', 'dry'], ['I\'ll keep an eye out ahead.', 'warm']],
       spri: [['Mrrr… everything smells so green here.', 'warm'], ['Don\'t expect me to carry anybody.', 'dry'], ['Ooh, what\'s over there? And there?', 'bold']],
+    },
+    // the Tropical Ocean (34-ocean.js)
+    startSea: {
+      char: [['The sea! It\'s so… big. And wet. Very, very wet.', 'scared'], ['Smell that salt? Let\'s find an island and claim it!', 'bold'], ['Okay, team. Nobody fall in. I mean it.', 'warm']],
+      froa: [['Now THIS is my kind of place.', 'warm'], ['Boats at the pier. Whoever wants to cross will need one.', 'dry']],
+      spri: [['Water everywhere. Wonderful. Truly.', 'dry'], ['Ooh, a lighthouse! And boats! And fish, probably!', 'bold']],
+    },
+    boat: {
+      char: [['I-it\'s rocking! Is it supposed to rock?!', 'scared'], ['Full speed ahead, captain!', 'bold']],
+      froa: [['I\'ll swim alongside. Don\'t mind me.', 'warm'], ['Watch the reefs. They\'ll tear the hull open.', 'dry']],
+      spri: [['If I get splashed, I\'m jumping ship. Onto you.', 'dry'], ['The wind in my fur… okay, this isn\'t so bad.', 'warm']],
+    },
+    island: {
+      char: [['Land! Solid, beautiful, dry land!', 'warm'], ['An island! Let\'s explore every inch of it!', 'bold']],
+      froa: [['New island. Keep your eyes open: everything here has lived without us.', 'dry']],
+      spri: [['Sand between my toes. I\'ll allow it.', 'dry'], ['Something lives here. Lots of somethings.', 'warm']],
+    },
+    stormSea: {
+      char: [['The waves are HUGE! Hold on to something!', 'scared'], ['Ha! Is that all you\'ve got, sea?!', 'bold']],
+      froa: [['The sea\'s turned black. Head for shore if you can.', 'dry']],
+      spri: [['This is the worst day of my life and I\'m including the bath.', 'dry']],
+    },
+    fogSea: {
+      froa: [['Fog on the water. Keep the lighthouse at our backs.', 'dry']],
+      char: [['I can\'t see the shore anymore… which way is home?', 'scared']],
+      spri: [['Listen. The sea sounds different in the fog.', 'warm']],
+    },
+    wreck: {
+      froa: [['A shipwreck. Whatever sank it is probably still down there.', 'dry']],
+      char: [['A sunken ship! Treasure, maybe?', 'bold'], ['Th-that ship… where did everyone go?', 'scared']],
+      spri: [['Old wood and rust. And something moving under it.', 'warm']],
+    },
+    ghostwreck: {
+      char: [['Th-there are lights on that ship. Nobody could live on that ship.', 'scared']],
+      froa: [['…', 'dry']],
+      spri: [['Don\'t. Go. Closer.', 'scared']],
+    },
+    lighthouse: {
+      froa: [['The lighthouse. As long as we can see it, we can find our way back.', 'warm']],
+      char: [['That light\'s like a big tail flame for the whole sea!', 'bold']],
+    },
+    shadow: {
+      char: [['Something HUGE just swam under us!', 'scared']],
+      froa: [['Stay still. Let it pass.', 'dry']],
+      spri: [['That was a fish. A really, really big fish. Right?', 'scared']],
     },
     night: {
       char: [['It\'s getting dark… everyone stay near my tail.', 'warm'], ['Is… is everyone still here? Just checking.', 'scared'], ['Night\'s no problem. I\'ve got a light!', 'bold']],
@@ -1217,7 +1265,7 @@
     return null;
   }
   // a short exchange: whoever has the most reason to speak first, then maybe a reply or two
-  const CONVO_CD = { start: 9999, night: 400, rain: 300, thunder: 90, fog: 300, sound: 60, silhouette: 120, mansion: 9999, inside: 9999, cocoon: 200, down: 20, clue: 60 };
+  const CONVO_CD = { start: 9999, night: 400, rain: 300, thunder: 90, fog: 300, sound: 60, silhouette: 120, mansion: 9999, inside: 9999, cocoon: 200, down: 20, clue: 60, startSea: 9999, boat: 600, island: 120, stormSea: 300, fogSea: 300, wreck: 300, ghostwreck: 9999, lighthouse: 9999, shadow: 400 };
   function convo(ctx, vars) {
     if (!AI.Talk || AI.cfg.partyTalk === false || !alive().length) return;
     st.convoAt = st.convoAt || {};
@@ -1265,7 +1313,8 @@
     st.talkT = (st.talkT || 0) - dt;
     if (st.talkT > 0) return;
     st.talkT = 4;
-    if (!st.started && AI.time - st.startT > 3) { st.started = true; convo('start'); return; }
+    const sea = AI.Ocean && AI.Ocean.on();
+    if (!st.started && AI.time - st.startT > 3) { st.started = true; convo(sea ? 'startSea' : 'start'); return; }
     const S = AI.Sky;
     if (!S || (AI.Mansion && AI.Mansion.inside)) return;
     const night = S.darkness() > 0.7;
@@ -1275,8 +1324,11 @@
     if (raining && !st.wasRain) convo('rain');
     st.wasRain = raining;
     const fog = S.fog > 0.6;
-    if (fog && !st.wasFog) convo('fog');
+    if (fog && !st.wasFog) convo(sea ? 'fogSea' : 'fog');
     st.wasFog = fog;
+    const storm = sea && S.storm > 0.6;
+    if (storm && !st.wasStorm) convo('stormSea');
+    st.wasStorm = storm;
     // the abandoned one remembers
     if (st.mem.abandoned > (st.abandonSaid || 0)) {
       const ev = [...st.mem.events].reverse().find((x) => x.what === 'abandoned');

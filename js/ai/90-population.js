@@ -44,6 +44,7 @@
     if (AI.Totem && AI.Totem.inside(e.x, e.y) && !e.psxTrial) { AI.stats.spawnVetoed++; return false; }
     // nobody appears in water they couldn't be in (34-forest.js moves them to a spot that suits them)
     if (AI.Forest && !e.psxStory && !AI.Forest.spawnOk(e)) { AI.stats.spawnVetoed++; return false; }
+    if (AI.Ocean && !e.psxStory && !AI.Ocean.spawnOk(e)) { AI.stats.spawnVetoed++; return false; }
     // and nothing hostile appears in the Evergold Sanctuary (82-mysteries.js)
     if (AI.Mysteries && !AI.Mysteries.spawnOk(e)) { AI.stats.spawnVetoed++; return false; }
     // cocoons only exist clinging to a tree (63-wildlife.js)

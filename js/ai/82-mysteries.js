@@ -646,6 +646,7 @@
     if (!id) {
       ctx.fillStyle = '#5a4528'; ctx.font = 'italic 16px ' + SERIF;
       wrap(ctx, 'The pages are empty. Somewhere in the forest, something is waiting to be written down.', colW).forEach((l, i) => ctx.fillText(l, w / 2, by + bh / 2 - 10 + i * 22));
+      if (AI.Sea) AI.Sea.drawKeyItems(ctx, w / 2, by + bh - 30);
       ctx.font = '11px ' + SERIF; ctx.fillStyle = 'rgba(70,50,25,0.6)';
       ctx.fillText('J or Esc to close', w / 2, by + bh - 16);
       ctx.restore();
@@ -683,6 +684,7 @@
     maxScroll = Math.max(0, y - y0 - (bh - 96));
     scroll = Math.min(scroll, maxScroll);
     ctx.textAlign = 'center';
+    if (AI.Sea) AI.Sea.drawKeyItems(ctx, w / 2, by + bh - 30); // (the key items you keep between runs: 82-sea.js)
     ctx.font = '11px ' + SERIF; ctx.fillStyle = 'rgba(70,50,25,0.6)';
     ctx.fillText('J or Esc to close', w / 2, by + bh - 14);
     if (maxScroll > 0) { ctx.fillStyle = 'rgba(70,50,25,0.4)'; const vh = bh - 66, sh = vh * vh / (vh + maxScroll); ctx.fillRect(bx + bw - 8, by + 24 + (vh - sh) * (scroll / maxScroll), 3, sh); }

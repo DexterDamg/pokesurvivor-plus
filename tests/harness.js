@@ -12,7 +12,7 @@ async function boot(opts = {}) {
   page.on('pageerror', (e) => errors.push(String(e && e.stack || e)));
   page.on('console', (m) => {
     if (m.type() === 'error') errors.push('[console] ' + m.text());
-    if (opts.verbose) console.log('[page]', m.type(), m.text());
+    if (opts.verbose || (process.env.PSX_WARN && m.type() === 'warning')) console.log('[page]', m.type(), m.text().slice(0, 600));
   });
   // Tests never talk to a real backend: force the offline/solo build and block third-party hosts.
   await page.route('**/config.js', (r) => r.fulfill({ contentType: 'application/javascript', body: 'window.PS_FIREBASE = null;' }));

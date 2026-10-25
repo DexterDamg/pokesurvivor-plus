@@ -107,6 +107,8 @@
       if (!pk.psxFor && AI.time - pk.psxSeen < 8) return false; // left lying a while: fair game
     }
     if (pk.kind === 'heal' && c.hp > c.maxHp * 0.9 && bag(c).berries.length >= 4) return false;
+    // (not out on water it can't go into: 34-ocean.js)
+    if (AI.Ocean && AI.Ocean.on() && !AI.Ocean.canBe(c, pk.x, pk.y)) return false;
     return true;
   }
   function bag(c) { return c.pp.bag || (c.pp.bag = { berries: [], items: [] }); }

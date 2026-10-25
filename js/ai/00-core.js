@@ -46,13 +46,16 @@
     lantern: 'manual', // the lantern you carry: 'manual' (L lights it) | 'on' (kept lit while it has oil) | 'off'
     forestEvents: true, // the Shady Forest's events (a lost Pokémon, strange tracks, lights, a silence, a fallen tree, voices, a campsite) and its history (86-events.js)
     totemTrials: true, // Totem shrines and their trials (89-totem.js)
-    powerRework: true, // Mega Evolution after Crystal Cave with the Pokémon's own Mega Stone (a held item); Z-Moves after Volcano, through Totem Trials (92-power.js)
+    powerRework: true, // Mega Evolution after Crystal Cave with the Pokémon's own Mega Stone (a held item); Z-Moves after the Tropical Ocean, through Totem Trials (92-power.js)
     exploreExp: true, // EXP for exploring, treasure, kindness and teamwork too (91-exp.js)
     pseudoPlayers: true, // AI companions fill the party's empty places (four in all): Charmander, Froakie and Sprigatito in the Shady Forest
     companionLoot: true, // companions pick up EXP and loot, open chests and touch power crystals (83-partyplus.js)
     companionCrystals: true, // …including power crystals
     legendTrio: true, // Raikou, Suicune and Entei can be earned in the Shady Forest (82-trio.js)
     oldWell: true, // an old well sometimes stands in the forest (86-well.js)
+    tropicalOcean: true, // Level 3 is the Tropical Ocean: islands, boats, tides, the guardians (34-ocean.js); off = the original Ash Volcano
+    birthIslandChance: 0.35, // the share of worlds in which Birth Island can be found (82-birth.js)
+    oceanTide: null, // null = tides follow the clock; a number from -1 (low) to 1 (high) holds the tide there
     partyTalk: true, // they talk among themselves and to you, now and then
     talkBoxes: true, // Mystery Dungeon dialogue boxes: the party on the left, important NPCs on the right, Legendaries in their own box
     nightVisibility: 0, // accessibility: 0 = nights as dark as intended … 1 = noticeably brighter nights (light sources still matter)
