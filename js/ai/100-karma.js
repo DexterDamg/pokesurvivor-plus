@@ -242,6 +242,26 @@
       return oldEnemyUpdate.apply(this, arguments);
     };
 
-    AI.Karma = { reset };
+    // (for the dev console, 98-devconsole.js: read it, set it, or call the judgment now)
+    function set(n) {
+      const was = maxed();
+      st.value = Math.max(0, Math.min(MAX, n | 0));
+      if (maxed() && !was && forest()) emptyForest();
+      if (!maxed()) {
+        const track = AI.Music && AI.Music.st && AI.Music.st.els.forest;
+        if (track) { track.playbackRate = 1; track.muted = false; }
+        if (st.phase === 'judgment') { st.phase = 'quiet'; st.scene = 0; }
+      }
+      save();
+      return st.value;
+    }
+    function judge() {
+      if (!forest() || st.phase === 'judgment' || st.phase === 'battle' || st.phase === 'restart') return false;
+      set(MAX);
+      st.phase = 'judgment'; st.scene = 0.001; st.startedAt = Date.now();
+      if (R.Audio && R.Audio.sfx) try { R.Audio.sfx('boss'); } catch (e) { /* optional */ }
+      return true;
+    }
+    AI.Karma = { reset, set, judge, MAX, CUTS, get value() { return st.value; }, get stage() { return stage(); }, get maxed() { return maxed(); }, get phase() { return st.phase; } };
   }
 })();
