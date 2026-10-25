@@ -21,7 +21,7 @@
       beasts: [], startedAt: 0, restartAt: 0, overlay: null, musicRate: 1,
     };
     const forest = () => !!(AI.Forest && AI.Forest.on() && R.World && R.World.biome === 0);
-    const stage = () => { const i = CUTS.findIndex((n) => st.value < n); return i < 0 ? CUTS.length : i + 1; };
+    const stage = () => { if (st.value <= 0) return 0; const i = CUTS.findIndex((n) => st.value < n); return i < 0 ? CUTS.length : i + 1; };
     const maxed = () => st.value >= MAX;
 
     function save() {
@@ -79,7 +79,7 @@
       if (st.scene > 0) {
         st.scene += dt;
         if (st.scene >= 6 && st.phase === 'judgment') startBattle();
-      } else if (st.battle > 0) {
+      } else if (st.phase === 'battle' && st.battle > 0) {
         st.battle += dt;
         keepBeastsUnbeatable();
         if (st.battle >= 34 && !st.restartAt) endRun();
@@ -93,7 +93,7 @@
       if (!oldAllow.apply(this, arguments)) return false;
       if (!forest() || !e || e.psxStory || e.boss || e.legend || e.judge || e.dummy || e.elite) return true;
       const k = stage();
-      const keep = [1, 1, 1, 0.55, 0][k] || 0;
+      const keep = [1, 1, 0.78, 0.34, 0][k] || 0;
       if (Math.random() > keep) { AI.stats.spawnVetoed++; return false; }
       return true;
     };
@@ -154,6 +154,7 @@
     function startBattle() {
       if (st.phase !== 'judgment') return;
       st.phase = 'battle'; st.scene = 0; st.battle = 0.001;
+      setTimeout(() => { if (st.phase === 'battle') endRun(); }, 34000);
       const p = R.Game.player;
       const g = AI.Mansion.geom();
       const anchor = g && g.G ? g.G : [p.x, p.y - 70];
@@ -203,6 +204,7 @@
       if (title) title.textContent = 'The forest is silent.';
       if (stats) stats.textContent = 'The Legendary Beasts have passed judgment.';
       if (over) over.classList.remove('hidden');
+      setTimeout(() => location.reload(), 6500);
     }
 
     // No visible meter: only story text appears at the irreversible confrontation.
