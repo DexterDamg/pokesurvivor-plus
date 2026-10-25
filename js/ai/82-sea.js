@@ -161,9 +161,9 @@
         const g = Oc.plan().grotto;
         const dx = g.x - e.x, dy = g.y - e.y, l = Math.hypot(dx, dy);
         if (l > 60 && l < 900) { e.x += dx / l * 22; e.y += dy / l * 22; }
-      } else if ((d === 79 || d === 80 || d === 199) && e.psx) {
-        // Slowpoke: entirely unbothered
-        e.psx.calmK = 1;
+      } else if ((d === 79 || d === 80 || d === 199) && storm > 0.3 && e.psx.mind) {
+        // Slowpoke: entirely unbothered (thunder or not)
+        e.psx.mind.emo.fear = 0;
       }
     }
   }
