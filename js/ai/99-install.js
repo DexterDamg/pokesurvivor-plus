@@ -332,7 +332,7 @@
       if (AI.enabled) try { AI.Mysteries.drawScreen(ctx, w, h); } catch (e) { AI.warn('myst-hud', e); }
       if (AI.enabled) try { AI.Haunt.drawScreen(ctx, w, h); AI.Mansion.drawScreen(ctx, w, h); AI.Story.drawScreen(ctx, w, h); } catch (e) { AI.warn('mansion-hud', e); }
       if (AI.enabled) try { AI.OceanDraw.drawScreen(ctx, w, h); if (AI.Boats) AI.Boats.drawScreen(ctx, w, h); AI.Guardians.drawScreen(ctx, w, h); AI.Birth.drawScreen(ctx, w, h); AI.Sea.drawScreen(ctx, w, h); } catch (e) { AI.warn('ocean-hud', e); }
-      if (AI.enabled) try { AI.Events.drawScreen(ctx, w, h); AI.Totem.drawScreen(ctx, w, h); if (AI.Trio) AI.Trio.drawScreen(ctx, w, h); if (AI.Well) AI.Well.drawScreen(ctx, w, h); if (AI.Spiritomb) AI.Spiritomb.drawScreen(ctx, w, h); } catch (e) { AI.warn('events-hud', e); }
+      if (AI.enabled) try { AI.Events.drawScreen(ctx, w, h); AI.Totem.drawScreen(ctx, w, h); if (AI.Trio) AI.Trio.drawScreen(ctx, w, h); if (AI.Well) AI.Well.drawScreen(ctx, w, h); if (AI.Spiritomb) AI.Spiritomb.drawScreen(ctx, w, h); if (AI.Team) AI.Team.drawScreen(ctx, w, h); } catch (e) { AI.warn('events-hud', e); }
       if (AI.enabled) try { AI.Talk.draw(ctx, w, h); } catch (e) { AI.warn('talk', e); }
       return r;
     };
@@ -455,6 +455,7 @@
         if (AI.Well) AI.Well.tick(dt);
         if (AI.Breakables) AI.Breakables.tick(dt);
         if (AI.Spiritomb) AI.Spiritomb.tick(dt);
+        if (AI.Team) AI.Team.tick(dt);
         AI.Player.frame();
         AI.Legend.tick(dt);
         AI.Social.tick(dt);
@@ -502,6 +503,9 @@
     AI.Panel.install();
     try { AI.Power.registerItems(); AI.Power.install(); } catch (e) { AI.warn('power', e); }
     try { if (AI.Boats) AI.Boats.install(); } catch (e) { AI.warn('boats', e); }
+    // types that matter, and a team of six (66-types.js, 67-team.js): after every other wrapper, so an immune hit stops first
+    try { if (AI.Types && AI.Types.install) AI.Types.install(R); } catch (e) { AI.warn('types', e); }
+    try { if (AI.Team) AI.Team.install(R); } catch (e) { AI.warn('team', e); }
     AI.installed = true;
     console.info('[PSXAI] Living World AI ' + AI.version + ' installed');
   }
