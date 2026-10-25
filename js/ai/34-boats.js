@@ -17,7 +17,8 @@
   const ART = window.PSXAI_OCEAN_ART || { boats: {} };
   const SC = 0.72; // sprite scale (179×82 → 129×59 px)
   const HL = 54, HW = 18; // hull half-length, half-width (collision)
-  const MAX = 235, ACC = 150, REV = 60;
+  const MAX = 235, ACC = 165;
+  const FACE = { red: -1, blue: 1, yellow: -1 }; // which way each boat's sprite faces (1 right, -1 left)
 
   const boats = [];
   let built = false;
@@ -38,7 +39,7 @@
   }
   function fits(b, x, y, a) {
     for (const q of hullPts(x, y, a)) if (!waterOk(q[0], q[1])) return false;
-    for (const o of boats) if (o !== b && Math.hypot(o.x - x, o.y - y) < HL * 1.5 && Math.abs(o.y - y) < HW * 2.2 + Math.abs(Math.sin(a)) * HL) return false;
+    for (const o of boats) if (o !== b && Math.hypot(o.x - x, o.y - y) < HL * 1.5 && Math.abs(o.y - y) < HW * 2.2 + Math.abs(Math.sin(a)) * HL) { fits.other = o; return false; }
     return true;
   }
   // the moorings: beside the harbour's pier
@@ -102,6 +103,14 @@
   }
 
   // ---------------------------------------------------------------- sailing
+  // a turn that would swing the hull into the pier or a rock: shuffle the boat a little so it fits
+  function unstick(b, a) {
+    for (const r of [6, 12, 20]) for (let k = 0; k < 8; k++) {
+      const x = b.x + Math.cos(k / 8 * 6.283) * r, y = b.y + Math.sin(k / 8 * 6.283) * r * 0.7;
+      if (fits(b, x, y, a)) { b.x = x; b.y = y; return true; }
+    }
+    return false;
+  }
   function sail(b, dt) {
     const Oc = O();
     const Sky = AI.Sky;
@@ -109,30 +118,36 @@
     const want = Math.hypot(ax, ay) > 0.1;
     let sp = Math.hypot(b.vx, b.vy);
     const storm = Sky ? Sky.storm : 0, rain = Sky ? Sky.rain : 0, wind = Sky ? Sky.windNow() : 0.2;
-    // the helm: turn toward where you're steering (wider when fast), and push along the bow
+    // the helm: the bow swings round toward where you're steering (quickly when slow, wider when
+    // fast), and the boat pushes along its bow, harder the closer it points where you want to go;
+    // steering the other way turns it around, it never backs off in reverse
+    let da = 0, blocked = false;
     if (want) {
       const target = Math.atan2(ay, ax);
-      let da = target - b.ang;
-      da = Math.atan2(Math.sin(da), Math.cos(da));
-      const turn = (1.6 + 1.4 * Math.min(1, sp / 110)) * dt;
-      // (a turn that would swing the hull into the pier or the rocks waits until there's room)
+      da = Math.atan2(Math.sin(target - b.ang), Math.cos(target - b.ang));
+      const turn = (3.6 - 1.7 * Math.min(1, sp / MAX)) * dt;
       const na = b.ang + U.clamp(da, -turn, turn);
       if (fits(b, b.x, b.y, na)) b.ang = na;
+      else if (unstick(b, na)) b.ang = na;
+      else blocked = true;
+      b.ang = Math.atan2(Math.sin(b.ang), Math.cos(b.ang)); // (kept within ±π)
+      da = Math.atan2(Math.sin(target - b.ang), Math.cos(target - b.ang));
       const along = Math.cos(da);
-      const thrust = along > -0.2 ? ACC * Math.max(0.25, along) : -REV;
+      const thrust = ACC * U.clamp((along + 0.25) / 1.25, 0.1, 1);
       b.vx += Math.cos(b.ang) * thrust * dt; b.vy += Math.sin(b.ang) * thrust * dt;
     }
     // the keel: sideways motion dies fast, forward motion slowly
     const c = Math.cos(b.ang), s = Math.sin(b.ang);
     let fwd = b.vx * c + b.vy * s, lat = -b.vx * s + b.vy * c;
-    fwd *= Math.exp(-(want ? 0.35 : 0.9) * dt);
+    fwd *= Math.exp(-(want ? (Math.cos(da) < 0.2 ? 1.6 : 0.35) : 0.9) * dt); // (it slows as it swings round)
     lat *= Math.exp(-3.2 * dt);
     // rough water holds you back
     const max = MAX * (1 - 0.3 * storm - 0.12 * rain - 0.1 * Math.max(0, wind - 0.6));
-    fwd = U.clamp(fwd, -max * 0.35, max);
+    fwd = U.clamp(fwd, -max * 0.2, max);
     b.vx = fwd * c - lat * s; b.vy = fwd * s + lat * c;
-    // at low speed it can ease away the way you steer (off a pier it can't yet turn away from)
-    if (want && sp < 70) { const k = (1 - sp / 70) * 70 * dt; b.vx += ax * k; b.vy += ay * k; }
+    // getting going from rest, already pointing roughly the right way, or pinned where it can't swing
+    // round (against the pier): it eases off the way you steer (never sideways or backward otherwise)
+    if (want && sp < 70 && (blocked || Math.cos(da) > 0.5)) { const k = (1 - sp / 70) * 70 * dt; b.vx += ax * k; b.vy += ay * k; }
     // wind leans on the hull, gusts make it skid, storm waves shove it
     const wv = Sky ? Sky.windVec() : [0.1, 0];
     b.vx += wv[0] * (26 + storm * 50) * dt; b.vy += wv[1] * (26 + storm * 50) * dt;
@@ -149,8 +164,12 @@
     if (Math.hypot(b.x - wh.x, b.y - wh.y) < wh.R * 1.4) { const na = b.ang + dt * 0.6 * (1 - Math.hypot(b.x - wh.x, b.y - wh.y) / (wh.R * 1.4)); if (fits(b, b.x, b.y, na)) b.ang = na; }
     // the coast, rocks, reefs and wrecks stop it (sliding along them if it can)
     let hit = false;
+    fits.other = null;
     if (!fits(b, nx, ny, b.ang)) {
       hit = true;
+      // (bumping a boat no one is sailing nudges it out of the way)
+      const o = fits.other;
+      if (o && !o.rider) { const dx = o.x - b.x, dy = o.y - b.y, d = Math.hypot(dx, dy) || 1; o.vx += dx / d * Math.max(40, sp) * 0.6; o.vy += dy / d * Math.max(40, sp) * 0.6; }
       if (fits(b, nx, b.y, b.ang)) { ny = b.y; b.vy *= -0.2; }
       else if (fits(b, b.x, ny, b.ang)) { nx = b.x; b.vx *= -0.2; }
       else {
@@ -244,21 +263,34 @@
   }
 
   // ---------------------------------------------------------------- drawing
+  function orient(b) {
+    const c = Math.cos(b.ang);
+    if (c > 0.12) b.side = 1; else if (c < -0.12) b.side = -1; else if (!b.side) b.side = c >= 0 ? 1 : -1;
+    const va = Math.atan2(Math.sin(b.ang) * 0.7, c);
+    const rot = b.side > 0 ? va : Math.atan2(Math.sin(va - Math.PI), Math.cos(va - Math.PI));
+    const flip = (FACE[b.col] || -1) !== b.side;
+    // where the bow ends up on screen (the sprite's bow is at its FACE side, then flipped, then turned)
+    const bx = (FACE[b.col] || -1) * (flip ? -1 : 1);
+    return { rot, flip, bow: [bx * Math.cos(rot), bx * Math.sin(rot)] };
+  }
   function drawBoat(ctx, b) {
     const im = AI.OceanDraw && AI.OceanDraw.IMG.boats;
     const r = ART.boats[b.col];
     const bob = Math.sin(b.bob * 2.1) * 1.6 + (AI.Sky ? Math.sin(b.bob * 1.3) * AI.Sky.storm * 4 : 0);
-    const right = Math.cos(b.ang) > 0;
     const w = r ? r[2] * SC : 129, h = r ? r[3] * SC : 59;
+    // the bow points where the boat is heading: the sprite is flipped toward that side and turned
+    // to the heading as seen on screen (never upside down); a little hysteresis around straight up
+    // and down so it doesn't flicker between sides
+    const { rot, flip } = orient(b);
     ctx.save();
     // its shadow on the water
     ctx.fillStyle = 'rgba(0,25,45,0.28)';
-    ctx.beginPath(); ctx.ellipse(b.x, b.y + 8, w * 0.46, h * 0.22, 0, 0, 6.283); ctx.fill();
-    ctx.translate(Math.round(b.x), Math.round(b.y + bob));
-    ctx.rotate(U.clamp(Math.sin(b.ang) * (right ? 1 : -1), -1, 1) * 0.12 + (AI.Sky ? Math.sin(b.bob * 1.7) * AI.Sky.storm * 0.06 : 0));
-    if (right) ctx.scale(-1, 1); // (the sprite faces left)
-    if (im && im.ok && r) { ctx.imageSmoothingEnabled = false; ctx.drawImage(im, r[0], r[1], r[2], r[3], Math.round(-w / 2), Math.round(-h * 0.72), Math.round(w), Math.round(h)); }
-    else { ctx.fillStyle = b.col === 'blue' ? '#4a8ee0' : b.col === 'yellow' ? '#e0b040' : '#e05a4a'; ctx.fillRect(-w / 2, -h * 0.5, w, h * 0.6); }
+    ctx.beginPath(); ctx.ellipse(b.x, b.y + 8, w * 0.46, h * 0.22, rot, 0, 6.283); ctx.fill();
+    ctx.translate(Math.round(b.x), Math.round(b.y + bob - h * 0.3)); // (turned about the middle of the hull)
+    ctx.rotate(U.clamp(rot, -1.45, 1.45) + (AI.Sky ? Math.sin(b.bob * 1.7) * AI.Sky.storm * 0.06 : 0));
+    if (flip) ctx.scale(-1, 1);
+    if (im && im.ok && r) { ctx.imageSmoothingEnabled = false; ctx.drawImage(im, r[0], r[1], r[2], r[3], Math.round(-w / 2), Math.round(-h * 0.42), Math.round(w), Math.round(h)); }
+    else { ctx.fillStyle = b.col === 'blue' ? '#4a8ee0' : b.col === 'yellow' ? '#e0b040' : '#e05a4a'; ctx.fillRect(-w / 2, -h * 0.2, w, h * 0.6); }
     ctx.restore();
     // water breaking along the hull when it moves
     const sp = Math.hypot(b.vx, b.vy);
@@ -352,5 +384,5 @@
     boats.length = 0; built = false; st.wakes.length = 0; st.exitT = 0; st.cool = 0; st.hint = 0; st.hinted = {};
   }
 
-  AI.define('Boats', { boats, st, riding, boatOf, board, leave, landing, fits, tick, afterPlayer, addProps, drawWakes, drawScreen, lights, install, reset, build, HL, HW });
+  AI.define('Boats', { boats, st, orient, FACE, riding, boatOf, board, leave, landing, fits, tick, afterPlayer, addProps, drawWakes, drawScreen, lights, install, reset, build, HL, HW });
 })();

@@ -370,7 +370,9 @@
     if (it.anim && !e.anim.busy()) e.anim.loop(it.anim, it.animSpeed);
     // swimming / wading look
     if (!e.flying && R.World.isLiquid(e.x, e.y)) {
-      const goal = s.p.fish ? 0.55 : s.p.lovesWater ? 0.45 : Math.max(v.sub, 0.3);
+      // (at sea, swimmers sit half under the surface; deeper still out of the shallows)
+      const deepSea = AI.Ocean && AI.Ocean.on() && AI.Ocean.locoOf(e) === 'swim';
+      const goal = deepSea ? (AI.Ocean.cls(e.x, e.y) >= 2 ? 0.9 : 0.75) : s.p.fish ? 0.55 : s.p.lovesWater ? 0.45 : Math.max(v.sub, 0.3);
       v.subNow = U.lerp(v.subNow || 0, goal, Math.min(1, dt * 6));
     } else v.subNow = U.lerp(v.subNow || 0, 0, Math.min(1, dt * 8));
   }

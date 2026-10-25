@@ -2638,7 +2638,7 @@ async function sample(h, ms, every, fn, arg) {
       OT.tp(0, 0);
       await wait(200);
       let dp = null;
-      for (let d = 1200; d < 6000 && !dp; d += 200) for (let k = 0; k < 16 && !dp; k++) { const x = Math.cos(k / 16 * 6.283) * d, y = 1500 + Math.sin(k / 16 * 6.283) * d; if (O.sample(x, y).e > 800) dp = [x, y]; }
+      for (let d = 1200; d < 6000 && !dp; d += 200) for (let k = 0; k < 16 && !dp; k++) { const x = Math.cos(k / 16 * 6.283) * d, y = 1500 + Math.sin(k / 16 * 6.283) * d; if (O.sample(x, y).e > 800 && !O.fitNear('walk', x, y, 700)) dp = [x, y]; }
       // (as the game does when it brings you back from an arena you entered while sailing: just puts
       // you where you were, and where you last stood was the boat)
       p.x = dp[0]; p.y = dp[1]; p._psxOk = [dp[0], dp[1]];
@@ -2682,6 +2682,28 @@ async function sample(h, ms, every, fn, arg) {
     const calm = await run(false), storm = await run(true);
     const r = { calm, storm };
     return { pass: !!calm && !!storm && calm.dx > 150 && storm.dx > 80 && Math.hypot(storm.dx, storm.dy) !== Math.hypot(calm.dx, calm.dy) && storm.dx < calm.dx, detail: r };
+  });
+
+  await scenario(h, 'ocean: a boat turns where you steer: going right, holding left swings the bow round to the left (no backing up), and its sprite points the bow where it heads', async () => {
+    await h.R(() => {
+      const B = PSXAI.Boats, O = PSXAI.Ocean, p = __PSX_REG__.Game.player;
+      if (p.psxBoat) B.leave(p.psxBoat, [p.x, p.y]);
+      PSXAI.Sky.set({ wind: 0, storm: 0, rain: 0, freeze: true });
+      const b = B.boats.find((q) => q.col === 'blue');
+      let at = null; for (let r = 300; r < 2400 && !at; r += 60) for (let k = 0; k < 16; k++) { const x = 300 + Math.cos(k / 16 * 6.283) * r, y = 1300 + Math.sin(k / 16 * 6.283) * r; if (O.sample(x, y).cls >= 3 && B.fits(b, x, y, 0) && B.fits(b, x - 500, y, 0) && B.fits(b, x + 300, y, 0) && B.fits(b, x, y - 300, 0)) { at = [x, y]; break; } }
+      b.x = at[0]; b.y = at[1]; b.ang = 0; b.vx = b.vy = 0; b.side = 0;
+      B.board(b, p); window.BB = b;
+    });
+    await h.page.keyboard.down('KeyD'); await h.wait(1200); await h.page.keyboard.up('KeyD');
+    const r0 = await h.R(() => ({ vx: Math.round(BB.vx), bow: PSXAI.Boats.orient(BB).bow.map((v) => +v.toFixed(2)), state: __PSX_REG__.Game.state, aboard: __PSX_REG__.Game.player.psxBoat === BB, busy: [PSXAI.Sea.busy(), PSXAI.Guardians.busy(), PSXAI.Birth.busy(), PSXAI.Story.lockInput(), !!(PSXAI.Trio && PSXAI.Trio.busy())] }));
+    await h.page.keyboard.down('KeyA'); await h.wait(1600);
+    const r1 = await h.R(() => ({ ang: Math.round(Math.abs(BB.ang) * 57.3), vx: Math.round(BB.vx), bow: PSXAI.Boats.orient(BB).bow.map((v) => +v.toFixed(2)) }));
+    await h.page.keyboard.up('KeyA');
+    await h.page.keyboard.down('KeyW'); await h.wait(1500); await h.page.keyboard.up('KeyW');
+    const r2 = await h.R(() => ({ vy: Math.round(BB.vy), bow: PSXAI.Boats.orient(BB).bow.map((v) => +v.toFixed(2)) }));
+    // every colour: the drawn bow follows the heading, whichever way its sprite faces
+    const r3 = await h.R(() => { const out = []; for (const col of ['red', 'blue', 'yellow']) for (const a of [0, 0.8, 1.6, 2.4, 3.1, -0.8, -1.6, -2.4]) { const o = PSXAI.Boats.orient({ col, ang: a, side: 0 }); const vx = Math.cos(a), vy = Math.sin(a) * 0.7, l = Math.hypot(vx, vy); out.push(o.bow[0] * vx / l + o.bow[1] * vy / l); } return Math.min(...out); });
+    return { pass: r0.vx > 80 && r0.bow[0] > 0.9 && r1.ang > 150 && r1.vx < -40 && r1.bow[0] < -0.9 && r2.vy < -60 && r2.bow[1] < -0.9 && r3 > 0.99, detail: [r0, r1, r2, r3] };
   });
 
   await scenario(h, 'ocean: four guardian islands, each its own place and its own encounter', async () => {
@@ -2842,6 +2864,41 @@ async function sample(h, ms, every, fn, arg) {
       return { sea, koko };
     });
     return { pass: r.sea.tentacool > 0.5 && r.sea.pikachuIsle === 0 && r.sea.ghost === 0 && r.koko.electrike >= 4 && r.koko.ralts === 0 && r.koko.gastly === 0, detail: r };
+  });
+
+  await scenario(h, 'ocean: the mainland behind the harbour is yours to roam: well over 8 km² you can walk, the jungle wall far inland', async () => {
+    const r = await h.R(() => {
+      const O = PSXAI.Ocean;
+      let walk = 0, inland = 0;
+      for (let y = -5000; y < 1000; y += 32) for (let x = -5000; x < 2000; x += 32) { const s = O.sample(x, y); if (s.cls === 0 && !s.solid) { walk++; if (s.art < 0 && O.mainland(x, y)) inland++; } }
+      // walking north from the town: open forest for a long way before the jungle closes in
+      let far = 0; for (let y = -1200; y > -6000; y -= 40) { const s = O.sample(-300, y); if (s.solid && s.art < 0) break; far = -1200 - y; }
+      return { walkKm2: +(walk * 1024 / 1e6).toFixed(1), inlandKm2: +(inland * 1024 / 1e6).toFixed(1), far };
+    });
+    return { pass: r.walkKm2 > 8 && r.inlandKm2 > 6 && r.far > 1500, detail: r };
+  });
+
+  await scenario(h, 'ocean: the mainland has its own forest Pokémon (Pikipek, Yungoos, Exeggcute…), not sea Pokémon', async () => {
+    const r = await h.R(() => {
+      const O = PSXAI.Ocean, p = __PSX_REG__.Game.player;
+      const q = O.fitNear('walk', -1400, -2000, 600); OT.tp(q[0], q[1]);
+      O.st && (O.st.svT = -9);
+      return { pikipek: O.weight(731), yungoos: O.weight(734), exeggcute: O.weight(102), karp: O.weight(129), goldeen: O.weight(118), habitat: O.habitat(731), suits: O.suits('mainland', q[0], q[1]) };
+    });
+    return { pass: r.pikipek > 1 && r.yungoos > 1 && r.exeggcute > 1 && r.karp < 0.5 && r.goldeen < 0.5 && r.habitat === 'mainland' && r.suits, detail: r };
+  });
+
+  await scenario(h, 'ocean: fish keep to the water clear of the shore (never on the sand) and sit half under the surface, with no shadow', async () => {
+    const r = await h.R(() => {
+      const p = __PSX_REG__.Game.player, O = PSXAI.Ocean;
+      if (p.psxBoat) PSXAI.Boats.leave(p.psxBoat, [0, 0]);
+      OT.tp(0, 0);
+      window.FISH = [370, 118, 370].map((dex, i) => { const e = PSXAI.Debug.spawn(dex, { x: -40 + i * 60, y: -60, temp: 'timid', natural: true }); e.psxPlaced = false; return e; });
+      return O.sample(-40, -60).cls;
+    });
+    await h.wait(3500);
+    const f = await h.R(() => FISH.filter((e) => !e.dead).map((e) => { const s = PSXAI.Ocean.sample(e.x, e.y); return { dex: e.dex, flying: e.flying, cls: s.cls, e: Math.round(s.e), sub: +(e.psx.vis.subNow || 0).toFixed(2) }; }));
+    return { pass: f.length === 3 && f.every((q) => q.cls >= 1 && (q.e >= 18 || q.cls >= 2) && q.sub > 0.6 && !q.flying), detail: { startCls: r, fish: f } };
   });
 
   await scenario(h, 'ocean: switching the ocean off brings the Ash Volcano back as Level 3', async () => {

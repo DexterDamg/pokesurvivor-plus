@@ -203,6 +203,22 @@
     return false;
   }
 
+  /* Behind the harbour, the mainland is yours to roam: palm groves, ferny glades, big old trees
+   * and forest trails for a good long way inland (about 3 km from the town, more in places). Out
+   * past that the jungle closes in for good (a wall of canopy no one walks through), and here and
+   * there inside it a thicket stands too dense to enter. */
+  const HOME = { x: HARBOR.x + 550, y: HARBOR.y + 300, R: 3300 };
+  function homeEdge(x, y) {
+    const a = Math.atan2(y - HOME.y, x - HOME.x);
+    return HOME.R * (1 + 0.16 * Math.sin(3 * a + 1.3) + 0.09 * Math.sin(5 * a + 0.4)) + (vn(x / 500, y / 500, 9371) - 0.5) * 700;
+  }
+  function jungleAt(x, y) {
+    if (Math.hypot(x - HOME.x, y - HOME.y) > homeEdge(x, y)) return true;
+    // thickets: none right behind the town (its edges must stay open)
+    const near = Math.max(HARBOR.x - x, HARBOR.y - y);
+    return near > 260 && vn(x / 300, y / 300, 9372) > 0.73;
+  }
+
   // ---------------------------------------------------------------- the raster: land, water, distance to the coast
   const RC = 16, RN = 1200, R0 = -9600;
   let LAND = null, E = null;
@@ -337,7 +353,7 @@
     const a = artAt(x, y);
     o.art = a;
     if (a >= 0) { if (a === 0) e = Math.max(e, 5); else { e = Math.min(e, -4); if (a === 2) o.solid = true; } }
-    else if (e < -70 && mainland(x, y)) o.solid = true; // (the jungle behind the beaches)
+    else if (e < -70 && mainland(x, y) && jungleAt(x, y)) o.solid = true; // (the jungle wall, far inland, and its thickets)
     const t = tide();
     let dv;
     if (e <= 0) dv = e / 100;
@@ -448,6 +464,7 @@
   const SWIM = new Set([129, 130, 118, 119, 72, 73, 116, 117, 230, 170, 171, 222, 223, 224, 226, 211, 318, 319, 320, 321, 349, 350, 366, 367, 368, 369, 370, 456, 457, 458, 594, 690, 691, 746, 779, 781, 131, 489, 490, 382, 120, 121, 692, 693, 771, 147, 148, 138, 139]);
   const SHORE = new Set([90, 91, 98, 99, 79, 80, 199, 341, 342, 739, 740, 767, 768, 751, 752, 688, 689, 140, 141, 422, 423]);
   const AMPHI = new Set([86, 87, 54, 55, 60, 61, 62, 186, 183, 184, 298, 134, 7, 8, 9, 158, 159, 160, 258, 259, 260, 393, 394, 395, 501, 502, 503, 656, 657, 658, 728, 729, 730]);
+  const COAST = 18; // how far out from the water's edge a fish keeps (px)
   const locoCache = new Map();
   function locomotion(dex) {
     let l = locoCache.get(dex);
@@ -474,7 +491,7 @@
     const s = sample(x, y);
     if (loco === 'fly') return true;
     if (s.solid) return false;
-    if (loco === 'swim') return s.cls >= 1;
+    if (loco === 'swim') return s.cls >= 1 && (s.e >= COAST || s.cls >= 2); // (fish keep clear of the surf line, never up on the sand)
     if (loco === 'amphi') return true;
     if (s.cls <= 1) return true;
     // caught on a tidal path as the tide came in: you can always wade back out
@@ -536,6 +553,8 @@
     90: 'tidepool', 91: 'tidepool', 120: 'tidepool', 751: 'tidepool', 752: 'tidepool', 688: 'tidepool', 689: 'tidepool', 138: 'tidepool', 139: 'tidepool', 140: 'tidepool', 141: 'tidepool',
     98: 'beach', 99: 'beach', 341: 'beach', 342: 'beach', 739: 'beach', 740: 'beach', 767: 'beach', 768: 'beach', 79: 'beach', 80: 'beach', 199: 'beach', 54: 'beach', 55: 'beach', 422: 'beach', 423: 'beach',
     86: 'rocks', 87: 'rocks',
+    // the mainland's palm groves and glades, behind the harbour
+    731: 'mainland', 734: 'mainland', 102: 'mainland', 103: 'mainland', 190: 'mainland', 424: 'mainland', 43: 'mainland', 44: 'mainland', 46: 'mainland', 47: 'mainland', 10: 'mainland', 165: 'mainland', 270: 'mainland', 271: 'mainland', 272: 'mainland', 357: 'mainland', 123: 'mainland', 127: 'mainland',
     278: 'air', 279: 'air',
     // the guardian islands' own
     309: 'koko', 310: 'koko', 403: 'koko', 404: 'koko', 405: 'koko', 100: 'koko', 101: 'koko', 81: 'koko', 82: 'koko', 702: 'koko', 777: 'koko', 737: 'koko', 738: 'koko', 239: 'koko', 125: 'koko', 466: 'koko', 25: 'koko', 26: 'koko',
@@ -561,6 +580,7 @@
       case 'wreck': return s.cls >= 1 && wreckNear(x, y, 360);
       case 'tidepool': return (s.cls === 1 && s.e < 50) || (s.cls === 0 && s.e > -60); // (so Shellder rest wherever the tide has left the edge)
       case 'beach': return s.cls === 0 && s.e > -130 && zoneAt(x, y).id !== 'souls';
+      case 'mainland': return s.cls === 0 && s.e < -60 && s.art < 0 && mainland(x, y);
       case 'rocks': { const z = zoneAt(x, y); return (z.id === 'seel' || (s.cls === 0 && s.e > -90 && z.isl && (z.isl.kind === 'rocky' || z.isl.kind === 'rock'))) && s.cls <= 2; }
       case 'air': return true;
       case 'koko': case 'lele': case 'bulu': case 'souls': {
@@ -601,6 +621,8 @@
     if (z.id === 'fini') return hab === 'air' ? 0.2 : 0.15; // (the dead isle belongs to its ghosts)
     if (z.id === 'ghostwreck') return hab === 'wreck' ? 6 : hab === 'souls' && locomotion(dex) === 'fly' ? 3 : hab === 'deep' ? 0.6 : 0.2; // (Dhelmise, and ghosts drifting over the water)
     if (z.id === 'birth') return hab === 'air' ? 0.5 : 0.1;
+    // (deep inland on the mainland, out of sight of the sea: its forest Pokémon, not the sea's)
+    if (land >= 1 && s.cls === 0 && z.id === 'harbor' && hab !== 'mainland' && hab !== 'air') return 0.05;
     switch (hab) {
       case 'lagoon': return s.lagoon > 0.2 || (s.cls <= 1 && land > 0.2) ? 2.5 : land > 0.1 ? 0.8 : 0.15;
       case 'reef': return z.id === 'reef' ? 3.5 : 0.35;
@@ -612,6 +634,7 @@
       case 'beach': return land > 0.25 ? (z.id === 'slowpoke' && [79, 80, 199].includes(dex) ? 5 : 1.6) : 0.03;
       case 'rocks': return z.id === 'seel' ? 6 : land > 0.2 ? 0.4 : 0.05;
       case 'air': return z.id === 'wingull' ? 5 : 1;
+      case 'mainland': return z.id === 'harbor' && s.cls === 0 && s.art < 0 && land > 0.6 ? 3.5 : 0;
     }
     return 1;
   }
@@ -739,6 +762,6 @@
     on, plan, register, get BIOME() { return BIOME; }, HARBOR, art, artAt, artOf, sample, cls, depthClass, water, solidAt, zoneAt, islandById, insideIsland, islE, mainland,
     tide, tideName, tidalAt, currentAt, localSky, reefK, lagoonK, inTrench,
     locomotion, playerLoco, locoOf, fits, canBe, collide, fitNear, pointFor, isPlayerEnt,
-    HAB, habitat, suits, weight, place, spawnOk, terr, trees, grass, clear, kindAt, blocked, tick, reset, lineDist, segDist, vn, fbm, sm,
+    HOME, jungleAt, HAB, habitat, suits, weight, place, spawnOk, terr, trees, grass, clear, kindAt, blocked, tick, reset, lineDist, segDist, vn, fbm, sm,
   });
 })();

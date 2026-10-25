@@ -103,7 +103,7 @@
       if (plain) { orig.call(this, ctx); extras(ctx, this, s, 0); return; }
       const prevLift = this.jumpLift;
       if (!this.jump) this.jumpLift = (prevLift || 0) + lift;
-      AI.noShadow = (v.perch || 0) > 2; // up a tree: no shadow on the ground below
+      AI.noShadow = (v.perch || 0) > 2 || sub > 0.3; // up a tree, or in the water: no shadow on the ground below
       ctx.save();
       if (v.shake) ctx.translate((Math.random() - 0.5) * v.shake * 2, 0);
       if (v.alpha != null && v.alpha < 1) ctx.globalAlpha *= v.alpha;
