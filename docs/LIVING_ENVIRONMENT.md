@@ -184,17 +184,27 @@ switched off (setting `gameWeather` turns them back on).
 ## Pokémon sizes (`14-scale.js`, `12-sizes.js`)
 
 The game's sprites come in roughly standard sizes, so a Joltik, a Pikachu and a Snorlax could end
-up about as big as each other. Each species is now scaled toward its real size, using its Pokédex
-height (stature) and weight (bulk):
+up about as big as each other. Every Pokémon is now drawn at its **real Pokédex height**, measured
+against how tall its sprite really is (its opaque pixels, not the padded frame;
+`js/ai/12-spriteh.js`, made by `tools/sprite_heights.py`):
 
-- The difference is compressed: tiny Pokémon shrink gently so they stay visible, and enormous ones
-  grow only so far so they don't swallow the screen. Evolutions grow consistently
-  (Charmander < Charmeleon < Charizard), and an evolving Pokémon takes its new size.
-- Individuals vary a little (about ±6%), bosses and Legendaries are a touch larger (×1.12), and
-  your partner is scaled more gently (visual only).
-- Collision grows moderately with size (between ×0.8 and ×1.35), so combat stays fair.
-  Shadows, bubbles and name tags follow the scaled body (wild Pokémon no longer show health
-  bars; see [SHADY_FOREST.md](SHADY_FOREST.md)).
+- **True to scale up to 2 m**, at 55 world px per metre (the camera shows about 768 × 432 world
+  px): Charmander 0.6 m ≈ 33 px, a 1 m Pokémon ≈ 55 px, Machamp 1.6 m ≈ 88 px, Charizard 1.7 m
+  ≈ 94 px, Snorlax 2.1 m ≈ 113 px. So a Snorlax stands about 3.5 times as tall as a Charmander,
+  as it should.
+- **The tiniest are lifted** just enough to stay believable and easy to see: Pikachu 0.4 m ≈ 28 px,
+  Joltik, Flabébé and Comfey 0.1 m ≈ 21 px (still the smallest by far).
+- **Giants keep growing, ever more gently**, so they tower without ruining the screen: Lugia 5.2 m
+  ≈ 163 px, Gyarados 6.5 m ≈ 175 px, and Onix, Steelix, Wailord and anything bigger top out at 180
+  px (about 40% of the view's height).
+- Evolutions grow consistently (Charmander < Charmeleon < Charizard), and an evolving Pokémon takes
+  its new size. Individuals vary a little (about ±6%), and bosses and Legendaries are a touch larger
+  (×1.12).
+- **Your own Pokémon** follows the same rule, kept between 34 and 130 px (visual only), so it's
+  always easy to see and never hides the field.
+- Collision grows with the body, a little less than in proportion (×0.7 to ×2.6, never past 48 px
+  across). Shadows, bubbles and how deep a Pokémon sits in water follow its real height (wild
+  Pokémon don't show health bars; see [SHADY_FOREST.md](SHADY_FOREST.md)).
 - Setting: `speciesScale`.
 
 ## Encounters you earn (`91-progress.js`)
@@ -284,7 +294,7 @@ fades out in menus.
 | `naturalTerrain` | on | forests without rectangular wall blocks |
 | `treeDensity` | 1 | forest tree density |
 | `treeSizes` | on | trees in growth stages, from saplings to rare ancient giants |
-| `speciesScale` | on | Pokémon sized by species |
+| `speciesScale` | on | Pokémon drawn at their real Pokédex heights |
 | `softTelegraphs` | on | soft attack warnings |
 | `earnedEvents` | on | bosses and rifts unlock through Pokémon defeated |
 | `hordes` | off | the game's timed hordes |

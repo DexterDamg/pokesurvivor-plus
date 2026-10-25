@@ -1593,21 +1593,24 @@ async function sample(h, ms, every, fn, arg) {
     return { pass: holds && bad.length === 0 && r.flipRate < 0.05, detail: { bad, flipRate: r.flipRate, sample: r.sample, minutes: r.minutes.clear } };
   });
 
-  await scenario(h, 'Pokémon are sized by species: tiny ones stay visible, giants stay playable', async () => {
+  await scenario(h, 'Pokémon are drawn at their real Pokédex heights (true to scale up to 2 m); tiny ones stay visible, giants stay playable', async () => {
     const r = await h.R(() => {
-      // on-screen body size: the sprite's own size × the species factor
-      const S = PSXAI.Scale, k = (d) => +(S.species(d) * __PSX_REG__.Sprites.bodyRadius(d, 1)).toFixed(1);
-      const line = { joltik: k(595), pikachu: k(25), eevee: k(133), charmander: k(4), charmeleon: k(5), charizard: k(6), lucario: k(448), snorlax: k(143), onix: k(95), wailord: k(321) };
+      // how tall each stands on screen (world px): its sprite's real height × the species factor
+      const S = PSXAI.Scale, ht = (d) => +(S.spriteH(d) * S.species(d)).toFixed(1);
+      const line = { joltik: ht(595), flabebe: ht(669), pikachu: ht(25), charmander: ht(4), charmeleon: ht(5), charizard: ht(6), lucario: ht(448), machamp: ht(68), snorlax: ht(143), lugia: ht(249), gyarados: ht(130), onix: ht(95), wailord: ht(321) };
+      const player = { pikachu: +(S.spriteH(25) * S.species(25, 130, 34)).toFixed(1), wailord: +(S.spriteH(321) * S.species(321, 130, 34)).toFixed(1) };
       const boss = +(S.of({ dex: 143, id: 7, boss: true }) / S.of({ dex: 143, id: 7 })).toFixed(2);
       const flock = [0, 1, 2, 3, 4, 5].map((i) => PSXAI.Debug.spawn(16, { temp: 'neutral', dx: -200 + i * 60, dy: -120 }));
       const ks = flock.map((e) => S.of(e));
-      const big = PSXAI.Debug.spawn(143, { temp: 'neutral', dx: 200 }), tiny = PSXAI.Debug.spawn(595, { temp: 'neutral', dx: -200 });
-      return { line, boss, spread: +((Math.max(...ks) - Math.min(...ks)) / ks[0]).toFixed(3), r: { snorlax: [big._psxR0, +big.r.toFixed(1)], joltik: [tiny._psxR0, +tiny.r.toFixed(1)] } };
+      const big = PSXAI.Debug.spawn(143, { temp: 'neutral', dx: 200 }), tiny = PSXAI.Debug.spawn(595, { temp: 'neutral', dx: -200 }), huge = PSXAI.Debug.spawn(95, { temp: 'neutral', dx: 320 });
+      return { line, player, boss, spread: +((Math.max(...ks) - Math.min(...ks)) / ks[0]).toFixed(3), r: { snorlax: [big._psxR0, +big.r.toFixed(1)], joltik: [tiny._psxR0, +tiny.r.toFixed(1)], onix: +huge.r.toFixed(1) } };
     });
-    const L = r.line, all = Object.values(L);
-    const ok = L.joltik >= 6 && L.joltik < L.pikachu && L.pikachu < L.lucario && L.charmander < L.charmeleon && L.charmeleon < L.charizard && L.snorlax > L.pikachu * 1.6 &&
-      Math.max(...all) <= L.joltik * 9 && r.boss > 1.08 && r.boss < 1.16 && r.spread > 0.01 && r.spread < 0.13 &&
-      r.r.snorlax[1] / r.r.snorlax[0] <= 1.36 && r.r.joltik[1] / r.r.joltik[0] >= 0.79;
+    const L = r.line, near = (a, b, tol) => Math.abs(a / b - 1) < tol;
+    const ok = near(L.charizard / L.charmander, 1.7 / 0.6, 0.06) && near(L.snorlax / L.charmander, 2.1 / 0.6, 0.06) && near(L.machamp / L.charizard, 1.6 / 1.7, 0.06) &&
+      L.joltik >= 20 && L.flabebe >= 20 && L.joltik < L.pikachu && L.pikachu < L.charmander && L.charmander < L.charmeleon && L.charmeleon < L.charizard && L.lucario < L.charizard &&
+      L.snorlax < L.lugia && L.lugia < L.gyarados && L.gyarados <= L.onix && Math.max(L.onix, L.wailord) <= 180 &&
+      r.player.pikachu >= 34 && r.player.wailord <= 130 && r.boss > 1.08 && r.boss < 1.16 && r.spread > 0.01 && r.spread < 0.13 &&
+      r.r.snorlax[1] > r.r.snorlax[0] && r.r.onix <= 48 && r.r.joltik[1] / r.r.joltik[0] >= 0.69;
     return { pass: ok, detail: r };
   });
 

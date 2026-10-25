@@ -80,7 +80,7 @@
     flashIntensity: 1, // lightning screen flash strength (0 = no flashes, for comfort/accessibility)
     // Pokémon size
     softTelegraphs: true, // gentler attack warnings instead of blinking red dashed outlines
-    speciesScale: true, // size Pokémon by species (Pokédex height), with subtle individual variation
+    speciesScale: true, // draw Pokémon at their real Pokédex heights (true to scale up to 2 m; the tiniest lifted, giants capped), with subtle individual variation (14-scale.js)
     enemyBars: false, // health bars over wild Pokémon (they still have HP)
     announce: false, // banners for things that happen in the wild (evolutions, shinies, Meowth or Gholdengo appearing…); they still happen, quietly
     gameWeather: false, // the game's own type-boosting weather & terrain events (Misty Terrain, Harsh Sunlight…); the living sky stays either way
