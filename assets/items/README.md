@@ -37,6 +37,11 @@ Pixel-art item icons at their native size (`*.png`), with the upscaled originals
 | `shiny_stone.png` | Shiny Stone | evolution stone | 25×25 |
 
 (These five were sent as 192×192 webp at 6× and sampled back to a 32-pixel grid.)
+| `prism_scale.png` | Prism Scale | evolution item (Feebas) | 13×13 |
+| `kings_rock.png` | King's Rock (sent as webp, sampled back to its grid) | evolution item (Slowpoke, Poliwhirl) | 28×30 |
+| `dragon_scale.png` | Dragon Scale | evolution item (Seadra) | 23×17 |
+| `electirizer.png` | Electirizer | evolution item (Electabuzz) | 20×20 |
+| `magmarizer.png` | Magmarizer | evolution item (Magmar) | 20×20 |
 
 ## Sheets (`sheets/`, kept exactly as sent)
 
