@@ -43,6 +43,7 @@
     AI.Bus.on('death', (ev) => {
       if (!AI.enabled || !forest() || ev.killerKey !== 'P' || !ev.victimPeaceful || AI.cfg.autoAim !== 'any') return;
       st.value = Math.min(MAX, st.value + 1);
+      if (st.value === MAX) emptyForest();
       save();
       AI.Bus.emit({ type: 'karma', what: 'remembered', x: ev.x, y: ev.y, loud: 0 });
     });
@@ -85,6 +86,13 @@
         if (st.battle >= 34 && !st.restartAt) endRun();
       }
       if (st.restartAt && Date.now() >= st.restartAt) location.reload();
+    }
+
+    function emptyForest() {
+      for (const e of R.EnemyMgr.all()) {
+        if (!e || e.dead || e.psxStory || e.boss || e.legend || e.judge || e.dummy || e.elite) continue;
+        e.hp = 0; e.dead = true;
+      }
     }
 
     // Reduce roaming population at higher stages, and prevent every normal spawn at maximum.
