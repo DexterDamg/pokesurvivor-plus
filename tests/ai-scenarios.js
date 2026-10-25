@@ -28,10 +28,30 @@ function installHelpers() {
     // a calm, frozen midday unless a scenario asks for other weather
     AI.Sky.set({ hour: 12, day: 0, fog: 0, rain: 0, storm: 0, wind: 0.1, cloud: 0.1, snow: 0, wet: 0, snowCover: 0, season: 'spring', freeze: true });
     AI.Lore.reset();
-    AI.Player.lanternToggle = null;
+    AI.Light.reset();
+    // (no Pseudo Players unless a scenario is about them)
+    AI.cfg.pseudoPlayers = false;
+    AI.cfg.forestEvents = false; AI.Events.reset();
+    AI.cfg.exploreExp = false;
+    for (const c of AI.Companions.list().slice()) AI.Companions.dismiss(c, true);
+    AI.Companions.st.humansOverride = 0;
+    AI.Talk.reset();
+    AI.Totem.reset();
     return true;
   };
   T.dist = (e) => { const p = R.Game.player; return Math.hypot(e.x - p.x, e.y - p.y); };
+  // stand somewhere Pokémon do turn up (not in one of the forest's quiet stretches, not in water)
+  T.unquiet = function () {
+    const p = R.Game.player, F = AI.Forest;
+    if (!F || !F.on()) return;
+    let best = null, bv = 9;
+    for (let r = 0; r <= 4000 && bv > 0.1; r += 200) for (let a = 0; a < 6.28; a += 0.5) {
+      const x = p.x + Math.cos(a) * r, y = p.y + Math.sin(a) * r;
+      const q = F.quietAt(x, y) + (F.water(x, y).e > -60 ? 9 : 0) + (R.World.isFree(x, y, 20) ? 0 : 9);
+      if (q < bv) { bv = q; best = [x, y]; }
+    }
+    if (best) { p.x = best[0]; p.y = best[1]; AI.Mansion.snapCamera(p); }
+  };
 }
 
 async function scenario(h, name, fn) {
@@ -456,7 +476,7 @@ async function sample(h, ms, every, fn, arg) {
 
   // =========================================================== living environment
   await scenario(h, 'the starting woodland only brings out its own beginner Pokémon', async () => {
-    await h.R(() => { PSXAI.Debug.freeze(false); __PSX_REG__.Game.debugSpeed(2); window.SEEN = new Set(); });
+    await h.R(() => { T.unquiet(); PSXAI.Debug.freeze(false); __PSX_REG__.Game.debugSpeed(2); window.SEEN = new Set(); });
     const r = await h.R(async () => {
       const R = __PSX_REG__;
       const ro = PSXAI.Areas.roster();
@@ -594,10 +614,659 @@ async function sample(h, ms, every, fn, arg) {
     await h.R(() => PSXAI.Sky.set({ hour: 12 }));
     await h.wait(700);
     const day = await lum();
-    await h.R(() => { PSXAI.Sky.set({ hour: 0.5, day: 4 }); PSXAI.Player.lanternToggle = true; });
+    await h.R(() => { PSXAI.Sky.set({ hour: 0.5, day: 4 }); PSXAI.Light.lamp.lit = true; });
     await h.wait(700);
     const night = await lum();
     return { pass: night.corner < day.corner * 0.55 && night.center > night.corner * 1.4, detail: { day, night } };
+  });
+
+  await scenario(h, 'only Pokémon with a real light source glow: Charmander\'s tail flame lights the dark, Regirock and Pikachu do not', async () => {
+    const r = await h.R(async () => {
+      const R = __PSX_REG__, L = PSXAI.Light, p = R.Game.player;
+      PSXAI.Sky.set({ hour: 0.5, day: 2 });
+      const ch = PSXAI.Debug.spawn(4, { temp: 'neutral', dx: 120 });
+      const rg = PSXAI.Debug.spawn(377, { temp: 'neutral', dx: -120 });
+      const vu = PSXAI.Debug.spawn(37, { temp: 'neutral', dy: 110 }); // Vulpix: a Fire type with no flame of its own
+      await new Promise((res) => setTimeout(res, 600));
+      ch.anim.dir = 2; // facing right: the tail (and its flame) is on the left
+      const ls = L.gather(R.Camera);
+      const of = (e) => ls.filter((l) => l.body === e);
+      const fl = of(ch)[0];
+      return { charmander: of(ch).length, tailSide: fl ? Math.sign(fl.x - ch.x) : 0, tailUp: fl ? Math.round(ch.y - fl.y) : 0, reach: fl ? fl.r : 0, regirock: of(rg).length, vulpix: of(vu).length, player: of(p).length, playerLantern: L.lanternOn() };
+    });
+    return { pass: r.charmander === 1 && r.tailSide === -1 && r.tailUp > 5 && r.reach >= 80 && r.reach <= 140 && r.regirock === 0 && r.vulpix === 0 && r.player === 0 && !r.playerLantern, detail: r };
+  });
+
+  await scenario(h, 'moves light the world for as long as they last: a Thunder Shock flash, a Flamethrower stream, Will-o-Wisp\'s soft glow', async () => {
+    const r = await h.R(async () => {
+      const R = __PSX_REG__, L = PSXAI.Light, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.Sky.set({ hour: 0.5 });
+      L.flashes.length = 0;
+      const e = PSXAI.Debug.spawn(4, { temp: 'neutral', dx: 150 });
+      await wait(200);
+      L.moveLight(e, { id: 'thunder-shock', type: 'electric' }, 0);
+      const shock = L.flashes.slice(-1)[0];
+      await wait(300);
+      const shockGone = !L.flashes.includes(shock);
+      L.moveLight(e, { id: 'flamethrower', type: 'fire' }, Math.PI);
+      const ft = L.flashes.slice(-1)[0];
+      const x0 = ft.ent ? ft.ent.x + ft.ox : ft.x;
+      e.x += 40;
+      const x1 = ft.ent ? ft.ent.x + ft.ox : ft.x;
+      L.moveLight(e, { id: 'will-o-wisp', type: 'fire', def: { dur: 6 } }, 0);
+      const wisp = L.flashes.slice(-1)[0];
+      // and moves used in battle by wild Pokémon light up too (a hostile Charmander's Ember / Flamethrower)
+      L.flashes.length = 0;
+      const foe = PSXAI.Debug.spawn(4, { temp: 'aggressive', dx: -160 });
+      PSXAI.Debug.freeze(false);
+      let fromBattle = 0;
+      let dbg = null;
+      for (let i = 0; i < 50 && !fromBattle; i++) { await wait(200); fromBattle = L.flashes.filter((f) => f.c[0] === 255 && f.c[1] === 150).length; dbg = { beh: foe.psx && foe.psx.beh.id, stance: foe.psx && foe.psx.stance, inCombat: foe.psx && foe.psx.inCombat, n: L.flashes.length, d: Math.round(Math.hypot(foe.x - p.x, foe.y - p.y)) }; }
+      PSXAI.Debug.freeze(true);
+      return { shock: { r: shock.r, dur: shock.dur }, shockGone, flame: { r: ft.r, follows: Math.round(x1 - x0), dur: ft.dur }, wisp: { r: wisp.r, dur: wisp.dur, soft: !!wisp.soft }, fromBattle, dbg };
+    });
+    const ok = r.shock.r >= 100 && r.shock.dur < 0.3 && r.shockGone && r.flame.follows === 40 && r.flame.dur >= 0.5 && r.wisp.dur === 6 && r.wisp.soft && r.wisp.r < r.flame.r && r.fromBattle > 0;
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'the lantern is real equipment: dark until you light it (L), hangs at your side and burns oil', async () => {
+    const r = await h.R(async () => {
+      const R = __PSX_REG__, L = PSXAI.Light, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.Sky.set({ hour: 0.5 });
+      L.reset();
+      const before = L.lanternOn();
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyL' }));
+      const lit = L.lanternOn();
+      const ls = L.gather(R.Camera).filter((l) => l.r === 175);
+      const side = ls[0] ? Math.round(Math.abs(ls[0].x - p.x)) : -1;
+      const oil0 = L.lamp.oil;
+      await wait(1200);
+      const burned = +(oil0 - L.lamp.oil).toFixed(1);
+      L.lamp.oil = 0.3;
+      await wait(700);
+      const outOfOil = L.lanternOn();
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyL' }));
+      const stillOut = L.lanternOn();
+      L.addOil(90);
+      const refilled = L.lamp.oil;
+      L.reset();
+      return { before, lit, side, burned, outOfOil, stillOut, refilled: Math.round(refilled) };
+    });
+    return { pass: !r.before && r.lit && r.side > 10 && r.burned >= 0.8 && !r.outOfOil && !r.stillOut && r.refilled >= 90, detail: r };
+  });
+
+  await scenario(h, 'nights are very dark but never black; the moon\'s current phase is mirrored in the water', async () => {
+    const r = await h.R(async () => {
+      const S = PSXAI.Sky, F = PSXAI.Forest, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const amb = (day, cloud) => { S.set({ hour: 0.5, day, cloud, rain: 0, fog: 0 }); return S.ambient().reduce((a, b) => a + b, 0) / 3; };
+      const newMoon = amb(0, 0.05), fullMoon = amb(4, 0.05), noon = (S.set({ hour: 12 }), S.ambient().reduce((a, b) => a + b, 0) / 3);
+      PSXAI.setCfg('nightVisibility', 1); const assisted = amb(0, 0.05); PSXAI.setCfg('nightVisibility', 0);
+      // by the lake on a first-quarter night: the reflection is half lit
+      const Lk = F.plan().lake;
+      let x = Lk.x, y = Lk.y;
+      for (let d = 0; d < 2000; d += 20) { x = Lk.x + Math.cos(0.8) * d; y = Lk.y + Math.sin(0.8) * d; if (F.water(x, y).e < -40) break; }
+      p.x = x + 60; p.y = y + 60; PSXAI.Mansion.snapCamera(p);
+      S.set({ hour: 0.5, day: 2, cloud: 0.05 });
+      await wait(900);
+      const phase = S.moonPhase();
+      const shot = () => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(() => {
+        const cam = R.Camera, cv = document.getElementById('game'), g = cv.getContext('2d');
+        const vis = F.moonVis();
+        // find the brightest small patch on the lake
+        let best = 0;
+        const k = cv.width / (cam.w * cam.scale);
+        for (let yy = cv.height * 0.12; yy < cv.height * 0.8; yy += 6) for (let xx = 0; xx < cv.width; xx += 6) { // (below the HUD's clock)
+          const wx = cam.left() + xx / k / cam.scale, wy = cam.top() + yy / k / cam.scale;
+          if (F.water(wx, wy).e < 20) continue;
+          const d = g.getImageData(xx, yy, 1, 1).data; best = Math.max(best, d[0] + d[1] + d[2]);
+        }
+        res({ vis, best });
+      })));
+      const half = await shot();
+      S.set({ day: 0 }); await wait(500);
+      const none = await shot();
+      return { newMoon: Math.round(newMoon), fullMoon: Math.round(fullMoon), noon: Math.round(noon), assisted: Math.round(assisted), phase, half, none };
+    });
+    const ok = r.newMoon < r.noon * 0.2 && r.newMoon > 25 && r.fullMoon > r.newMoon * 1.3 && r.assisted > r.newMoon * 1.5 && r.phase === 0.25 && r.half.vis > 0.5 && r.half.best > 500 && r.none.best < r.half.best * 0.6;
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'dialogue boxes: your party talks on the left, important NPCs on the right, two each at most, with PMD portraits', async () => {
+    const r = await h.R(async () => {
+      const T = PSXAI.Talk;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      T.reset();
+      for (let i = 0; i < 40 && !T.manifest; i++) await wait(50);
+      T.say('player', 'Did anyone else hear that?');
+      T.party({ dex: 656, name: 'Froakie', key: 'f' }, 'Hear what? Haha!');
+      T.npc({ dex: 94, name: 'Gengar', key: 'g', col: '#a77be0' }, 'Kekeke!');
+      T.npc({ dex: 477, name: 'Dusknoir', key: 'd' }, '…Enough.');
+      T.party({ dex: 906, name: 'Sprigatito', key: 's' }, 'Mrrow.');
+      T.npc({ dex: 92, name: 'Gastly', key: 'ga' }, 'Boo!');
+      await wait(900);
+      const left = T.boxes.left.map((b) => b.who.name), right = T.boxes.right.map((b) => b.who.name);
+      const portraits = [656, 906, 477, 92].map((d) => !!T.portrait(d, 'Normal'));
+      const emo = [T.emoFor('Kekeke! Got you!'), T.emoFor('…I don\'t like this.'), T.emoFor('What?! No way!?')];
+      // words are typed out, then the box fades on its own
+      const b = T.say('player', 'Short.', { life: 0.3 });
+      await wait(1600);
+      const faded = !T.boxes.left.includes(b);
+      T.reset();
+      return { left, right, portraits, emo, faded, local: Object.keys(T.manifest || {}).length };
+    });
+    const ok = r.left.length === 2 && r.left.includes('Sprigatito') && !r.left.includes('Pikachu') && r.right.length === 2 && r.right.includes('Gastly') && !r.right.includes('Gengar') && r.portraits.every(Boolean) && r.emo[0] === 'Joyous' && r.emo[1] === 'Worried' && r.emo[2] === 'Surprised' && r.faded && r.local > 30;
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'the Legendary box is only for Legendaries: "???" and a silhouette until known, and bosses speak as the battle turns', async () => {
+    const r = await h.R(async () => {
+      const T = PSXAI.Talk, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      T.reset();
+      const notLegend = T.legend(16, 'I am just a Pidgey.');
+      const pidgeyInLegendBox = T.boxes.legend === notLegend;
+      const dk = T.legend(491, '…Turn back.', { unknown: true });
+      const unknown = T.boxes.legend === dk && dk.unknown;
+      // a legendary boss arrives and fights
+      T.reset();
+      const e = PSXAI.Debug.spawn(150, { temp: 'neutral', dx: 140 });
+      e.legend = true;
+      await wait(400);
+      const arrival = T.boxes.legend && T.boxes.legend.who.dex === 150 ? T.boxes.legend.text : null;
+      e.hp = e.maxHp * 0.4; await wait(300);
+      const mid = T.boxes.legend && T.boxes.legend.text;
+      e.hp = e.maxHp * 0.1; await wait(300);
+      const low = T.boxes.legend && T.boxes.legend.text;
+      e.dead = true; T.reset();
+      return { pidgeyInLegendBox, unknown, arrival, mid, low };
+    });
+    const ok = !r.pidgeyInLegendBox && r.unknown && !!r.arrival && r.mid && r.mid !== r.arrival && r.low && r.low !== r.mid;
+    return { pass: ok, detail: r };
+  });
+
+  // ------------------------------------------------------------------ Pseudo Players
+  const party = (fn, arg) => h.R(async (a) => {
+    const C = PSXAI.Companions, R = __PSX_REG__, p = R.Game.player;
+    PSXAI.cfg.pseudoPlayers = true;
+    C.st.allocT = 0;
+    for (let i = 0; i < 30 && C.alive().length < (a.want != null ? a.want : 3); i++) await new Promise((res) => setTimeout(res, 100));
+    return true;
+  }, arg || {}).then(() => h.R(fn, arg));
+
+  await scenario(h, 'Pseudo Players fill the party: alone you travel with Charmander, Froakie and Sprigatito, each with its own Nature, marked as AI', async () => {
+    const r = await party(async () => {
+      const C = PSXAI.Companions, p = __PSX_REG__.Game.player;
+      await new Promise((res) => setTimeout(res, 600));
+      const L = C.list();
+      return {
+        dex: L.map((c) => c.dex).sort((a, b) => a - b), natures: L.map((c) => c.pp.nature), players: PSXAI.players.length,
+        sameLevel: L.every((c) => c.level === p.level), hp: L.map((c) => c.maxHp), playerHp: p.maxHp,
+        inDraw: L.every((c) => __PSX_REG__.EnemyMgr.drawables({ sees: () => true }).includes(c)), notWild: L.every((c) => !__PSX_REG__.EnemyMgr.all().includes(c)),
+      };
+    });
+    const ok = r.dex.join() === '4,656,906' && new Set(r.natures).size === 3 && r.players === 4 && r.sameLevel && r.hp.every((v) => v > r.playerHp * 0.7 && v <= r.playerHp) && r.inDraw && r.notWild;
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'party places: 4 − humans companions, chosen to round out the party; one says goodbye when a human joins and one returns when they leave', async () => {
+    const r = await party(async () => {
+      const C = PSXAI.Companions;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const names = () => C.alive().map((c) => c.dex).sort((a, b) => a - b).join();
+      const solo = names();
+      C.st.humansOverride = 2; C.allocate(); await wait(3200);
+      const two = names(), leaving = C.list().length;
+      C.st.humansOverride = 3; C.allocate(); await wait(3200);
+      const three = names();
+      C.st.humansOverride = 4; C.allocate(); await wait(3200);
+      const four = names();
+      C.st.humansOverride = 1; C.allocate(); await wait(600);
+      const back = names();
+      // the picks for two places keep a light when the humans have none (Pikachu has no flame)
+      const pick2 = C.choose(2);
+      C.st.humansOverride = 0;
+      return { solo, two, three, four, back, pick2 };
+    });
+    const ok = r.solo === '4,656,906' && r.two.split(',').length === 2 && r.three.split(',').length === 1 && r.four === '' && r.back === '4,656,906' && r.pick2.includes(4);
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'companions fight what threatens the party, leave peaceful Pokémon alone, and never hit you', async () => {
+    const r = await party(async () => {
+      const C = PSXAI.Companions, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.Debug.freeze(false);
+      for (const c of C.list()) c.psx.pers.nx.impulsive = 0.3; // (no Rash surprises in this one)
+      const calm = PSXAI.Debug.spawn(16, { temp: 'neutral', dx: 120, dy: 60 });
+      await wait(3000);
+      const calmTargeted = C.list().some((c) => c.psx.combat && c.psx.combat.target === calm);
+      const foe = PSXAI.Debug.spawn(19, { temp: 'aggressive', dx: -150, hp: 160 });
+      const hurts0 = T.hurts.length;
+      let fought = 0;
+      const hp0 = foe.hp, foeBehs = new Set();
+      for (let i = 0; i < 50 && !foe.dead; i++) { await wait(400); fought = Math.max(fought, C.list().filter((c) => c.psx.combat && c.psx.combat.target === foe).length); if (foe.psx && foe.psx.beh) foeBehs.add(foe.psx.beh.id); }
+      PSXAI.Debug.freeze(true);
+      // (whatever hurt you came from the wild one: the companions' own shots are harmless to you)
+      const companionShotsAtYou = R.Projectiles.all().filter((q) => q.psxOwner && q.psxOwner.pp && !q.psxSafe).length;
+      return { calmTargeted, calmAlive: !calm.dead, fought, foeDown: foe.dead, foeLost: Math.round((1 - Math.max(0, foe.hp) / hp0) * 100), fled: foeBehs.has('flee') || foeBehs.has('retreat'), kills: p.kills, companionShotsAtYou };
+    });
+    // (beaten, or hurt and driven off: a wild Pokémon that's losing runs for it)
+    return { pass: !r.calmTargeted && r.calmAlive && r.fought >= 2 && (r.foeDown || r.foeLost > 60 || (r.fled && r.foeLost > 30)) && r.companionShotsAtYou === 0, detail: r };
+  });
+
+  await scenario(h, 'a fallen companion is helped up by its teammates (or gets up later), and remembers who helped', async () => {
+    const r = await party(async () => {
+      const C = PSXAI.Companions;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const c = C.list().find((q) => q.dex === 656);
+      const p = __PSX_REG__.Game.player;
+      c.x = p.x + 220; c.y = p.y; // (away from you: it's the others who come)
+      const t0 = C.rel(c.pp.key, 'char').trust + C.rel(c.pp.key, 'spri').trust;
+      c.hurt(9999, 'normal', false, 'phys');
+      const down = !!c.pp.downed;
+      await wait(400);
+      const going = C.list().filter((o) => o !== c && o.psx.beh.id === 'party-revive').length;
+      for (let i = 0; i < 20 && c.pp.downed; i++) await wait(400);
+      const t1 = C.rel(c.pp.key, 'char').trust + C.rel(c.pp.key, 'spri').trust;
+      return { down, going, up: !c.pp.downed, hp: Math.round(c.hp / c.maxHp * 100), trustUp: +(t1 - t0).toFixed(2) };
+    });
+    return { pass: r.down && r.going >= 1 && r.up && r.hp >= 30 && r.trustUp > 0.1, detail: r };
+  });
+
+  await scenario(h, 'they keep up without marching in a line: spread around you, never stacked, never left behind', async () => {
+    const r = await party(async () => {
+      const C = PSXAI.Companions, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      let maxD = 0, minPair = 1e9;
+      const pos = [];
+      for (let i = 0; i < 40; i++) {
+        p.x += 18; p._vx = 120; await wait(100);
+        const L = C.alive();
+        for (const c of L) maxD = Math.max(maxD, Math.hypot(c.x - p.x, c.y - p.y));
+        for (let a = 0; a < L.length; a++) for (let b = a + 1; b < L.length; b++) minPair = Math.min(minPair, Math.hypot(L[a].x - L[b].x, L[a].y - L[b].y));
+      }
+      p._vx = 0;
+      await wait(2500);
+      const L = C.alive();
+      // the smallest arc around you that holds them all
+      const ang = L.map((c) => Math.atan2(c.y - p.y, c.x - p.x)).sort((a, b) => a - b);
+      let gap = 0;
+      for (let i = 0; i < ang.length; i++) gap = Math.max(gap, (i + 1 < ang.length ? ang[i + 1] : ang[0] + Math.PI * 2) - ang[i]);
+      const spread = Math.PI * 2 - gap;
+      const dist = L.map((c) => Math.round(Math.hypot(c.x - p.x, c.y - p.y)));
+      return { maxD: Math.round(maxD), minPair: Math.round(minPair), spread: +spread.toFixed(2), dist, behs: L.map((c) => c.psx.beh.id) };
+    });
+    return { pass: r.maxD < 650 && r.minPair > 10 && r.spread > 0.4 && r.dist.every((d) => d < 450), detail: r };
+  });
+
+  await scenario(h, 'Natures matter: a Timid companion hesitates in the dark and shelters behind a friend; a Brave one presses on', async () => {
+    const r = await h.R(async () => {
+      const C = PSXAI.Companions, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.cfg.pseudoPlayers = true; C.st.humansOverride = 2; // two places (Charmander's and Froakie's): we fill them by hand
+      for (const c of C.list().slice()) C.dismiss(c, true);
+      await wait(300);
+      const timid = C.spawn(4, { nature: 'timid', x: p.x + 60, y: p.y });
+      const brave = C.spawn(656, { nature: 'brave', x: p.x - 60, y: p.y });
+      C.st.allocT = 30; // (and nobody reshuffles the party mid-test)
+      PSXAI.Sky.set({ hour: 0.5, day: 0 });
+      PSXAI.Light.reset();
+      timid.psx.pers.tr.bravery = 0.15; brave.psx.pers.tr.bravery = 0.85;
+      const seen = { timid: new Set(), brave: new Set() };
+      // a ghost turns up
+      PSXAI.Debug.freeze(false);
+      const g = PSXAI.Debug.spawn(92, { temp: 'aggressive', dx: 200, hp: 400 });
+      let fearT = 0, fearB = 0;
+      for (let i = 0; i < 30; i++) { await wait(300); seen.timid.add(timid.psx.beh.id); seen.brave.add(brave.psx.beh.id); fearT = Math.max(fearT, timid.psx.mind.emo.fear); fearB = Math.max(fearB, brave.psx.mind.emo.fear); }
+      PSXAI.Debug.freeze(true);
+      g.dead = true;
+      C.st.humansOverride = 0;
+      return { timid: [...seen.timid], brave: [...seen.brave], fearT: +fearT.toFixed(2), fearB: +fearB.toFixed(2), natures: [timid.pp.nature, brave.pp.nature] };
+    });
+    const cautious = r.timid.some((b) => b === 'party-hesitate' || b === 'party-shelter' || b === 'retreat');
+    const ok = r.fearT > r.fearB + 0.15 && cautious && r.brave.includes('fight') && !r.brave.includes('party-shelter');
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'Natures shape wild Pokémon too: fear comes faster to a Timid one than a Brave one, anger to a Rash one', async () => {
+    const r = await h.R(() => {
+      const D = PSXAI.Debug, M = PSXAI.Mind;
+      const t = D.spawn(19, { temp: 'neutral', nature: 'timid', dx: 200 }), b = D.spawn(19, { temp: 'neutral', nature: 'brave', dx: -200 });
+      const ra = D.spawn(19, { temp: 'neutral', nature: 'rash', dy: 200 }), ca = D.spawn(19, { temp: 'neutral', nature: 'calm', dy: -200 });
+      for (const e of [t, b]) { e.psx.mind.emo.fear = 0; e.psx.pers.tr.bravery = 0.5; }
+      for (const e of [ra, ca]) { e.psx.mind.emo.anger = 0; e.psx.pers.tr.aggression = 0.5; }
+      M.feel(t.psx, 'fear', 0.3); M.feel(b.psx, 'fear', 0.3); M.feel(ra.psx, 'anger', 0.3); M.feel(ca.psx, 'anger', 0.3);
+      const out = { timid: +t.psx.mind.emo.fear.toFixed(2), brave: +b.psx.mind.emo.fear.toFixed(2), rash: +ra.psx.mind.emo.anger.toFixed(2), calm: +ca.psx.mind.emo.anger.toFixed(2), natures: [t.psx.pers.nature, b.psx.pers.nature, ra.psx.pers.nature, ca.psx.pers.nature], all25: PSXAI.Natures.IDS.length };
+      for (const e of [t, b, ra, ca]) e.dead = true;
+      return out;
+    });
+    return { pass: r.timid > r.brave * 1.8 && r.rash > r.calm * 1.8 && r.natures.join() === 'timid,brave,rash,calm' && r.all25 === 25, detail: r };
+  });
+
+  await scenario(h, 'party talk follows what happens: who notices first speaks first, others may answer, and it never chatters', async () => {
+    const r = await party(async () => {
+      const C = PSXAI.Companions, T2 = PSXAI.Talk;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.cfg.partyTalk = true;
+      T2.reset(); C.st.lastConvo = 0; C.st.convoAt = {};
+      for (const c of C.list()) c.psx.pers.nx.talk = 0.9;
+      // (a remark is sometimes left unanswered; here someone does answer)
+      const mr = Math.random; Math.random = () => 0.3;
+      try { C.convo('crumb_fence'); } finally { Math.random = mr; }
+      for (let i = 0; i < 30 && !T2.boxes.left.length; i++) await wait(100);
+      const first = T2.boxes.left.map((b) => b.who.name);
+      const seen = new Map();
+      for (let i = 0; i < 26; i++) { await wait(300); for (const b of T2.boxes.left) seen.set(b.who.name, b.text); }
+      const lines = [...seen].map(([n, t]) => n + ': ' + t);
+      // right after, another remark is held back
+      C.convo('sound');
+      await wait(700);
+      const held = !T2.boxes.left.some((b) => /\b(hear|Quiet|ears|came from)\b/.test(b.text));
+      return { first, lines, held };
+    });
+    return { pass: r.first[0] === 'Sprigatito' && r.lines.length >= 2 && r.held, detail: r };
+  });
+
+  await scenario(h, 'EXP for exploring: new ground on foot pays, standing still or walking in circles does not, a chest pays once', async () => {
+    const r = await h.R(async () => {
+      const X = PSXAI.Exp, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.cfg.exploreExp = true;
+      X.reset(); PSXAI.Debug.freeze(false);
+      const xp = () => X.st.total;
+      // standing still (after whatever the starting spot itself is worth)
+      await wait(1500);
+      const s0 = xp();
+      await wait(2500);
+      const still = xp() - s0;
+      // walking in a small circle (the same few cells over and over)
+      for (let i = 0; i < 60; i++) { p.x += Math.cos(i * 0.3) * 30; p.y += Math.sin(i * 0.3) * 30; await wait(50); }
+      const circle = xp() - s0 - still;
+      // a long walk over new ground
+      const a0 = xp();
+      for (let i = 0; i < 90; i++) { p.x += 40; await wait(60); }
+      const walk = xp() - a0;
+      // a teleport across the map: no credit for the ground skipped
+      const b0 = xp(); p.x += 5000; await wait(400); const tele = xp() - b0;
+      // a chest pays once, a big one more
+      const c0 = xp();
+      X.onBreak({ type: 'chest', x: 123, y: 456 }); const chest = xp() - c0;
+      X.onBreak({ type: 'chest', x: 123, y: 456 }); const again = xp() - c0 - chest;
+      const d0 = xp(); X.onBreak({ type: 'bigchest', x: 131, y: 456 }); const big = xp() - d0; // (right beside it: equally hidden, or not)
+      PSXAI.Debug.freeze(true);
+      return { still, circle, walk, tele, chest, again, big, unit: Math.round(X.unit()) };
+    });
+    return { pass: r.still === 0 && r.circle <= r.unit && r.walk > r.unit && r.tele <= r.unit * 0.5 && r.chest > 0 && r.again === 0 && r.big > r.chest * 2, detail: r };
+  });
+
+  await scenario(h, 'EXP for kindness, curiosity and teamwork, with a limit so none of it can be farmed', async () => {
+    const r = await h.R(() => {
+      const X = PSXAI.Exp, B = PSXAI.Bus;
+      PSXAI.cfg.exploreExp = true;
+      X.reset();
+      const t = () => X.st.total;
+      B.emit({ type: 'befriend', key: 77, loud: 0 }); const friend = t();
+      B.emit({ type: 'befriend', key: 77, loud: 0 }); const sameFriend = t() - friend;
+      const a = t(); B.emit({ type: 'party-support', byYou: true, loud: 0 }); const revive = t() - a;
+      const b = t(); B.emit({ type: 'myst', what: 'clue', id: 'darkrai', i: 0, loud: 0 }); const clue = t() - b;
+      // a flood of the same small thing: capped, then a trickle
+      const c = t();
+      for (let i = 0; i < 40; i++) X.give(3, 'test');
+      const flood = t() - c;
+      const fullRate = Math.round(X.unit() * 3) * 40;
+      return { friend, sameFriend, revive, clue, flood, fullRate };
+    });
+    return { pass: r.friend > 0 && r.sameFriend === 0 && r.revive > r.friend && r.clue > 0 && r.flood < r.fullRate * 0.5, detail: r };
+  });
+
+  // ------------------------------------------------------------------ forest events & storytelling
+  await scenario(h, 'forest event: a lost Pokémon calms when you stay with it, its parent comes, and you are thanked (and remembered)', async () => {
+    const r = await party(async () => {
+      const E = PSXAI.Events, C = PSXAI.Companions, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.cfg.forestEvents = true; PSXAI.cfg.exploreExp = true;
+      PSXAI.Sky.set({ hour: 14 });
+      E.reset(); p._vx = 100; p._vy = 0;
+      const ev = E.start('lost');
+      if (!ev) return { started: false };
+      const kidDex = ev.kid.dex;
+      await wait(1200);
+      const trust0 = C.alive().reduce((a, c) => a + C.rel(c.pp.key, 'P').trust, 0);
+      p.x = ev.kid.x + 30; p.y = ev.kid.y + 10; PSXAI.Mansion.snapCamera(p);
+      const phases = [];
+      for (let i = 0; i < 30 && E.st.cur === ev; i++) { await wait(400); phases.push(ev.phase + (ev.reunited ? '+' : '')); }
+      const trust1 = C.alive().reduce((a, c) => a + C.rel(c.pp.key, 'P').trust, 0);
+      return { started: true, kidDex, parentDex: ev.parent && ev.parent.dex, phases: [...new Set(phases)], reunited: !!ev.reunited, helped: C.mem.helped, trustUp: +(trust1 - trust0).toFixed(2), xp: PSXAI.Exp.st.log.some((l) => l.why === 'forest event') };
+    });
+    return { pass: r.started && r.reunited && r.parentDex && r.helped >= 1 && r.trustUp > 0 && r.xp, detail: r };
+  });
+
+  await scenario(h, 'forest events: strange tracks lead to something buried; a fallen tree blocks the way until a Fire-type burns it clear', async () => {
+    const r = await h.R(async () => {
+      const E = PSXAI.Events, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.cfg.forestEvents = true;
+      E.reset(); p._vx = 100; p._vy = 0;
+      const prints0 = PSXAI.Decor.prints.length;
+      const tr = E.start('tracks');
+      const prints = PSXAI.Decor.prints.length - prints0;
+      p.x = tr.x + 5; p.y = tr.y + 5;
+      for (let i = 0; i < 10 && E.st.cur === tr; i++) await wait(300);
+      const dug = E.st.cur !== tr;
+      // the fallen tree: solid, and it stays until a Fire-type stands at it
+      E.st.cur = null;
+      const fl = E.start('fallen');
+      const solid = !R.World.isFree(fl.x, fl.y - 4, 10);
+      p.x = fl.x; p.y = fl.y + 70;
+      await wait(2000);
+      const stillThere = E.st.cur === fl && fl.burn === 0; // (Pikachu can't burn it)
+      const ch = PSXAI.Debug.spawn(4, { temp: 'friendly', x: fl.x + 40, y: fl.y + 40 });
+      // a wild Charmander doesn't count: only the party; put a companion there instead
+      ch.dead = true;
+      PSXAI.cfg.pseudoPlayers = true; PSXAI.Companions.st.allocT = 0;
+      for (let i = 0; i < 20 && !PSXAI.Companions.alive().some((c) => c.dex === 4); i++) await wait(150);
+      const char = PSXAI.Companions.alive().find((c) => c.dex === 4);
+      if (char) { char.x = fl.x + 30; char.y = fl.y + 30; }
+      for (let i = 0; i < 20 && E.st.cur === fl; i++) await wait(300);
+      return { prints, dug, solid, stillThere, burned: E.st.cur !== fl, freeAfter: R.World.isFree(fl.x, fl.y - 4, 10) };
+    });
+    return { pass: r.prints >= 20 && r.dug && r.solid && r.stillThere && r.burned && r.freeAfter, detail: r };
+  });
+
+  await scenario(h, 'the forest tells its story: markers, carvings, signs, statues and letters, read by standing at them, each once', async () => {
+    const r = await h.R(async () => {
+      const E = PSXAI.Events, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.cfg.forestEvents = true; PSXAI.cfg.exploreExp = true;
+      E.reset(); PSXAI.Exp.reset(); p._vx = 100;
+      const kinds = new Set(), texts = [];
+      for (let k = 0; k < 6; k++) {
+        E.placeLore();
+        const q = E.st.props[E.st.props.length - 1];
+        if (!q) continue;
+        kinds.add(q.lore.kind);
+        p.x = q.x + 8; p.y = q.y + 8;
+        for (let i = 0; i < 8 && E.st.props.includes(q); i++) await wait(250);
+        if (E.st.card) texts.push(E.st.card.text.slice(0, 40));
+        p.x += 50;
+      }
+      const read = E.st.read.size;
+      // reading the same one again gives nothing new
+      const xp0 = PSXAI.Exp.st.total;
+      E.readLore([...E.st.read][0]);
+      const again = PSXAI.Exp.st.total - xp0;
+      const named = texts.some((t) => /Giratina|Gengar's|Darkrai/.test(t));
+      return { kinds: [...kinds], read, again, sample: texts.slice(0, 2), lore: E.LORE.length };
+    });
+    return { pass: r.read >= 5 && r.kinds.length >= 3 && r.again === 0 && r.lore >= 12, detail: r };
+  });
+
+  // ------------------------------------------------------------------ Mega Evolution & Z-Moves: how they're earned
+  const withProgress = (fn, arg) => h.R(async (a) => {
+    const R = __PSX_REG__, s = R.DB.save, p = R.Game.player;
+    const keep = { wins: s.mapWins ? Object.assign({}, s.mapWins) : undefined, map: R.Maps.cur.n, biome: R.World.biome, dex: p.dex, level: p.level, item: p.item, megaForm: s.megaForm ? Object.assign({}, s.megaForm) : undefined };
+    window.__KEEP = keep;
+    return true;
+  }, arg || {}).then(() => h.R(fn, arg)).finally(() => h.R(() => {
+    const R = __PSX_REG__, s = R.DB.save, p = R.Game.player, k = window.__KEEP;
+    s.mapWins = k.wins; R.Maps.set(k.map); p.dex = k.dex; if (k.megaForm) s.megaForm = k.megaForm;
+    // (Zona Cero is the endless map: while it's set, the game cycles the world's biome)
+    if (R.World.biome !== k.biome) R.World.setBiome(k.biome, true);
+    if (p.item !== k.item) p.equip(k.item || null);
+    PSXAI.Power._forgetCrystals();
+  }));
+
+  await scenario(h, 'Mega Evolution: locked until Crystal Cave is beaten, only from Level 3, and only with that Pokémon\'s own Mega Stone in its held-item slot', async () => {
+    const r = await withProgress(() => {
+      const R = __PSX_REG__, W = PSXAI.Power, p = R.Game.player, s = R.DB.save;
+      p.dex = 448; // (Lucario; the old level-50 rule no longer matters at any level)
+      s.mapWins = {};
+      const out = { oldRule: R.Mega.unlocked(p) };
+      s.mapWins = { 1: 1, 2: 1 }; R.Maps.set(2);
+      out.beatenButStage2 = R.Mega.unlocked(p);
+      R.Maps.set(3);
+      out.stage3NoStone = R.Mega.unlocked(p);
+      p.equip('mstone_94_mega'); out.wrongStone = R.Mega.unlocked(p); // (Gengarite on a Lucario)
+      p.equip('mstone_448_mega'); out.ownStone = R.Mega.unlocked(p);
+      out.heldItem = p.item;
+      p.equip('assaultvest'); out.vestInstead = R.Mega.unlocked(p);
+      out.slotHolds = p.item;
+      out.stoneIsHeldItem = !!R.Items.BY.mstone_448_mega;
+      return out;
+    });
+    const ok = !r.oldRule && !r.beatenButStage2 && !r.stage3NoStone && !r.wrongStone && r.ownStone && r.heldItem === 'mstone_448_mega' && !r.vestInstead && r.slotHolds === 'assaultvest' && r.stoneIsHeldItem;
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'Mega Stones only ever come for the Pokémon you play: chests 5%, big chests 10%, level-ups 1%, never from random drops', async () => {
+    const r = await withProgress(() => {
+      const R = __PSX_REG__, W = PSXAI.Power, p = R.Game.player, s = R.DB.save;
+      s.mapWins = { 1: 1, 2: 1 }; R.Maps.set(3); p.equip(null);
+      const dropped = [];
+      const oDrop = R.Pickups.drop;
+      R.Pickups.drop = function (kind, x, y, id) { if (kind === 'item' && W.isStone(id)) { dropped.push(id); return null; } return oDrop.apply(this, arguments); };
+      const count = (fn, n) => { dropped.length = 0; for (let i = 0; i < n; i++) fn(i); return dropped.length / n; };
+      try {
+        p.dex = 25; const pikachu = count((i) => W.onChest({ type: 'bigchest', x: i, y: 0 }), 400); // (no Mega for Pikachu: nothing, ever)
+        p.dex = 448;
+        const chest = count((i) => W.onChest({ type: 'chest', x: i, y: 1 }), 6000);
+        const kinds = new Set(dropped);
+        const big = count((i) => W.onChest({ type: 'bigchest', x: i, y: 2 }), 6000);
+        const again = count(() => W.onChest(Object.assign(window.__C = window.__C || { type: 'bigchest', x: 5, y: 5 })), 50); // (each chest rolls once)
+        let up = 0; const N = 20000; for (let i = 0; i < N; i++) if (W.canGetStone(p) && Math.random() < W.P.levelup) up++;
+        let rolled = 0; for (let i = 0; i < 4000; i++) if (W.isStone(R.Items.roll())) rolled++;
+        // before Crystal Cave is beaten: nothing at all
+        s.mapWins = { 1: 1 }; const locked = count((i) => W.onChest({ type: 'bigchest', x: i, y: 9 }), 500);
+        return { pikachu, chest: +chest.toFixed(3), big: +big.toFixed(3), kinds: [...kinds], again: +again.toFixed(2), levelup: +(up / N).toFixed(4), rolled, locked, P: W.P };
+      } finally { R.Pickups.drop = oDrop; }
+    });
+    const ok = r.pikachu === 0 && Math.abs(r.chest - 0.05) < 0.015 && Math.abs(r.big - 0.1) < 0.02 && r.kinds.join() === 'mstone_448_mega' && r.again <= 0.02 && Math.abs(r.levelup - 0.01) < 0.004 && r.rolled === 0 && r.locked === 0 && r.P.chest === 0.05 && r.P.bigchest === 0.1 && r.P.levelup === 0.01;
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'the glowing Mega Stone on the map: placed out of sight with no message, marker or arrow, and found only by walking up to it', async () => {
+    const r = await withProgress(async () => {
+      const R = __PSX_REG__, W = PSXAI.Power, p = R.Game.player, s = R.DB.save;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      s.mapWins = { 1: 1, 2: 1 }; R.Maps.set(3); p.dex = 448; p.equip(null);
+      W.reset(); W.st.worldAt = 0;
+      const said = []; const oSay = R.Spawner.say; R.Spawner.say = function (t) { said.push(t); return oSay.apply(this, arguments); };
+      await wait(400);
+      const w = W.st.world;
+      const seenAtPlacement = w ? R.Camera.sees(w.x, w.y, 0) : null;
+      const saidBefore = said.slice();
+      const lit = PSXAI.Light.gather(R.Camera).length;
+      let picked = false;
+      if (w) {
+        const oDrop = R.Pickups.drop; R.Pickups.drop = function (kind, x, y, id) { if (kind === 'item' && id === w.id) picked = true; return oDrop.apply(this, arguments); };
+        p.x = w.x; p.y = w.y; PSXAI.Mansion.snapCamera(p);
+        await wait(400);
+        R.Pickups.drop = oDrop;
+      }
+      R.Spawner.say = oSay;
+      // (nothing is said until you've actually picked it up)
+      return { placed: !!w, id: w && w.id, seenAtPlacement, silent: saidBefore.filter((t) => /stone|mega|ite\b/i.test(t)).length === 0, picked, oncePerRun: W.st.worldDone && !W.st.world };
+    });
+    return { pass: r.placed && r.id === 'mstone_448_mega' && r.seenAtPlacement === false && r.silent && r.picked && r.oncePerRun, detail: r };
+  });
+
+  await scenario(h, 'Z-Moves: no Z slot at all before Volcano is beaten; afterwards a Z-Move needs the Z-Crystal of its own type', async () => {
+    const r = await withProgress(async () => {
+      const R = __PSX_REG__, W = PSXAI.Power, p = R.Game.player, s = R.DB.save;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      s.mapWins = { 1: 1, 2: 1 }; R.Maps.set(3);
+      PSXAI.Power._forgetCrystals();
+      await wait(300);
+      const before = { ultDef: !!p.ultDef, noSlot: window.PSXGEN.noZslot() };
+      s.mapWins[3] = 1; R.Maps.set(4);
+      await wait(300);
+      const noCrystal = !!p.ultDef;
+      const type = W.zTypeOf(p);
+      W.giveCrystal(type === 'fire' ? 'water' : 'fire'); await wait(300);
+      const wrongCrystal = !!p.ultDef;
+      W.giveCrystal(type); await wait(300);
+      const withCrystal = !!p.ultDef;
+      const name = W.CRYSTAL[type];
+      return { before, noCrystal, wrongCrystal, withCrystal, type, name };
+    });
+    return { pass: !r.before.ultDef && r.before.noSlot && !r.noCrystal && !r.wrongCrystal && r.withCrystal && !!r.name, detail: r };
+  });
+
+  await scenario(h, 'a Totem\'s shrine stands in the stage after Volcano, only for your own Pokémon\'s Z-Crystal; standing at it starts its trial', async () => {
+    const r = await withProgress(async () => {
+      const R = __PSX_REG__, T = PSXAI.Totem, W = PSXAI.Power, p = R.Game.player, s = R.DB.save;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      W._forgetCrystals(); T.reset(); PSXAI.Debug.freeze(false);
+      R.Game.debugTime(90);
+      s.mapWins = { 1: 1, 2: 1 }; R.Maps.set(4);
+      await wait(400);
+      const beforeVolcano = !!T.st.shrine;
+      s.mapWins[3] = 1;
+      await wait(400);
+      const sh = T.st.shrine;
+      const type = W.zTypeOf(p);
+      const out = { beforeVolcano, placed: !!sh, shrineType: sh && sh.type, ownType: type, outOfSight: sh ? !R.Camera.sees(sh.x, sh.y, 0) : null };
+      if (sh) { p.x = sh.x; p.y = sh.y + 30; PSXAI.Mansion.snapCamera(p); }
+      for (let i = 0; i < 30 && !T.active(); i++) await wait(200);
+      out.started = T.active();
+      out.trialType = T.st.trial && T.st.trial.type;
+      // (leave without finishing)
+      if (T.st.trial) { T.leave(); for (let i = 0; i < 20 && T.st.trial; i++) await wait(200); }
+      // once you have the crystal, no shrine for it
+      T.reset(); W.giveCrystal(type); await wait(400);
+      out.noneOnceEarned = !T.st.shrine;
+      PSXAI.Debug.freeze(true); R.Game.debugTime(0);
+      return out;
+    });
+    return { pass: !r.beforeVolcano && r.placed && r.shrineType === r.ownType && r.outOfSight && r.started && r.trialType === r.ownType && r.noneOnceEarned, detail: r };
+  });
+
+  await scenario(h, 'a Totem Trial: a pitch-black maze for Ghost, hordes of its type out of the dark, then the Totem; beating it gives its Z-Crystal', async () => {
+    const r = await h.R(async () => {
+      const T = PSXAI.Totem, R = __PSX_REG__, p = R.Game.player, W = PSXAI.Power;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      W._forgetCrystals(); T.reset(); PSXAI.Debug.freeze(false);
+      const home = [p.x, p.y];
+      T.start('ghost', { quick: true, survive: 9 });
+      for (let i = 0; i < 40 && !T.active(); i++) await wait(100);
+      const amb = PSXAI.Sky.ambient();
+      const t = T.st.trial;
+      const types = new Set();
+      for (let i = 0; i < 50 && t.phase === 'survive'; i++) { await wait(250); for (const e of R.EnemyMgr.all()) if (e.psxTrial && !e.dead) for (const ty of e.types || []) types.add(ty); }
+      const allGhost = [...types].includes('ghost');
+      const wildInside = R.EnemyMgr.all().filter((e) => !e.dead && T.inside(e.x, e.y) && !e.psxTrial).length;
+      const totem = t.totem && t.totem.dex;
+      if (t.totem) t.totem.hurt(t.totem.maxHp * 3, '#fff', 0, 0, 0);
+      for (let i = 0; i < 30 && T.st.trial; i++) await wait(250);
+      PSXAI.Debug.freeze(true);
+      const out = { dark: amb[0] + amb[1] + amb[2] < 60, waves: t.wave, allGhost, wildInside, totem, crystal: W.hasCrystal('ghost'), back: Math.round(Math.hypot(p.x - home[0], p.y - home[1])), done: !T.st.trial };
+      W._forgetCrystals();
+      return out;
+    });
+    return { pass: r.dark && r.waves >= 2 && r.allGhost && r.wildInside === 0 && !!r.totem && r.crystal && r.back < 5 && r.done, detail: r };
   });
 
   await scenario(h, 'trees and undergrowth use the new varied art', async () => {
@@ -631,6 +1300,7 @@ async function sample(h, ms, every, fn, arg) {
 
   await scenario(h, 'the old path: clues, a lantern that flickers without wind, and a frightened Hoothoot', async () => {
     const info = await h.R(() => {
+      PSXAI.Journey.establishNow(); // (the path only exists once 20 minutes of forest have passed)
       const t = PSXAI.Decor.trail;
       if (!t) return null;
       const kinds = [...new Set(t.items.map((i) => i.k))];
@@ -648,7 +1318,7 @@ async function sample(h, ms, every, fn, arg) {
     const spawned = await h.R(() => !!PSXAI.Lore.st.hoot);
     await h.R(() => { const p = __PSX_REG__.Game.player, t = PSXAI.Decor.trail, sg = t.items.find((i) => i.k === 'sign'); p.x = sg.x - 70; p.y = sg.y + 30; });
     await h.wait(5000);
-    const r = await h.R(() => ({ warned: PSXAI.Lore.says.some((s) => s.e === PSXAI.Lore.st.hoot) || PSXAI.Lore.st.hoot && PSXAI.Lore.st.hoot.psx.mind.emo.fear > 0.5, fear: PSXAI.Lore.st.hoot ? +PSXAI.Lore.st.hoot.psx.mind.emo.fear.toFixed(2) : null }));
+    const r = await h.R(() => ({ warned: PSXAI.Lore.says.some((s) => s.e === PSXAI.Lore.st.hoot) || PSXAI.Lore.st.hoot && PSXAI.Lore.st.hoot.psx.mind.emo.fear > 0.4, fear: PSXAI.Lore.st.hoot ? +PSXAI.Lore.st.hoot.psx.mind.emo.fear.toFixed(2) : null }));
     await h.R(() => { PSXAI.Lore.st.allowHoot = false; const p = __PSX_REG__.Game.player; p.x = 0; p.y = 0; });
     const need = ['sign', 'gallows', 'dirt', 'lamp', 'wraith', 'fence_h', 'mansion'];
     return { pass: need.every((k) => info.kinds.includes(k)) && info.minFlame < 0.3 && spawned && r.warned, detail: { ...info, hoothoot: spawned, ...r } };
@@ -656,10 +1326,14 @@ async function sample(h, ms, every, fn, arg) {
 
   await scenario(h, 'in thick fog, Pokémon refuse to go near the old trail', async () => {
     const r0 = await h.R(() => {
+      PSXAI.Journey.establishNow();
       const t = PSXAI.Decor.trail;
       const p = __PSX_REG__.Game.player;
-      p.x = t.pts[5][0] + 300; p.y = t.pts[5][1];
-      window.A = PSXAI.Debug.spawn(161, { temp: 'neutral', x: t.pts[6][0], y: t.pts[6][1] + 20 });
+      // the spot along the path where the trail's pull is strongest
+      let at = [t.pts[6][0], t.pts[6][1] + 20], bz = -1;
+      for (let i = 3; i < Math.min(12, t.pts.length); i++) for (const dy of [0, 12, 24]) { const z = PSXAI.Decor.trailZone(t.pts[i][0], t.pts[i][1] + dy); if (z > bz && __PSX_REG__.World.isFree(t.pts[i][0], t.pts[i][1] + dy, 12)) { bz = z; at = [t.pts[i][0], t.pts[i][1] + dy]; } }
+      p.x = at[0] + 300; p.y = at[1];
+      window.A = PSXAI.Debug.spawn(161, { temp: 'neutral', x: at[0], y: at[1] });
       PSXAI.Sky.set({ fog: 0.9, hour: 15 });
       return PSXAI.Decor.trailZone(A.x, A.y);
     });
@@ -672,6 +1346,7 @@ async function sample(h, ms, every, fn, arg) {
   await scenario(h, 'new arrivals emerge naturally instead of popping up in plain view', async () => {
     await h.R(() => {
       const R = __PSX_REG__;
+      T.unquiet();
       window.ARR = [];
       const oa = R.EnemyMgr.add;
       if (!R.EnemyMgr._t) { R.EnemyMgr._t = true; R.EnemyMgr.add = function (e) { const r = oa.apply(this, arguments); if (window.ARR && e.psxNative !== undefined) ARR.push({ vis: R.Camera.sees(e.x, e.y, -10), emerge: e.psxEmerge ? e.psxEmerge.kind : null }); return r; }; }
@@ -702,9 +1377,11 @@ async function sample(h, ms, every, fn, arg) {
   // =========================================================== overhaul: world, encounters, storms, sizes
   await scenario(h, 'lamps stand only along the old path to the mansion, nowhere at random', async () => {
     const r = await h.R(() => {
-      const D = PSXAI.Decor, p = __PSX_REG__.Game.player;
+      const D = PSXAI.Decor;
       D.ensure();
-      const items = D.inRect(p.x - 3500, p.y - 3500, p.x + 3500, p.y + 3500, []);
+      PSXAI.Journey.establishNow();
+      const g = D.trail.mansion, cx = (g.S[0] + g.D[0]) / 2, cy = (g.S[1] + g.D[1]) / 2;
+      const items = D.inRect(cx - 3500, cy - 3500, cx + 3500, cy + 3500, []);
       const lamps = items.filter((it) => it.k === 'lamp');
       const path = D.trail ? D.trail.mansion.dense : [];
       const fromPath = lamps.map((l) => Math.round(Math.min(...path.map((q) => Math.hypot(l.x - q[0], l.y - q[1])))));
@@ -722,11 +1399,13 @@ async function sample(h, ms, every, fn, arg) {
       res(n);
     }))));
     const add = () => h.R(() => { const p = __PSX_REG__.Game.player; __PSX_REG__.Hazards.clear(); __PSX_REG__.Hazards.add({ kind: 'zone', x: p.x + 60, y: p.y + 40, r: 80, delay: 3, dmg: 0, type: 'fire', color: '#f00' }); __PSX_REG__.Hazards.add({ kind: 'line', x: p.x - 120, y: p.y - 60, angle: 0.3, len: 220, w: 26, delay: 3, dmg: 0, type: 'fire', color: '#f00' }); });
+    // compared without the light map, so canopy shade doesn't dim the colours being counted
+    await h.R(() => PSXAI.setCfg('atmosphere', false));
     await add(); await h.wait(1500);
     const soft = await red();
     await h.R(() => PSXAI.setCfg('softTelegraphs', false)); await add(); await h.wait(1500);
     const old = await red();
-    await h.R(() => { __PSX_REG__.Hazards.clear(); PSXAI.setCfg('softTelegraphs', true); });
+    await h.R(() => { __PSX_REG__.Hazards.clear(); PSXAI.setCfg('softTelegraphs', true); PSXAI.setCfg('atmosphere', true); });
     return { pass: old > 200 && soft < old * 0.25, detail: { harshRedPixels: { soft, original: old } } };
   });
 
@@ -840,7 +1519,7 @@ async function sample(h, ms, every, fn, arg) {
     await h.wait(400);
     const drizzle = await h.R(() => PSXAI.Sky.st.next);
     await h.R(() => PSXAI.resetCfg());
-    const irregular = r.gaps.length > 1 && Math.max(...r.gaps) - Math.min(...r.gaps) > 0.8;
+    const irregular = r.gaps.length > 1 && Math.max(...r.gaps) - Math.min(...r.gaps) > 0.25; // (a fixed timer would give the same gap every time)
     return { pass: r.n >= 3 && irregular && rain && !rain.storm && rain.inSec >= 12 && !drizzle, detail: { strikes: r.n, gaps: r.gaps, distancesKm: r.dists, heavyRainNextStrikeIn: rain && rain.inSec, lightRainLightning: !!drizzle } };
   });
 
@@ -884,18 +1563,27 @@ async function sample(h, ms, every, fn, arg) {
     return { pass: a > b && b >= a * 0.8 && c < b * 0.9 && c > d && d < a * 0.45 && r[0.9].cap < r[0].cap && r.off > d * 1.5, detail: r };
   });
 
-  await scenario(h, 'weather settles in for minutes and changes step by step', async () => {
+  await scenario(h, 'weather holds 2–3 minutes and only ever steps to a neighbouring, logical state', async () => {
     const r = await h.R(() => {
       const S = PSXAI.Sky, out = {};
-      for (const k of ['clear', 'cloudy', 'drizzle', 'rain', 'fog', 'storm']) { const v = []; for (let i = 0; i < 200; i++) v.push(S.holdFor(k) / 60); out[k] = [+Math.min(...v).toFixed(1), +Math.max(...v).toFixed(1)]; }
-      const keep = S.st.pattern, from = {};
-      for (const k of ['clear', 'fair', 'storm']) { S.st.pattern = k; const c = {}; for (let i = 0; i < 300; i++) { const n = S.pickPattern(); c[n] = (c[n] || 0) + 1; } from[k] = c; }
-      S.st.pattern = keep;
-      return { minutes: out, next: from };
+      for (const k of Object.keys(S.PATTERNS)) { const v = []; for (let i = 0; i < 200; i++) v.push(S.holdFor(k) / 60); out[k] = [+Math.min(...v).toFixed(2), +Math.max(...v).toFixed(2)]; }
+      const keep = S.st.pattern, keepT = S.st.trend, keepH = S.st.hour, from = {};
+      for (const k of Object.keys(S.PATTERNS)) { for (const hour of [6, 13, 23]) { S.st.hour = hour; for (const tr of [-1, 0, 1]) { for (let i = 0; i < 60; i++) { S.st.pattern = k; S.st.trend = tr; const n = S.pickPattern(); (from[k] = from[k] || {})[n] = 1; } } } }
+      // a long simulated run: how often does the weather flip-flop between two states?
+      S.st.pattern = 'fair'; S.st.trend = 0; S.st.hour = 12; S.st.prev = null;
+      const seq = ['fair'];
+      for (let i = 0; i < 400; i++) { const n = S.pickPattern(); if (n !== S.st.pattern) S.st.prev = S.st.pattern; S.st.pattern = n; seq.push(n); }
+      // (peaking at the end of a chain and turning back is natural: clear, storm, dense fog, gale)
+      let flips = 0; for (let i = 2; i < seq.length; i++) if (seq[i] === seq[i - 2] && seq[i] !== seq[i - 1] && !['clear', 'storm', 'deepfog', 'gale'].includes(seq[i - 1])) flips++;
+      S.st.pattern = keep; S.st.trend = keepT; S.st.hour = keepH;
+      return { minutes: out, next: Object.fromEntries(Object.entries(from).map(([k, v]) => [k, Object.keys(v)])), flipRate: +(flips / seq.length).toFixed(2), sample: seq.slice(0, 24).join(' → ') };
     });
-    const m = r.minutes, within = (k, lo, hi) => m[k][0] >= lo - 0.05 && m[k][1] <= hi + 0.05;
-    const stepwise = !r.next.clear.storm && !r.next.clear.rain && !r.next.fair.storm && !r.next.storm.storm && !r.next.storm.clear;
-    return { pass: within('clear', 6, 12) && within('cloudy', 5, 10) && within('drizzle', 4, 8) && within('rain', 3, 7) && within('fog', 5, 9) && within('storm', 4, 8) && stepwise, detail: r };
+    const allowed = { clear: ['fair'], fair: ['clear', 'cloudy', 'breezy', 'mist'], cloudy: ['fair', 'drizzle', 'mist'], drizzle: ['cloudy', 'rain', 'mist'], rain: ['drizzle', 'storm'], storm: ['rain'],
+      mist: ['fog', 'fair', 'cloudy'], fog: ['mist', 'deepfog'], deepfog: ['fog'], breezy: ['fair', 'gale'], gale: ['breezy'] };
+    const bad = [];
+    for (const [k, list] of Object.entries(r.next)) for (const n of list) if (!allowed[k].includes(n)) bad.push(k + '→' + n);
+    const holds = Object.values(r.minutes).every(([lo, hi]) => lo >= 1.99 && hi <= 3.01);
+    return { pass: holds && bad.length === 0 && r.flipRate < 0.05, detail: { bad, flipRate: r.flipRate, sample: r.sample, minutes: r.minutes.clear } };
   });
 
   await scenario(h, 'Pokémon are sized by species: tiny ones stay visible, giants stay playable', async () => {
@@ -953,7 +1641,7 @@ async function sample(h, ms, every, fn, arg) {
     await h.R(() => { for (let i = 0; i < 20; i++) PSXAI.Debug.spawn([16, 19, 161, 10, 13][i % 5], { temp: 'neutral', dx: Math.cos(i) * 260, dy: Math.sin(i) * 180 }); PSXAI.setCfg('atmosphere', false); PSXAI.setCfg('newArt', false); });
     await h.wait(500);
     const base = await fps();
-    await h.R(() => { PSXAI.setCfg('atmosphere', true); PSXAI.setCfg('newArt', true); PSXAI.Sky.set({ hour: 23, rain: 0.9, storm: 0.8, fog: 0.4, wind: 0.6, wet: 1 }); PSXAI.Player.lanternToggle = true; });
+    await h.R(() => { PSXAI.setCfg('atmosphere', true); PSXAI.setCfg('newArt', true); PSXAI.Sky.set({ hour: 23, rain: 0.9, storm: 0.8, fog: 0.4, wind: 0.6, wet: 1 }); PSXAI.Light.lamp.lit = true; });
     await h.wait(500);
     const full = await fps();
     await h.R(() => PSXAI.resetCfg());
@@ -990,6 +1678,8 @@ async function sample(h, ms, every, fn, arg) {
     async finish(maxSteps = 200) { for (let i = 0; i < maxSteps; i++) { const b = await h.R(() => { PSXAI.Story.advance(); return PSXAI.Story.busy(); }); if (!b) return true; await h.wait(60); } return false; },
     goto: (room, tx, ty) => h.R(([room, tx, ty]) => { const I = PSXAI.Mansion.interior(), p = __PSX_REG__.Game.player; if (room) { const r = I.room(room); p.x = r.x + r.w / 2; p.y = r.y + r.h / 2; } else { p.x = I.wx(tx); p.y = I.wy(ty); } PSXAI.Mansion.snapCamera(p); return true; }, [room, tx, ty]),
   };
+  // (the mansion is the end of the Shady Forest: these scenarios start once the journey has placed it)
+  await h.R(() => { window.T || 0; PSXAI.Journey.establishNow(); });
   async function enterMansion() {
     await h.R(() => { const p = __PSX_REG__.Game.player, g = PSXAI.Mansion.geom(); p.x = g.D[0]; p.y = g.D[1] + 30; PSXAI.Mansion.snapCamera(p); });
     await h.page.keyboard.down('KeyW'); await h.wait(500); await h.page.keyboard.up('KeyW');
@@ -1008,8 +1698,10 @@ async function sample(h, ms, every, fn, arg) {
       for (let i = 0; i < lamps.length; i += 2) pairs.push(Math.round(Math.hypot((lamps[i].x + lamps[i + 1].x) / 2 - g.S[0], (lamps[i].y + lamps[i + 1].y) / 2 - g.S[1])));
       const gaps = pairs.slice(1).map((d, i) => d - pairs[i]);
       // nothing grows or stands on the path or in the grounds: no trees, rocks, chests or ponds
+      // (the house's own gargoyles, graves and fence are meant to be there)
       let blocked = 0, wet = 0, n = 0;
-      const check = (x, y) => { n++; if (W.propsInCircle(x, y, 20).some((p) => p.solid || p.type === 'tree' || p.type === 'rock')) blocked++; if (W.isLiquid(x, y)) wet++; };
+      const own = (x, y) => PSXAI.Decor.blocked(x, y, 8) || PSXAI.Mansion.blockedExterior(x, y, 8);
+      const check = (x, y) => { n++; if (PSXAI.Env.treesIn(x, y, 24).length || W.propsInCircle(x, y, 20).some((p) => p.solid || p.type === 'rock') || (!W.isFree(x, y, 8) && !own(x, y))) blocked++; if (W.isLiquid(x, y)) wet++; };
       for (const p of g.dense) check(p[0], p[1]);
       for (let y = g.D[1] + 10; y < g.G[1]; y += 40) for (let x = g.D[0] - g.SW + 30; x < g.D[0] + g.SW - 30; x += 40) check(x, y);
       const end = g.pts[g.pts.length - 1];
@@ -1222,6 +1914,217 @@ async function sample(h, ms, every, fn, arg) {
   h = await boot({ partner: 377 });
   const tp = (x, y) => h.R(([x, y]) => { const p = __PSX_REG__.Game.player; p.x = x; p.y = y; PSXAI.Mansion.snapCamera(p); }, [x, y]);
 
+  await scenario(h, 'the journey: no mansion and no path during the first 20 minutes of forest, and the finale waits', async () => {
+    const r = await h.R(async () => {
+      const J = PSXAI.Journey, D = PSXAI.Decor, M = PSXAI.Mansion, p = __PSX_REG__.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const out = { start: { phase: J.phase, trail: !!D.trail, geom: !!M.geom() } };
+      // wander in every direction for a while, then sit just under the 20 minutes
+      for (let i = 0; i < 24; i++) { p.x += Math.cos(i * 0.9) * 140; p.y += Math.sin(i * 0.9) * 140; await wait(25); }
+      J.debugElapse(J.threshold() - 15 - J.elapsed);
+      await wait(1500);
+      let cleared = 0;
+      for (let y = -4000; y <= 4000; y += 250) for (let x = -4000; x <= 4000; x += 250) if (M.clearAt(x, y)) cleared++;
+      out.at1185 = { phase: J.phase, trail: !!D.trail, cleared, elapsed: Math.round(J.elapsed), finaleBlocked: J.blocksFinale() };
+      return out;
+    });
+    return { pass: r.start.phase === 'forest' && !r.start.trail && !r.start.geom && r.at1185.phase === 'forest' && !r.at1185.trail && r.at1185.cleared === 0 && r.at1185.finaleBlocked, detail: r };
+  });
+
+  await scenario(h, 'after 20 minutes the mansion is placed once: ahead, out of sight, on unseen ground, with a clear path', async () => {
+    const r = await h.R(async () => {
+      const J = PSXAI.Journey, M = PSXAI.Mansion, W = __PSX_REG__.World, p = __PSX_REG__.Game.player, C = __PSX_REG__.Camera;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      // head east for a moment so the party has a direction
+      for (let i = 0; i < 100; i++) { p.x += 12; await wait(30); }
+      const fresh0 = new Set(J.gen);
+      J.debugElapse(Math.max(5, J.threshold() - J.elapsed + 5));
+      for (let i = 0; i < 30 && !M.geom(); i++) await wait(100);
+      const g = M.geom();
+      if (!g) return { placed: false };
+      const corridor = g.dense.map((q) => Math.floor(q[0] / 512) * 65536 + Math.floor(q[1] / 512));
+      const seenBefore = corridor.filter((k) => fresh0.has(k)).length;
+      let blocked = 0, trees = 0;
+      for (const q of g.dense) { if (!W.isFree(q[0], q[1], 10)) blocked++; trees += PSXAI.Env.treesIn(q[0], q[1], 30).length; }
+      const ahead = Math.cos(Math.atan2(g.S[1] - p.y, g.S[0] - p.x)); // east = 1
+      const outOfSight = !C.sees(g.S[0], g.S[1], 60) && !C.sees(g.D[0], g.D[1], 200);
+      // it's placed once: trying again changes nothing, and it stays put
+      const D0 = g.D.slice();
+      J.establish();
+      await wait(800);
+      const g2 = M.geom();
+      return { placed: true, phase: J.phase, seenBefore, blocked, trees, ahead: +ahead.toFixed(2), outOfSight, same: g2.D[0] === D0[0] && g2.D[1] === D0[1], doorFromParty: Math.round(Math.hypot(g.D[0] - p.x, g.D[1] - p.y)) };
+    });
+    return { pass: r.placed && r.phase === 'route' && r.seenBefore === 0 && r.blocked === 0 && r.trees === 0 && r.ahead > 0.3 && r.outOfSight && r.same && r.doorFromParty > 1700, detail: r };
+  });
+
+  await scenario(h, 'wherever the party wanders, the forest points the way: old lanterns, fences and signs ahead, toward the path', async () => {
+    const r = await h.R(async () => {
+      const J = PSXAI.Journey, p = __PSX_REG__.Game.player, g = (PSXAI.Journey.establishNow(), PSXAI.Mansion.geom());
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      // go far the other way
+      const a = Math.atan2(g.S[1] - g.D[1], g.S[0] - g.D[0]);
+      p.x = g.S[0] + Math.cos(a) * 3000; p.y = g.S[1] + Math.sin(a) * 3000; PSXAI.Mansion.snapCamera(p);
+      const n0 = J.st.crumbs.length;
+      for (let i = 0; i < 4; i++) { J.st.crumbT = 0; await wait(300); }
+      const placed = J.st.crumbs.slice(n0);
+      const toward = placed.map((c) => { const d0 = Math.hypot(p.x - g.S[0], p.y - g.S[1]), d1 = Math.hypot(c.x - g.S[0], c.y - g.S[1]); return d1 < d0; });
+      const visible = placed.filter((c) => __PSX_REG__.Camera.sees(c.x, c.y, 0)).length;
+      return { crumbs: placed.length, toward: toward.every(Boolean), visible, kinds: placed.map((c) => c.kind) };
+    });
+    return { pass: r.crumbs >= 1 && r.toward && r.visible === 0, detail: r };
+  });
+
+  await scenario(h, 'the final stretch grows stranger: fewer ordinary Pokémon, more Ghosts, twisted trees, fog, sounds, silhouettes', async () => {
+    const r = await h.R(async () => {
+      const J = PSXAI.Journey, A = PSXAI.Areas, R = __PSX_REG__, p = R.Game.player, g = (PSXAI.Journey.establishNow(), PSXAI.Mansion.geom());
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      p.x = g.S[0]; p.y = g.S[1] - 200; PSXAI.Mansion.snapCamera(p);
+      const rate0 = A.spawnRate();
+      p.x = g.G[0]; p.y = g.G[1] + 260; PSXAI.Mansion.snapCamera(p);
+      const k = J.partyK();
+      const rate1 = A.spawnRate();
+      const bag = R.Enemies.cast[0].list;
+      let ghosts = 0, total = 0;
+      for (let i = 0; i < 30; i++) { const b = A.weightBag(bag.slice()); for (const d of b) { total++; if ((R.DEX_BY[d.dex].types || []).includes('ghost')) ghosts++; } }
+      // trees grown on ground first seen after the mansion was placed
+      const TW = PSXAI.Forest.KIND.twisted;
+      let tw = 0, nt = 0;
+      for (let i = 0; i < 400; i++) { const tx = Math.round(g.G[0] / 32) + ((i % 20) - 10) * 3, ty = Math.round((g.G[1] + 300) / 32) + (((i / 20) | 0) - 10) * 3; const t = PSXAI.Forest.treeFor({ tx, ty }, 120, true); nt++; if (TW.includes(t.n)) tw++; }
+      J.st.soundT = 0; J.st.silT = 0;
+      await wait(2500);
+      return { k: +k.toFixed(2), rate0: +rate0.toFixed(2), rate1: +rate1.toFixed(2), ghostShare: +(ghosts / total).toFixed(2), twisted: +(tw / nt).toFixed(2), sounds: J.st.soundT > 0, silhouettes: J.st.sils.length > 0 || J.st.silT > 0 };
+    });
+    return { pass: r.k > 0.6 && r.rate1 < r.rate0 && r.ghostShare > 0.2 && r.twisted > 0.2 && r.sounds && r.silhouettes, detail: r };
+  });
+
+  await scenario(h, 'the journey is the host\'s for the whole party, survives a saved run, and the finale opens once the mansion is done', async () => {
+    const r = await h.R(async () => {
+      const J = PSXAI.Journey, R = __PSX_REG__, D = PSXAI.Decor;
+      const g = PSXAI.Mansion.geom(), seed = D.seed;
+      // a saved run resumes in the same world (same seed): the journey comes back with it
+      const saved = JSON.parse(localStorage.getItem('psx.journey.v1') || '{}');
+      const el = J.elapsed;
+      R.World.reset(seed);
+      D.ensure();
+      const g2 = PSXAI.Mansion.geom();
+      const resumed = { phase: J.phase, sameDoor: !!g2 && g2.D[0] === g.D[0] && g2.D[1] === g.D[1], elapsedKept: Math.abs(J.elapsed - el) < 10 };
+      // a co-op guest takes the host's journey (simulated host message)
+      const realCoop = R.Coop;
+      R.Coop = { active: true, isHost: false, puppets: () => [] };
+      R.World.reset(seed + 1); D.ensure();
+      const guestBefore = !!PSXAI.Mansion.geom();
+      J.tick(5); // a guest's own clock doesn't run
+      const guestClock = J.elapsed;
+      J.onNet('host', { k: 'psx', t: 'journey', e: 1300, geo: { S: [5000, 400], D: [6200, 200] }, ph: 'route', f: 0, d: 0 });
+      const gg = PSXAI.Mansion.geom();
+      R.Coop = realCoop;
+      const guest = { before: guestBefore, clock: guestClock, after: !!gg, door: gg ? gg.D : null, elapsed: J.elapsed };
+      // the game's finale waits for the mansion's story
+      const blocked = J.blocksFinale();
+      J.finish();
+      const open = !J.blocksFinale();
+      R.World.reset(seed); D.ensure();
+      return { saved: saved.seed === seed && !!saved.geo, resumed, guest, blocked, open };
+    });
+    const ok = r.saved && r.resumed.sameDoor && r.resumed.elapsedKept && r.resumed.phase !== 'forest' &&
+      !r.guest.before && r.guest.clock === 0 && r.guest.after && r.guest.door[0] === 6200 && r.guest.elapsed >= 1300 && r.blocked && r.open;
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'cocoons never walk: Metapod, Kakuna, Silcoon and Cascoon cling to trees, still, and only Harden', async () => {
+    const r = await h.R(async () => {
+      const W = PSXAI.Wildlife, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const trees = W.treesNear(p.x, p.y, 700).filter((t) => !W.claims.has(t.tx + ',' + t.ty));
+      const out = [];
+      for (const dex of [11, 14, 266, 268]) {
+        const t = trees.shift();
+        const e = W.spawnResident(t, { dex, kind: 'cocoon' });
+        if (e) out.push({ e, t, x0: e.x, y0: e.y });
+      }
+      // and one that just turns up on the ground somewhere: it goes to a tree, or doesn't appear
+      const loose = PSXAI.Debug.spawn(14, { x: p.x + 200, y: p.y + 100, natural: true });
+      p.x = out[0].t.x + 70; p.y = out[0].t.y + 30; // stand right beside the first one
+      const hp0 = p.hp;
+      await wait(4000);
+      R.Combat && out[1] && (AI => AI)(PSXAI);
+      out[1].e.hurt(3, '#fff', 0, 0, 0);
+      await wait(400);
+      const res = out.map((o) => ({ dex: o.e.dex, beh: o.e.psx.beh.id, moved: Math.round(Math.hypot(o.e.x - o.x0, o.e.y - o.y0)), perch: Math.round(o.e.psx.vis.perch), atTree: Math.round(Math.hypot(o.e.x - o.t.x, o.e.y - o.t.y)) }));
+      const hardened = !!(out[1].e.psx.buff && out[1].e.psx.buff.def < 1);
+      const looseOk = !R.EnemyMgr.all().includes(loose) || (loose.psx && loose.psx.eco && loose.psx.eco.tree && Math.hypot(loose.x - loose.psx.eco.tree.x, loose.y - loose.psx.eco.tree.y) < 10);
+      for (const o of out) o.e.dead = true;
+      return { res, hardened, touchDamage: Math.round(hp0 - p.hp), looseOk };
+    });
+    const ok = r.res.length === 4 && r.res.every((c) => c.beh === 'cocoon' && c.moved === 0 && c.perch > 5 && c.atTree < 8) && r.hardened && r.touchDamage === 0 && r.looseOk;
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'Caterpie crawls to a tree, climbs the trunk where you can see it, and feeds in the leaves', async () => {
+    const r = await h.R(async () => {
+      const W = PSXAI.Wildlife, R = __PSX_REG__, p = R.Game.player;
+      PSXAI.Sky.set({ hour: 11, freeze: true });
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const t = W.treesNear(p.x + 300, p.y, 500).filter((q) => !W.claims.has(q.tx + ',' + q.ty))[0];
+      const e = PSXAI.Debug.spawn(10, { x: t.x + 110, y: t.y + 50, natural: true, temp: 'neutral' });
+      p.x = t.x - 900; p.y = t.y; // far enough not to disturb it
+      const samples = [];
+      for (let i = 0; i < 40; i++) { await wait(500); const tt = (e.psx.eco && e.psx.eco.tree) || t; samples.push({ beh: e.psx.beh.id, phase: e.psx.bs.phase, perch: Math.round(e.psx.vis.perch || 0), d: Math.round(Math.hypot(e.x - tt.x, e.y - tt.y)) }); if (e.psx.bs.phase === 'feed' && i > 4) break; }
+      const phases = [...new Set(samples.map((q) => q.phase).filter(Boolean))];
+      const rising = samples.filter((q) => q.phase === 'up').map((q) => q.perch);
+      e.dead = true;
+      return { phases, rising, last: samples[samples.length - 1] };
+    });
+    const ok = r.phases.includes('approach') && r.phases.includes('up') && r.phases.includes('feed') && r.rising.length >= 2 && r.rising[r.rising.length - 1] > r.rising[0] && r.last.d < 10 && r.last.perch > 25;
+    return { pass: ok, detail: r };
+  });
+
+  await scenario(h, 'trees have residents: birds perch in the canopy, nothing floats, residents come back to the same trees', async () => {
+    const r = await h.R(async () => {
+      const W = PSXAI.Wildlife, R = __PSX_REG__, p = R.Game.player;
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      PSXAI.Sky.set({ hour: 10, freeze: true });
+      W.reset(); PSXAI.Debug.clear(true);
+      const home = { x: p.x, y: p.y };
+      for (let i = 0; i < 30; i++) { p.x += 40; PSXAI.Mansion.snapCamera(p); await wait(100); }
+      await wait(1200);
+      const first = new Map([...W.residents].map(([k, e]) => [k, e.dex]));
+      // anything up in the air is held by a tree trunk right below it
+      let floating = 0, perched = 0;
+      for (const e of R.EnemyMgr.all()) { if (!e.psx || (e.psx.vis.perch || 0) < 3) continue; perched++; const t = e.psx.eco && e.psx.eco.tree; if (!t || Math.hypot(e.x - t.x, e.y - t.y) > 8) floating++; }
+      // go far away, then come back the same way
+      p.x = home.x + 6000; PSXAI.Mansion.snapCamera(p);
+      for (let i = 0; i < 6; i++) await wait(400);
+      const away = [...first.keys()].filter((k) => W.residents.has(k)).length; // the old trees' residents have gone home
+      p.x = home.x; PSXAI.Mansion.snapCamera(p);
+      for (let i = 0; i < 30; i++) { p.x += 40; PSXAI.Mansion.snapCamera(p); await wait(100); }
+      await wait(1200);
+      const again = new Map([...W.residents].map(([k, e]) => [k, e.dex]));
+      let same = 0, diff = 0;
+      for (const [k, d] of again) if (first.has(k)) { if (first.get(k) === d || (W.COCOON.has(d) && W.COCOON.has(first.get(k)))) same++; else diff++; }
+      return { first: first.size, perched, floating, away, again: again.size, same, diff };
+    });
+    return { pass: r.first >= 2 && r.perched >= 1 && r.floating === 0 && r.away === 0 && r.same >= 1 && r.diff === 0, detail: r };
+  });
+
+  await scenario(h, 'fewer wild Pokémon: small caps, quiet stretches, no roaming cocoons', async () => {
+    const r = await h.R(async () => {
+      const R = __PSX_REG__, A = PSXAI.Areas, F = PSXAI.Forest;
+      const bag = A.weightBag(R.Enemies.cast[1].list.slice());
+      const cocoonsInBag = bag.filter((d) => PSXAI.Wildlife.COCOON.has(d.dex)).length;
+      let quiet = 0, n = 0;
+      for (let y = -6000; y <= 6000; y += 300) for (let x = -6000; x <= 6000; x += 300) { n++; if (F.quietAt(x, y) > 0.8) quiet++; }
+      // a minute of play with spawning on: never more than the cap
+      PSXAI.Debug.freeze(false); R.Game.debugSpeed(3);
+      let max = 0;
+      for (let i = 0; i < 20; i++) { await new Promise((res) => setTimeout(res, 500)); max = Math.max(max, PSXAI.Population.aliveWild()); }
+      R.Game.debugSpeed(1); PSXAI.Debug.freeze(true);
+      return { cap: PSXAI.cfg.maxNpcs, residentsCap: PSXAI.cfg.maxResidents, cocoonsInBag, quietShare: +(quiet / n).toFixed(2), maxAlive: max };
+    });
+    return { pass: r.cap <= 24 && r.cocoonsInBag === 0 && r.quietShare > 0.1 && r.quietShare < 0.6 && r.maxAlive <= r.cap + r.residentsCap, detail: r };
+  });
+
   await scenario(h, 'the forest floor is one continuous painted surface: no tile grid, no sparkles, no seams', async () => {
     const r = await h.R(async () => {
       const R = __PSX_REG__, F = PSXAI.Forest;
@@ -1290,7 +2193,7 @@ async function sample(h, ms, every, fn, arg) {
         if (it.k === 'flower' && !it.myst) { flowers++; if (F.region(it.x, it.y).clear < 0.3) flowersOut++; }
         if (it.n === 'w_reeds') { reeds++; if (F.water(it.x, it.y).e < -80) reedsDry++; }
         if (it.k === 'lily') { lilies++; if (F.water(it.x, it.y).e <= 0) liliesDry++; }
-        if (!it.flat && it.r) for (const p of W.propsInCircle(it.x, it.y, 20)) if (p.type === 'tree' && Math.hypot(p.x - it.x, p.y - it.y) < 12) inTrunk++;
+        if (!it.flat && it.r) inTrunk += PSXAI.Env.treesIn(it.x, it.y, 12).length;
       }
       return { items: items.length, flowers, flowersOut, reeds, reedsDry, lilies, liliesDry, inTrunk };
     });
@@ -1461,7 +2364,7 @@ async function sample(h, ms, every, fn, arg) {
         for (let k = 3; k < 9 && !ap; k++) { const q = sp.path[k]; p.x = q[0]; p.y = q[1]; PSXAI.Mansion.snapCamera(p); await wait(700); ap = M.run.apps.find((a) => a.id === 'spectrier'); }
         if (ap) await wait(1500);
         out.spectrier = !!ap;
-        if (ap) { const e = sp.path[9]; p.x = e[0]; p.y = e[1]; await wait(500); out.trail = ap.trail.length > 0; out.leaving = ap.state === 'out' || !M.run.apps.includes(ap); }
+        if (ap) { p.x += (ap.x - p.x) * 0.75; p.y += (ap.y - p.y) * 0.75; await wait(500); out.trail = ap.trail.length > 0; out.leaving = ap.state === 'out' || !M.run.apps.includes(ap); } // (walk right up to it)
         out.noEnemy = !R.EnemyMgr.all().some((e) => e.dex === 897);
       }
       return out;

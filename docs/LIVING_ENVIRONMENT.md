@@ -3,8 +3,8 @@
 The forest breathes now. Morning mist settles over the clearings while the
 first Pidgey start chirping. By midday the sun is high, shadows shrink under the trees and the
 bugs come out in force. In the evening the sky turns orange, then violet, the lanterns flicker
-on and the Hoothoot wake up. At midnight the forest goes quiet and dark, broken only by
-moonlight, crickets and the warm circle of your lantern.
+on and the Hoothoot wake up. At midnight the forest goes quiet and properly dark, broken
+only by faint moonlight, crickets, and whatever light you bring: your lantern, or a Charmander's tail.
 
 Rain darkens the grass, fills the hollows with puddles and turns the paths to mud if you keep
 walking in circles. Fog can be a faint morning haze or a wall of white where you barely see
@@ -21,7 +21,7 @@ be switched off in the settings panel (**F7**).
 
 | Input | What it does |
 | --- | --- |
-| **L** | Turn your lantern on or off. By default it lights itself at night and in thick fog. |
+| **L** | Light or put out the lantern you carry. It hangs at your side and burns oil (shown under the clock once it's dark); chests, old campsites and grateful Pokémon give you more. |
 | **F7** | Settings → *Environment*: day length, starting hour, season, weather frequency, light quality, ambient volume, and switches for each system. *World & encounters*: terrain, tree sizes, Pokémon sizes, attack warnings, earned bosses/rifts, hordes, weather duration, fog, lightning and flash strength. |
 
 A small pill in the top-left corner shows the time of day, the sun or moon (with its phase) and
@@ -68,8 +68,16 @@ dwellers instead of random picks:
   their trees and burrows.
 - **Sleepers** breathe, twitch, shift and snore softly. They wake up, frightened or grumpy, if you
   run right past them or shine your lantern on them.
-- **The moon** goes through 8 phases. A full moon makes the night noticeably brighter, a new moon
-  very dark.
+- **Nights are very dark, never black.** At midnight the scene sits at a fraction of daylight;
+  under the trees it's darker still. You can tell it's night at a glance, and the light you carry
+  matters. A *Night visibility* slider (accessibility) brightens nights for those who need it
+  without making light sources pointless.
+- **The moon** goes through 8 phases. On a clear night a bright moon makes the clearings stand out
+  from the shadow of the canopy and sends the faintest pale shafts of moonlight through the leaves;
+  a new moon leaves everything equally dark. **The moon is reflected in the water**: on the lake
+  and ponds you see tonight's actual phase, a thin crescent, a half moon, gibbous or full, broken
+  into wavering strips by the ripples (it's drawn after the night light, so it shines on the dark
+  water like the real thing).
 - **Seasons** follow the calendar by default and can be overridden. They bring spring blossoms and
   bugs, deep summer greens and midday heat, autumn gold and rust with falling leaves, and winter
   snow cover with frosted trees and hardly any bugs.
@@ -78,8 +86,20 @@ dwellers instead of random picks:
 
 - A light map multiplies the colour of the hour over the scene: pink dawn, white midday, amber
   dusk, cool blue moonlight. Local lights are added into it: lamp posts, hanging lanterns that
-  swing in the wind, glowing mushrooms, candles, fire- and electric-type Pokémon (Charmander's
-  tail lights the path), fire moves, lightning, and your lantern.
+  swing in the wind, glowing mushrooms, candles, lightning, the lantern you carry, and the Pokémon
+  and moves that really give off light.
+- **Only real light sources.** A Pokémon glows only for a reason, and the light sits on the part
+  that glows: Charmander's tail flame (it flickers like a flame, harder when Charmander is
+  nervous, and shrinks a little in the rain), Cyndaquil's back, Ponyta's mane, Litwick's wick,
+  Chinchou's lures, Volbeat's tail, Ampharos's tail orb, Morelull's caps, Lumineon's fins, Rotom's
+  plasma, Umbreon's rings (at night), Duskull's eye… Regirock's stone body doesn't glow, and
+  neither does a Fire type without a flame (Vulpix). Electric Pokémon crackle with brief sparks
+  when they're worked up. There is no automatic glow around you any more.
+- **Moves light the world while they last**, each in its own way: Thunder Shock is a quick
+  flash, Thunderbolt and Thunder light up where they strike, Discharge lights a wide circle around
+  the user, Flamethrower is a stream of moving light, Will-o-Wisp's flames give a soft wavering
+  glow, plus Ember, Fire Blast, Heat Wave, Flame Wheel, Spark, Thunder Punch, Dazzling Gleam,
+  Flash Cannon and Aura Sphere. Your moves and wild Pokémon's moves alike.
 - **Dynamic shadows.** Trees, bushes, rocks, decor and Pokémon cast shadows from the sun or moon.
   They turn and stretch through the day, sway with the wind, and fade under clouds and fog.
 - **Cloud shadows** drift across the clearings, and sunbeams slant through the canopy (most of all
@@ -93,10 +113,17 @@ breezy, gale) through gradual transitions. The living sky is purely atmospheric:
 weather and terrain events (type boosts such as Misty Terrain, their banners and the HUD pill) are
 switched off (setting `gameWeather` turns them back on).
 
-- **Weather lasts.** Each pattern settles in for minutes: clear 6–12 min, cloudy 5–10, drizzle
-  4–8, heavy rain 3–7, fog 5–9, storm 4–8 (setting `weatherDuration` scales them all). It changes
-  step by step: clear → fair/cloudy → drizzle → rain → storm → rain → … A storm never comes out of
-  a clear sky, and storms don't follow storms.
+- **Weather is consistent and logical.** Each spell lasts 2–3 minutes (setting `weatherDuration`
+  scales them all), and every change blends in slowly: clouds gather over about a minute, fog
+  creeps in over two. The weather only ever takes one step at a time along one of three chains:
+  - dry ↔ wet: clear – fair – cloudy – drizzle – rain – storm
+  - calm ↔ fog: fair / cloudy / drizzle – mist – fog – dense fog (needs calm, damp air: dawn, night
+    or after rain; the daytime sun burns it off)
+  - calm ↔ wind: fair – breezy – gale
+
+  A front has momentum: once clouds start to gather they keep building toward rain or a storm and
+  then clear the same way, and the weather doesn't turn straight back into what it just was. So
+  fog never jumps to sunshine or wind, and a storm never comes out of a clear sky.
 
 - **Rain.** The ground darkens, puddles form in low spots and reflect the sky, rain ripples the
   puddles, and walking through them splashes. Walk in circles on wet ground and it turns to mud
@@ -248,7 +275,8 @@ fades out in menus.
 | `season` | `auto` | `auto` (calendar), `spring`, `summer`, `autumn`, `winter` |
 | `weatherFreq` | 1 | how often the weather turns (0 = always fair) |
 | `lightQuality` | `auto` | light map resolution: `low`, `medium`, `high` |
-| `lantern` | `auto` | `auto` (on at night/fog), `on`, `off` |
+| `lantern` | `manual` | `manual` (L lights it), `on` (kept lit while it has oil), `off` |
+| `nightVisibility` | 0 | accessibility: brighter nights (0–1) |
 | `ambientVol` | 0.7 | ambient sound volume |
 | `newArt` | on | new trees, plants, decor and the trail |
 | `areaSpawns` | on | curated area rosters, habitats, natural arrivals |

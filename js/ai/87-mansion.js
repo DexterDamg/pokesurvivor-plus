@@ -29,18 +29,15 @@
   function geom() { const D = AI.Decor; if (!D) return null; D.ensure(); return D.trail ? D.trail.mansion : null; }
   function on() { return AI.enabled && AI.cfg.mansion !== false; }
 
-  // the grounds, the house and a corridor along the path are kept clear of trees and props
-  let clearCache = null;
+  // the grounds, the house and a corridor along the path are kept clear of trees and props (only
+  // once the journey has placed the mansion; until then the forest grows everywhere)
   function clearAt(x, y) {
     if (!on() || AI.cfg.newArt === false) return false;
     const D = AI.Decor;
     if (!D || !AI.R || !AI.R.World || AI.R.World.biome !== 0) return false;
-    if (!clearCache || clearCache.seed !== D.seed) {
-      const g0 = D.mansionGeom(D.seed);
-      const xs = g0.dense.map((q) => q[0]), ys = g0.dense.map((q) => q[1]);
-      clearCache = { seed: D.seed, g: g0, box: [Math.min(...xs, g0.D[0] - g0.SW) - 120, Math.min(...ys, g0.D[1] - 340) - 120, Math.max(...xs, g0.D[0] + g0.SW) + 120, Math.max(...ys, g0.G[1]) + 120] };
-    }
-    const g = clearCache.g, bx = clearCache.box;
+    const g = D.trail ? D.trail.mansion : null;
+    if (!g) return false;
+    const bx = g._box || (g._box = D.mansionBox(g));
     const ix = g.interior[0] - COLS * TS / 2, iy = g.interior[1];
     if (x > ix - 600 && x < ix + COLS * TS + 600 && y > iy - 600 && y < iy + ROWS * TS + 600) return true;
     if (x < bx[0] || y < bx[1] || x > bx[2] || y > bx[3]) return false;

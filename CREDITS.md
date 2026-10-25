@@ -124,6 +124,46 @@ uso **no comercial** y con atribución a sus artistas.
 | YoukaiMinori | <@91001329228464128> | 252, 253 |
 | ◥θ┴θ◤ | DC:<@215638650434617345> | 157, 445, 501, 504, 505, 566, 577, 595, 627, 650, 651, 658, 661, 676, 684, 707, 724, 726, 728, 729, 730, 761, 763, 790, 823, 872, 907, 991 |
 
+### Retratos de los cuadros de diálogo
+
+Los retratos de los cuadros de diálogo (`assets/portraits`) también vienen de
+[SpriteCollab](https://github.com/PMDCollab/SpriteCollab), con la misma licencia
+[CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). Muchos son los
+retratos originales de los juegos de *Mundo Misterioso* de
+[Spike Chunsoft](https://www.spike-chunsoft.com/) (nº 1, 4, 5, 6, 7, 25, 92, 93,
+94, 133, 152, 155, 158, 200, 243, 244, 245, 251, 252, 255, 258, 355, 356, 377, 387,
+390, 393, 429, 477, 488, 491, 492); el resto son obra de estos artistas:
+
+| Artista | Contacto | Retratos (nº de Pokédex) |
+|---|---|---|
+| 0palite | https://zeropalart.tumblr.com/ | 5, 6 |
+| baronessfaron |  | 355, 356, 429, 488, 491, 640, 656, 657, 680, 681, 897 |
+| CamusZekeSirius |  | 377 |
+| Cloudy | https://twitter.com/cloudyskys17695 | 656 |
+| distress | https://www.artstation.com/distress/albums/1200843 | 908 |
+| Emmuffin | https://twitter.com/Ernmuffin | 245, 355, 488, 495, 498, 501, 607, 608, 609, 650, 656, 658, 679, 681, 722, 725, 728, 813, 816, 897, 906, 907 |
+| Fable | https://twitter.com/fabledpainter | 728 |
+| G〜 | https://bsky.app/profile/justtr4sh.pmd.social | 356, 477, 653, 656, 679, 810, 816, 893, 907 |
+| JFain |  | 92 |
+| JustAGunk | <@1377429093997477928> | 657, 810, 907 |
+| leafia_barrett |  | 251 |
+| Mojo |  | 492 |
+| Morei | https://bsky.app/profile/murpia57.bsky.social | 200 |
+| NeroIntruder | https://twitter.com/NeroIntruder | 813 |
+| Noivern | https://twitter.com/notarealnoivern | 498 |
+| NOLASMOR |  | 657 |
+| Noo | https://artfight.net/~NooNoo_Skidoo | 650 |
+| PhillipsYoung | https://twitter.com/PhilliYoung196 | 93 |
+| programmedsleepstate | <@224476380790915072> | 243 |
+| RoyalRust |  | 200 |
+| Soulja | https://twitter.com/OlSoulja | 893 |
+| Tainted#3886 |  | 356 |
+| Top_Kec | @topkec.bsky.social | 244 |
+| ◥θ┴θ◤ | DC:<@215638650434617345> | 656, 657, 728 |
+
+Los retratos de otros Pokémon se descargan de SpriteCollab durante la partida,
+con la misma licencia y la autoría que figura en su repositorio.
+
 ## Datos
 
 Stats base y nombres en español: [PokeAPI](https://pokeapi.co/),

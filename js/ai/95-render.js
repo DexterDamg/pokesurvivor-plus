@@ -92,7 +92,7 @@
       const s = this.psx;
       if (!s || this.dead || !AI.enabled) return orig.call(this, ctx);
       const v = s.vis;
-      let lift = (v.lift || 0) + (v.hopLift || 0);
+      let lift = (v.lift || 0) + (v.hopLift || 0) + (v.perch || 0);
       if (v.rise > 0) { v.rise = Math.max(0, v.rise - 1 / 60 / 1.2); }
       const sub = Math.max(v.subNow || 0, v.rise > 0 ? v.rise * 0.9 : 0);
       const breath = v.breath ? Math.sin(AI.time * 2.2 + this.id) * 0.025 : 0;
@@ -103,6 +103,7 @@
       if (plain) { orig.call(this, ctx); extras(ctx, this, s, 0); return; }
       const prevLift = this.jumpLift;
       if (!this.jump) this.jumpLift = (prevLift || 0) + lift;
+      AI.noShadow = (v.perch || 0) > 2; // up a tree: no shadow on the ground below
       ctx.save();
       if (v.shake) ctx.translate((Math.random() - 0.5) * v.shake * 2, 0);
       if (v.alpha != null && v.alpha < 1) ctx.globalAlpha *= v.alpha;
@@ -114,7 +115,7 @@
       }
       if (sx !== 1 || sy !== 1) { ctx.translate(this.x, this.y); ctx.scale(sx, sy); ctx.translate(-this.x, -this.y); }
       if (v.rot) { const cy = this.y - AI.Scale.top(this) * 0.45 - lift; ctx.translate(this.x, cy); ctx.rotate(v.rot); ctx.translate(-this.x, -cy); }
-      orig.call(this, ctx);
+      try { orig.call(this, ctx); } finally { AI.noShadow = false; }
       if (v.glow > 0.02) {
         ctx.globalAlpha *= Math.min(1, v.glow);
         try { this.anim.draw(ctx, this.x, this.y - (this.jumpLift || 0), { flash: true, softFlash: false, alpha: 1 }); } catch (e) { /* ignore */ }
@@ -253,7 +254,7 @@
     for (let i = 0; i < n; i++) {
       const { e, s, b } = cand[i];
       const v = s.vis;
-      const lift = (v.lift || 0) + (v.hopLift || 0) + (e.jumpLift || 0);
+      const lift = (v.lift || 0) + (v.hopLift || 0) + (v.perch || 0) + (e.jumpLift || 0);
       const top = e.y - AI.Scale.top(e) - lift - (e.hp < e.maxHp && AI.cfg.enemyBars === true ? 16 : 8) + Math.sin(now * 3 + e.id) * 1.2;
       const age = now - (s.bubbleAt || 0);
       const pop = b.fresh ? U.clamp(age / 0.12, 0.4, 1) : 1;

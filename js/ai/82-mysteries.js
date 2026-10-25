@@ -166,6 +166,7 @@
     if (st) e.where = whereText(st);
     save();
     if (news) {
+      AI.Bus.emit({ type: 'myst', what: news, id, i, loud: 0 });
       page = ORDER.filter((k) => J.m[k] && J.m[k].r).indexOf(id); // (J opens it here)
       toast('📖 Something new is written in the journal  (J)');
     }
@@ -249,6 +250,24 @@
     run.apps.push(ap);
     return ap;
   }
+  /* What they say when you really see them, in the Legendary dialogue box (81-talk.js). Until a
+   * mystery is confirmed the box shows no name and only a silhouette. Some never speak at all. */
+  const SPEAK = {
+    darkrai: { en: '…Turn back. This is not your dream.', es: '…Vuelve atrás. Este no es tu sueño.' },
+    celebi: { en: 'Not yet… not in this time. ♪', es: 'Todavía no… no en este tiempo. ♪' },
+    shaymin: { en: 'Hey! Watch the flowers! …Wait. You can see me?', es: '¡Eh! ¡Cuidado con las flores! …Un momento. ¿Puedes verme?' },
+    cresselia: { en: 'Rest. The nightmares cannot follow you here.', es: 'Descansa. Las pesadillas no pueden seguirte hasta aquí.' },
+    suicune: { en: 'The water remembers everyone who drinks from it.', es: 'El agua recuerda a todos los que beben de ella.' },
+    virizion: { en: 'You walk like someone who would protect this place. Good.', es: 'Caminas como alguien que protegería este lugar. Bien.' },
+    zarude: { en: 'Get out of my forest.', es: 'Fuera de mi bosque.', always: true },
+  };
+  function speak(ap) {
+    const line = SPEAK[ap.id];
+    if (!line || ap.spoke || !AI.Talk) return;
+    ap.spoke = true;
+    const lg = AI.lang ? AI.lang() : 'en';
+    AI.Talk.legend(ap.dex || MY[ap.id].dex || 893, line[lg] || line.en, { unknown: line.always || !confirmed(ap.id), emo: ap.id === 'shaymin' ? 'Surprised' : ap.id === 'zarude' ? 'Angry' : 'Normal' });
+  }
   function onScreen(x, y, pad) { const c = AI.R.Camera; pad = pad || 0; return x > c.left() - pad && x < c.left() + c.w + pad && y > c.top() - pad && y < c.top() + c.h + pad; }
   function leave(ap, p) {
     if (ap.state === 'out') return;
@@ -272,7 +291,7 @@
       }
       if (ap.state === 'in' || ap.state === 'stay') {
         if (ap.face && ap.a) ap.a.dir = AI.R.Sprites.dirFromAngle(Math.atan2(p.y - ap.y, p.x - ap.x));
-        if (onScreen(ap.x, ap.y - 30, -10) && ap.alpha > 0.4) ap.vis += dt;
+        if (onScreen(ap.x, ap.y - 30, -10) && ap.alpha > 0.4) { ap.vis += dt; if (ap.vis > 0.6) speak(ap); }
         if (ap.custom) ap.custom(ap, dt, p, d);
         if (ap.state !== 'out' && (d < ap.flee || (ap.state === 'stay' && ap.t > ap.life))) leave(ap, p);
       } else if (ap.state === 'out') {
@@ -421,10 +440,16 @@
     },
     spectrier(st, p, d) {
       if (!st.path || Sky().darkness() < 0.5 || !ready('spectrier')) return;
-      const end = st.path[st.path.length - 1];
-      if (AI.Forest.pathDist(p.x, p.y) > 30 || d > 420 || d < 150 || !onScreen(end[0], end[1] - 30, -30)) return; // only on the path itself
+      if (AI.Forest.pathDist(p.x, p.y) > 30 || d > 420) return; // only on the path itself, toward its end
+      // it stands on the path ahead of you: as far along it as you can see, never right on top of you
+      let at = null;
+      for (let i = st.path.length - 1; i >= 0 && !at; i--) {
+        const q = st.path[i], dq = Math.hypot(q[0] - p.x, q[1] - p.y);
+        if (dq >= 125 && dq <= 420 && Math.hypot(q[0] - st.x, q[1] - st.y) < d && onScreen(q[0], q[1], -12)) at = q; // (the screen shows little above and below you)
+      }
+      if (!at) return;
       cool('spectrier', 180);
-      spawnApp('spectrier', end[0], end[1], { flee: 120, life: 2.6, fade: 1.4, face: true, maxAlpha: 0.95, leave: 'run', speed: 340, outFade: 1.4, trailCol: '170,110,255',
+      spawnApp('spectrier', at[0], at[1], { flee: 120, life: 2.6, fade: 1.4, face: true, maxAlpha: 0.95, leave: 'run', speed: 340, outFade: 1.4, trailCol: '170,110,255',
         custom(ap) { if (ap.state === 'stay' && ap.t > 2.2 && ap.a) ap.a.play && ap.a.play('Idle'); } });
     },
     shaymin(st, p, d) {
@@ -457,10 +482,12 @@
       // never seen clearly: the canopy shakes in a line overhead, vines creak, a call
       if (AI.Ambience) { AI.Ambience.myst('leaves', p.x + 120, p.y - 60); AI.Ambience.myst('call', p.x + 200, p.y - 80); }
       try {
-        const props = AI.R.World.propsInCircle(p.x, p.y, 320).filter((q) => q.type === 'tree');
+        const props = AI.Env.treesIn(p.x, p.y, 320);
         props.sort((a, b) => a.x - b.x);
         props.forEach((q, i) => setTimeout(() => { try { AI.Decor.shakeProp(q, 0.8); } catch (e) { /* ignore */ } }, i * 140));
       } catch (e) { /* ignore */ }
+      // and a voice from the leaves (it never shows itself)
+      if (AI.Talk) setTimeout(() => speak({ id: 'zarude', dex: 893 }), 900);
       note('zarude', 'sight');
     },
   };

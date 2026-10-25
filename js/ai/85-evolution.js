@@ -198,6 +198,7 @@
     s.combat.moves = keep.concat(fresh.filter((m) => !ids.has(m.id))).slice(0, 4);
     s.combat.stratT = 0;
     s.evolvedFrom = oldDex;
+    if (AI.Wildlife) try { AI.Wildlife.onEvolve(e, s); } catch (err) { AI.warn('wildlife-evo', err); }
     s.exp = 0;
     s.env = {};
     // it remembers exactly what happened — and who did it

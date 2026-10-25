@@ -13,10 +13,11 @@
 
   // ---------------------------------------------------------------- configuration
   const DEFAULTS = {
-    maxNpcs: 48, // global cap of AI-driven wild Pokémon (vanilla hard cap of 64 still applies)
-    localCap: 9, // max wild Pokémon around a spawn point (prevents crowding)
+    maxNpcs: 24, // global cap of roaming wild Pokémon (vanilla hard cap of 64 still applies)
+    maxResidents: 10, // tree-dwellers living in nearby trees (cocoons, caterpillars, perching birds), on their own budget
+    localCap: 5, // max wild Pokémon around a spawn point (prevents crowding)
     localRadius: 420,
-    spawnInterval: 0.32, // seconds between ambient spawns (token bucket refill)
+    spawnInterval: 0.9, // seconds between ambient spawns (token bucket refill)
     spawnBurst: 12, // tokens a horde/surge may spend at once
     hostility: 1, // multiplier on aggressive/territorial/opportunistic temperament weights
     hostilityRamp: 600, // seconds of run time for hostility pressure to double
@@ -42,7 +43,15 @@
     newArt: true, // detailed trees, plants and forest decor
     areaSpawns: true, // each area has its own Pokémon (curated rosters, habitats)
     speech: true, // Pokémon speech bubbles (rumours, warnings)
-    lantern: 'auto', // player lantern: 'auto' (on at night) | 'on' | 'off'
+    lantern: 'manual', // the lantern you carry: 'manual' (L lights it) | 'on' (kept lit while it has oil) | 'off'
+    forestEvents: true, // the Shady Forest's events (a lost Pokémon, strange tracks, lights, a silence, a fallen tree, voices, a campsite) and its history (86-events.js)
+    totemTrials: true, // Totem shrines and their trials (89-totem.js)
+    powerRework: true, // Mega Evolution after Crystal Cave with the Pokémon's own Mega Stone (a held item); Z-Moves after Volcano, through Totem Trials (92-power.js)
+    exploreExp: true, // EXP for exploring, treasure, kindness and teamwork too (91-exp.js)
+    pseudoPlayers: true, // AI companions fill the party's empty places (four in all): Charmander, Froakie and Sprigatito in the Shady Forest
+    partyTalk: true, // they talk among themselves and to you, now and then
+    talkBoxes: true, // Mystery Dungeon dialogue boxes: the party on the left, important NPCs on the right, Legendaries in their own box
+    nightVisibility: 0, // accessibility: 0 = nights as dark as intended … 1 = noticeably brighter nights (light sources still matter)
     ambientVol: 0.7, // ambient sound volume (relative to the game's sound effects volume)
     // world generation & forest
     naturalTerrain: true, // forests: no rectangular wall blocks, measured tree density

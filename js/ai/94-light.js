@@ -2,8 +2,9 @@
  * Screen-space atmosphere, drawn where the game draws its weather:
  *  - a light map: the ambient colour of the hour (dawn pinks, midday white, orange-purple evenings,
  *    cool moonlit nights that depend on the moon phase and the clouds) multiplied over the scene,
- *    with local lights added in: lamp posts, swinging lanterns, glowing mushrooms, candles, fire- and
- *    electric-type Pokémon, fire moves, lightning, and your own lantern
+ *    with local lights added in: lamp posts, swinging lanterns, glowing mushrooms, candles, lightning,
+ *    the Pokémon that really give off light (a flame, a glowing organ, a charged body part), the moves
+ *    that light the world while they last, and the lantern you can carry
  *  - fog from faint morning mist to a wall of white where you can barely see ahead
  *  - rain streaks and splashes, snowflakes, lightning flashes
  *  - sunbeams slanting through the canopy, falling leaves, drips from the branches after rain
@@ -18,7 +19,206 @@
   let fogTex = null;
   const drops = [], flakes = [], splashes = [], leaves = [];
   const HANDLED = new Set(['rain', 'storm', 'snow', 'fog', 'winds']);
-  const GLOWERS = { 313: [255, 240, 120], 314: [255, 220, 150], 170: [140, 220, 255], 171: [150, 230, 255], 92: [190, 120, 255], 93: [190, 120, 255], 94: [190, 120, 255], 200: [200, 120, 255], 429: [200, 120, 255], 302: [180, 120, 255], 353: [170, 140, 255], 355: [255, 150, 90], 608: [255, 150, 90], 609: [170, 120, 255] };
+
+  /* Who gives off light, and from where. Only Pokémon with a real reason to: a flame (Charmander's
+   * tail, Cyndaquil's back, Ponyta's mane, Litwick's wick), a bioluminescent organ (Chinchou's lures,
+   * Volbeat's tail, Morelull's caps, Lumineon's fins), a charged body part (Ampharos's tail orb, Rotom's
+   * plasma) or markings known to glow (Umbreon's rings, at night). Nothing else glows: Regirock's
+   * stone body is lit by the world around it like any other stone.
+   *   p: where on the body · c: colour · r: reach (px) · i: strength · f: a flame (flickers, rain dims it)
+   *   night: only glows after dark · fight: only while battling (Blaziken's wrists) */
+  const FIRE = [255, 150, 60], WICK = [180, 140, 255], BIO = [190, 240, 210], ZAP = [255, 240, 150];
+  const BODY = {
+    4: { p: 'tail', c: FIRE, r: 105, i: 0.95, f: 1 }, 5: { p: 'tail', c: FIRE, r: 125, i: 1, f: 1 }, 6: { p: 'tail', c: FIRE, r: 150, i: 1, f: 1 },
+    77: { p: 'mane', c: FIRE, r: 120, i: 0.95, f: 1 }, 78: { p: 'mane', c: FIRE, r: 140, i: 1, f: 1 },
+    126: { p: 'body', c: FIRE, r: 120, i: 0.9, f: 1 }, 240: { p: 'body', c: FIRE, r: 80, i: 0.8, f: 1 }, 467: { p: 'hand', c: FIRE, r: 130, i: 0.95, f: 1 },
+    146: { p: 'body', c: [255, 170, 80], r: 200, i: 1.1, f: 1 }, 250: { p: 'body', c: [255, 200, 120], r: 180, i: 1, f: 1 },
+    155: { p: 'back', c: FIRE, r: 85, i: 0.85, f: 1 }, 156: { p: 'back', c: FIRE, r: 110, i: 0.95, f: 1 }, 157: { p: 'back', c: FIRE, r: 135, i: 1, f: 1 },
+    218: { p: 'body', c: [255, 130, 60], r: 90, i: 0.85, f: 1 }, 219: { p: 'body', c: [255, 130, 60], r: 110, i: 0.9, f: 1 },
+    257: { p: 'hand', c: FIRE, r: 100, i: 0.9, f: 1, fight: 1 },
+    390: { p: 'tail', c: FIRE, r: 85, i: 0.85, f: 1 }, 391: { p: 'tail', c: FIRE, r: 100, i: 0.9, f: 1 }, 392: { p: 'head', c: FIRE, r: 120, i: 0.95, f: 1 },
+    485: { p: 'body', c: [255, 140, 60], r: 130, i: 0.9, f: 1 }, 500: { p: 'mane', c: FIRE, r: 110, i: 0.9, f: 1 },
+    607: { p: 'head', c: WICK, r: 75, i: 0.85, f: 1 }, 608: { p: 'body', c: WICK, r: 110, i: 0.95, f: 1 }, 609: { p: 'body', c: WICK, r: 150, i: 1, f: 1 },
+    637: { p: 'body', c: [255, 190, 110], r: 150, i: 1, f: 1 }, 654: { p: 'hand', c: FIRE, r: 80, i: 0.8, f: 1 }, 655: { p: 'hand', c: FIRE, r: 100, i: 0.9, f: 1 },
+    837: { p: 'body', c: [255, 120, 50], r: 60, i: 0.7, f: 1 }, 838: { p: 'body', c: [255, 120, 50], r: 90, i: 0.8, f: 1 }, 839: { p: 'body', c: [255, 120, 50], r: 130, i: 0.9, f: 1 },
+    850: { p: 'body', c: FIRE, r: 70, i: 0.75, f: 1 }, 851: { p: 'body', c: FIRE, r: 110, i: 0.9, f: 1 },
+    170: { p: 'lure', c: [170, 225, 255], r: 75, i: 0.75 }, 171: { p: 'lure', c: [255, 240, 160], r: 105, i: 0.85 },
+    313: { p: 'tail', c: [255, 240, 120], r: 60, i: 0.7 }, 180: { p: 'tail', c: ZAP, r: 85, i: 0.75 }, 181: { p: 'tail', c: ZAP, r: 170, i: 1 },
+    197: { p: 'body', c: [255, 225, 120], r: 55, i: 0.55, night: 1 }, 337: { p: 'body', c: [255, 240, 190], r: 80, i: 0.6 }, 338: { p: 'body', c: [255, 200, 120], r: 90, i: 0.65 },
+    120: { p: 'body', c: [255, 100, 90], r: 50, i: 0.55 }, 121: { p: 'body', c: [220, 120, 255], r: 60, i: 0.6 },
+    456: { p: 'tail', c: [180, 220, 255], r: 45, i: 0.55 }, 457: { p: 'tail', c: [180, 220, 255], r: 70, i: 0.65 },
+    479: { p: 'body', c: [190, 225, 255], r: 75, i: 0.7, zap: 1 }, 145: { p: 'body', c: ZAP, r: 130, i: 0.8, zap: 1 },
+    755: { p: 'body', c: BIO, r: 55, i: 0.55 }, 756: { p: 'body', c: BIO, r: 80, i: 0.65 }, 686: { p: 'body', c: [255, 240, 170], r: 40, i: 0.45 }, 687: { p: 'body', c: [255, 240, 170], r: 50, i: 0.5 },
+    849: { p: 'body', c: [220, 140, 255], r: 70, i: 0.65, zap: 1 }, 442: { p: 'body', c: [150, 255, 180], r: 55, i: 0.55 },
+    355: { p: 'eye', c: [255, 80, 60], r: 22, i: 0.5 }, 356: { p: 'eye', c: [255, 80, 60], r: 28, i: 0.55 }, 477: { p: 'eye', c: [255, 80, 60], r: 34, i: 0.6 }, 302: { p: 'eye', c: [180, 230, 255], r: 22, i: 0.45 },
+    488: { p: 'body', c: [255, 205, 240], r: 100, i: 0.6 },
+  };
+  // where that part sits for a body of radius r and height h facing (fx, fy)
+  function partAt(part, x, y, r, h, fx, fy) {
+    switch (part) {
+      case 'tail': return [x - fx * r * 0.95, y - h * 0.42 - fy * r * 0.35];
+      case 'head': return [x + fx * r * 0.3, y - h * 0.95];
+      case 'back': return [x - fx * r * 0.45, y - h * 0.72];
+      case 'mane': return [x + fx * r * 0.2, y - h * 0.8];
+      case 'eye': return [x + fx * r * 0.4, y - h * 0.7];
+      case 'lure': return [x + fx * r * 0.6, y - h];
+      case 'hand': return [x + fx * r * 0.7, y - h * 0.55];
+      default: return [x, y - h * 0.5];
+    }
+  }
+  function facing(ent) {
+    const d = ent.anim && ent.anim.dir != null ? ent.anim.dir : 0;
+    const a = Math.PI / 2 - d * Math.PI / 4;
+    return [Math.cos(a), Math.sin(a)];
+  }
+  function bodyOf(ent) {
+    const b = BODY[ent.dex];
+    if (!b) return null;
+    if (b.night && AI.Sky && AI.Sky.darkness() < 0.5) return null;
+    if (b.fight && !(ent.psx ? ent.psx.inCombat : AI.R && ent === AI.R.Game.player && fighting(ent))) return null;
+    return b;
+  }
+  function fighting(p) { return (p.moves || []).some((m) => m.castAt && performance.now() - m.castAt < 3000); }
+  function bodyLight(ent, out) {
+    const b = bodyOf(ent);
+    if (!b) return;
+    const [fx, fy] = facing(ent);
+    const lift = (ent.psx && ent.psx.vis && ent.psx.vis.perch) || 0;
+    const [x, y] = partAt(b.p, ent.x, ent.y - lift, ent.r || 14, ent.bodyH || 30, fx, fy);
+    const t = AI.time, id = ent.id || 0;
+    let i = b.i, r = b.r;
+    if (b.f) {
+      // a living flame: it flickers (harder when its owner is nervous), and rain makes it shrink
+      const nerves = ent.psx && ent.psx.mind ? ent.psx.mind.emo.fear : 0;
+      const fl = 1 + nerves * 2.5;
+      i *= (0.86 + Math.sin(t * 13 + id) * 0.08 * fl + Math.sin(t * 31 + id * 3) * 0.05 * fl) * (1 - (AI.Sky ? AI.Sky.rain : 0) * 0.25);
+      r *= 0.96 + Math.sin(t * 7 + id) * 0.04;
+    } else if (b.zap) i *= Math.random() < 0.08 ? 1.35 : 0.9 + Math.sin(t * 9 + id) * 0.06;
+    else i *= 0.88 + Math.sin(t * 1.6 + id) * 0.12; // a slow living glow
+    out.push({ x, y, r, c: b.c, i, body: ent, halo: b.f ? 1 : 0.7 });
+  }
+
+  // Electric Pokémon crackle when they're worked up: brief sparks from their cheeks, fur or fins
+  function sparks(ent, out) {
+    const s = ent.psx;
+    const t = ent.types || (AI.R.DEX_BY[ent.dex] || {}).types || [];
+    if (!t.includes('electric')) return;
+    const agitated = s ? s.inCombat || (s.ctx && s.ctx.threatV > 0.45) : fighting(ent);
+    if (!agitated || Math.random() > 0.12) return;
+    const [fx, fy] = facing(ent);
+    const [x, y] = partAt('head', ent.x, ent.y, ent.r || 14, ent.bodyH || 30, fx, fy);
+    out.push({ x: x + U.rand(-6, 6), y: y + (ent.bodyH || 30) * 0.3, r: U.rand(30, 46), c: ZAP, i: U.rand(0.5, 0.8) });
+  }
+
+  // ---------------------------------------------------------------- moves that light the world
+  /* The strength, colour, reach and length of the light depend on the move: Thunder Shock is a quick
+   * flash, Flamethrower a stream of moving light for as long as it lasts, Discharge lights a wide
+   * circle around the user, Will-o-Wisp's flames give a soft wavering glow. */
+  const PINK = [255, 200, 235], WISPC = [150, 150, 255], WHITE = [235, 240, 255], STEEL = [220, 230, 245], AURA = [130, 180, 255];
+  const MOVE_LIGHT = {
+    'thunder-shock': { c: ZAP, r: 120, i: 1.1, dur: 0.16, at: 'aim', reach: 50 },
+    thunderbolt: { c: ZAP, r: 160, i: 1.2, dur: 0.22, at: 'target' },
+    thunder: { c: WHITE, r: 280, i: 1.4, dur: 0.3, at: 'target' },
+    discharge: { c: ZAP, r: 'radius', i: 0.8, dur: 0.3, at: 'self', fl: 1 },
+    'electro-ball': { c: ZAP, r: 110, i: 0.9, dur: 0.18, at: 'self' },
+    spark: { c: ZAP, r: 95, i: 0.9, dur: 0.4, at: 'self', follow: 1, fl: 1 },
+    'thunder-punch': { c: ZAP, r: 100, i: 1, dur: 0.18, at: 'aim', reach: 40 },
+    ember: { c: FIRE, r: 70, i: 0.7, dur: 0.14, at: 'aim', reach: 22 },
+    flamethrower: { c: FIRE, r: 130, i: 1, dur: 0.6, at: 'aim', reach: 50, follow: 1, fl: 1 },
+    'fire-blast': { c: FIRE, r: 220, i: 1.3, dur: 0.5, at: 'aim', reach: 110 },
+    'heat-wave': { c: FIRE, r: 200, i: 1, dur: 0.45, at: 'self', fl: 1 },
+    'flame-wheel': { c: FIRE, r: 120, i: 1, dur: 1.2, at: 'self', follow: 1, fl: 1 },
+    'will-o-wisp': { c: WISPC, r: 70, i: 0.6, dur: 'dur', at: 'behind', fl: 1 },
+    'dazzling-gleam': { c: PINK, r: 'radius', i: 0.9, dur: 0.3, at: 'self' },
+    flash: { c: WHITE, r: 340, i: 1.5, dur: 0.6, at: 'self' },
+    'flash-cannon': { c: STEEL, r: 110, i: 1, dur: 0.3, at: 'beam' },
+    'aura-sphere': { c: AURA, r: 80, i: 0.7, dur: 0.15, at: 'self' },
+  };
+  const FL = []; // lights that last a moment: {x, y, r, c, i, t, dur, ent, ox, oy, fl}
+  function flash(x, y, r, c, i, dur, o) {
+    if (FL.length > 40) FL.shift();
+    FL.push(Object.assign({ x, y, r, c, i, t: 0, dur }, o || {}));
+  }
+  function moveProfile(m) {
+    const id = m.id || (m.def && m.def.id);
+    const pr = MOVE_LIGHT[id];
+    if (pr) return pr;
+    const ty = m.type || (m.def && m.def.type);
+    if (ty === 'fire') return { c: FIRE, r: 90, i: 0.8, dur: 0.25, at: 'aim', reach: 30, fl: 1 };
+    if (ty === 'electric') return { c: ZAP, r: 100, i: 0.9, dur: 0.16, at: 'aim', reach: 30 };
+    return null;
+  }
+  // someone used a move: light up what it lights up
+  function moveLight(e, m, ang, target) {
+    const pr = moveProfile(m);
+    if (!pr || !e) return;
+    const d = m.def || m;
+    const r = pr.r === 'radius' ? (d.radius || m.range || 120) + 30 : pr.r;
+    const dur = pr.dur === 'dur' ? (d.dur || 6) : pr.dur;
+    const h = (e.bodyH || 30) * 0.5;
+    if (ang == null) ang = e.aim != null ? e.aim : 0;
+    const ca = Math.cos(ang), sa = Math.sin(ang);
+    switch (pr.at) {
+      case 'aim': {
+        const ox = ca * pr.reach, oy = sa * pr.reach - h;
+        flash(e.x + ox, e.y + oy, r, pr.c, pr.i, dur, pr.follow ? { ent: e, ox, oy, fl: pr.fl } : { fl: pr.fl });
+        break;
+      }
+      case 'target': {
+        flash(e.x, e.y - h, r * 0.7, pr.c, pr.i, dur);
+        const tg = target || nearestFoe(e, 300);
+        if (tg) flash(tg.x, tg.y - (tg.bodyH || 30) * 0.5, r, pr.c, pr.i, dur);
+        break;
+      }
+      case 'behind': flash(e.x - ca * 26, e.y - sa * 20 - h, r, pr.c, pr.i, dur, { fl: pr.fl, soft: 1 }); break;
+      case 'beam': for (let k = 1; k <= 3; k++) flash(e.x + ca * k * 70, e.y + sa * k * 70 - h, r, pr.c, pr.i * (1.1 - k * 0.2), dur); break;
+      default: flash(e.x, e.y - h, r, pr.c, pr.i, dur, pr.follow ? { ent: e, ox: 0, oy: -h, fl: pr.fl } : { fl: pr.fl });
+    }
+  }
+  function nearestFoe(e, r) {
+    let best = null, bd = r * r;
+    for (const v of AI.R.EnemyMgr.queryCircle(e.x, e.y, r)) { if (v === e || v.dead) continue; const d = U.dist2(e.x, e.y, v.x, v.y); if (d < bd) { bd = d; best = v; } }
+    return best;
+  }
+  // the player's moves: each cast stamps the move with castAt
+  function watchMoves(p) {
+    for (const m of p.moves || []) {
+      if (m.castAt && m.castAt !== m._psxLit) { m._psxLit = m.castAt; moveLight(p, m, p.aim, p.target); }
+    }
+  }
+  function tick(dt) {
+    for (let k = FL.length - 1; k >= 0; k--) { FL[k].t += dt; if (FL[k].t >= FL[k].dur) FL.splice(k, 1); }
+    const p = AI.R && AI.R.Game.player;
+    if (p && !p.dead) watchMoves(p);
+    tickLantern(dt);
+  }
+
+  // ---------------------------------------------------------------- the lantern you can carry
+  /* Real equipment: it hangs at your side, you light it with L, and it burns oil. A run starts with
+   * a few minutes' worth; chests and old campsites have more. */
+  const lamp = { lit: false, oil: 240, max: 480 };
+  function tickLantern(dt) {
+    if (lanternOn()) {
+      lamp.oil = Math.max(0, lamp.oil - dt);
+      if (lamp.oil <= 0) {
+        lamp.lit = false;
+        const p = AI.R.Game.player;
+        try { if (p) AI.R.FX.dmgText(p.x, p.y - (p.bodyH || 40) - 24, 'out of oil', '#9aa6c0', true); } catch (e) { /* ignore */ }
+      }
+    }
+  }
+  function toggleLantern() {
+    if (!(lamp.oil > 0)) return false;
+    lamp.lit = !lamp.lit;
+    return lamp.lit;
+  }
+  function addOil(sec) { lamp.oil = Math.min(lamp.max, lamp.oil + sec); }
+  // does this Pokémon bring its own light (a lantern, a flame, a glowing organ)?
+  function carriesLight(ent) {
+    if (!ent) return false;
+    if (AI.R && ent === AI.R.Game.player && lanternOn()) return true;
+    return !!bodyOf(ent);
+  }
 
   function on() { return AI.enabled && AI.cfg.atmosphere !== false && AI.Sky; }
   function quality() {
@@ -28,12 +228,11 @@
     if (q === 'low') return 5;
     return (window.devicePixelRatio || 1) > 1.6 || innerWidth > 1700 ? 4 : 3;
   }
+  // the lantern only burns when you light it (or keep it lit, from the settings), and while it has oil
   function lanternOn() {
     const m = AI.cfg.lantern;
-    if (m === 'on') return true;
-    if (m === 'off') return false;
-    if (AI.Player && AI.Player.lanternToggle != null) return AI.Player.lanternToggle;
-    return AI.Sky.darkness() > 0.55 || AI.Sky.fog > 0.75;
+    if (m === 'off' || !(lamp.oil > 0)) return false;
+    return m === 'on' || lamp.lit;
   }
 
   // ---------------------------------------------------------------- light sources (world space)
@@ -42,11 +241,16 @@
     L.length = 0;
     const R = AI.R;
     const Sky = AI.Sky;
+    if (AI.Totem && AI.Totem.active()) {
+      // a Totem's maze: only what light you bring (and its Totem)
+      AI.Totem.lights(L);
+      creatures(cam, L);
+      return L;
+    }
     if (AI.Mansion && AI.Mansion.inside) {
       // inside the mansion: candles, chandeliers, moonlight through the windows
       AI.Mansion.lights(L);
-      const pl = R.Game.player;
-      if (pl && !pl.dead && lanternOn()) L.push({ x: pl.x, y: pl.y - (pl.bodyH || 40) * 0.5, r: 170, c: [255, 214, 150], i: 0.8, player: true });
+      creatures(cam, L);
       return L;
     }
     const x0 = cam.left() - 200, y0 = cam.top() - 200, x1 = cam.left() + cam.w + 200, y1 = cam.top() + cam.h + 260;
@@ -71,30 +275,66 @@
     }
     if (AI.Forest) AI.Forest.lights(L);
     if (AI.Mysteries) AI.Mysteries.lights(L);
+    if (AI.Events) AI.Events.lights(L);
+    if (AI.Power) AI.Power.lights(L);
+    if (AI.Totem) AI.Totem.lights(L);
     // lightning lights up everything around where it strikes
     for (const s of AI.Sky.st.strikes) L.push({ x: s.x, y: s.y - 40, r: 520, c: [220, 230, 255], i: Math.max(0, 1 - s.t / 0.5) * s.power * 1.4 });
+    creatures(cam, L);
+    return L;
+  }
+  // the lantern, the Pokémon that glow, moves in progress and the shots in the air
+  function creatures(cam, out) {
+    const R = AI.R;
     const p = R.Game.player;
     if (p && !p.dead) {
-      if (lanternOn()) L.push({ x: p.x, y: p.y - (p.bodyH || 40) * 0.5, r: 190, c: [255, 214, 150], i: 0.9 + Math.sin(AI.time * 9) * 0.04, player: true });
-      else if (Sky.darkness() > 0.4) L.push({ x: p.x, y: p.y - 20, r: 75, c: [150, 160, 190], i: 0.55 });
+      if (lanternOn()) { const [lx, ly] = lanternPos(p); out.push({ x: lx, y: ly, r: 175, c: [255, 214, 150], i: 0.9 + Math.sin(AI.time * 9) * 0.04, halo: 1 }); }
+      bodyLight(p, out);
+      sparks(p, out);
     }
+    if (R.Coop && R.Coop.active) try { for (const q of R.Coop.puppets()) if (q && !q.dead) bodyLight(q, out); } catch (e) { /* ignore */ }
+    if (AI.Companions) try { for (const c of AI.Companions.list()) if (!c.dead) { bodyLight(c, out); sparks(c, out); } } catch (e) { /* ignore */ }
     for (const e of R.EnemyMgr.queryCircle(cam.x, cam.y, Math.max(cam.w, cam.h) * 0.75)) {
       if (e.dead) continue;
-      const t = e.types || [];
-      const g = GLOWERS[e.dex];
-      if (t.includes('fire')) L.push({ x: e.x, y: e.y - (e.bodyH || 30) * 0.5, r: 58 + (e.r || 14) * 1.2, c: [255, 150, 70], i: 0.75 + Math.sin(AI.time * 11 + e.id) * 0.12 });
-      else if (g) L.push({ x: e.x, y: e.y - (e.bodyH || 30) * 0.5, r: 52, c: g, i: 0.6 + Math.sin(AI.time * 3 + e.id) * 0.2 });
-      else if (t.includes('electric') && Math.random() < 0.6) L.push({ x: e.x, y: e.y - (e.bodyH || 30) * 0.5, r: 38, c: [255, 240, 120], i: 0.45 });
+      bodyLight(e, out);
+      sparks(e, out);
+    }
+    for (const f of FL) {
+      const k = f.t / f.dur;
+      let i = f.i * (f.ent ? Math.min(1, (f.dur - f.t) / 0.2) : Math.pow(1 - k, 1.4));
+      if (f.fl) i *= 0.82 + Math.random() * 0.3;
+      if (f.soft) i *= 0.8 + Math.sin(AI.time * 4 + f.x) * 0.2;
+      const x = f.ent ? f.ent.x + f.ox : f.x, y = f.ent ? f.ent.y + f.oy : f.y;
+      out.push({ x, y, r: f.r, c: f.c, i });
     }
     try {
       for (const q of R.Projectiles.all()) {
+        const m = q.m || q.psxMove;
+        const id = m && (m.id || (m.def && m.def.id));
         const mt = q.mtype;
-        if (mt === 'fire') L.push({ x: q.x, y: q.y, r: 64, c: [255, 150, 60], i: 0.85 });
-        else if (mt === 'electric') L.push({ x: q.x, y: q.y, r: 46, c: [255, 245, 140], i: 0.7 });
-        else if (mt === 'psychic' || mt === 'ghost' || mt === 'fairy') L.push({ x: q.x, y: q.y, r: 34, c: [220, 150, 255], i: 0.5 });
+        if (id === 'will-o-wisp') out.push({ x: q.x, y: q.y, r: 42, c: WISPC, i: 0.55 + Math.sin(AI.time * 6 + q.id) * 0.1 });
+        else if (id === 'aura-sphere') out.push({ x: q.x, y: q.y, r: 46, c: AURA, i: 0.6 });
+        else if (mt === 'fire') out.push({ x: q.x, y: q.y, r: id === 'ember' ? 55 : 64, c: FIRE, i: 0.8 + Math.random() * 0.1 });
+        else if (mt === 'electric') out.push({ x: q.x, y: q.y, r: 50, c: ZAP, i: 0.6 + Math.random() * 0.25 });
       }
     } catch (e) { /* ignore */ }
-    return L;
+  }
+  // the lantern hangs at your side, away from where you're facing
+  function lanternPos(p) {
+    const [fx] = facing(p);
+    const side = fx > 0.2 ? -1 : 1;
+    return [p.x + side * ((p.r || 14) + 6), p.y - (p.bodyH || 40) * 0.42];
+  }
+  function drawLantern(ctx) {
+    const p = AI.R.Game.player;
+    if (!p || p.dead || !lanternOn() || !AI.Art || !AI.Art.ready) return;
+    const [x, y] = lanternPos(p);
+    const sw = Math.sin(AI.time * 3.2) * 0.12 + (p.walking ? Math.sin(AI.time * 9) * 0.1 : 0);
+    ctx.save();
+    ctx.translate(x, y - 7);
+    ctx.rotate(sw);
+    AI.Art.draw(ctx, 'lantern', 0, 15, { scale: 0.45 });
+    ctx.restore();
   }
 
   // ---------------------------------------------------------------- main draw (screen space)
@@ -141,10 +381,10 @@
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         for (const l of lights) {
-          if (l.player && dark < 0.5) continue;
-          const x = sx(l.x), y = sy(l.y), r = Math.min(46, l.r * 0.28) * cam.scale;
+          if (l.body && !l.halo) continue;
+          const x = sx(l.x), y = sy(l.y), r = Math.min(46, l.r * (l.body ? 0.2 : 0.28)) * cam.scale;
           if (x < -r || y < -r || x > w + r || y > h + r) continue;
-          const a = l.i * dark * (l.player ? 0.12 : 0.32);
+          const a = l.i * dark * (l.body ? 0.3 * l.halo : 0.32);
           const g = ctx.createRadialGradient(x, y, 0, x, y, r);
           g.addColorStop(0, 'rgba(' + l.c[0] + ',' + l.c[1] + ',' + l.c[2] + ',' + a.toFixed(3) + ')');
           g.addColorStop(1, 'rgba(' + l.c[0] + ',' + l.c[1] + ',' + l.c[2] + ',0)');
@@ -153,6 +393,8 @@
         }
         ctx.restore();
       }
+      // tonight's moon, mirrored in the water
+      if (shady) try { AI.Forest.drawMoonReflection(ctx, sx, sy, cam.scale); } catch (e) { AI.warn('moon', e); }
     }
     if (!Sky.indoor()) {
       rays(ctx, w, h);
@@ -226,12 +468,17 @@
   function rays(ctx, w, h) {
     const Sky = AI.Sky;
     const e = Sky.sunElev();
-    if (e < 0.04 || Sky.cloud > 0.8 || Sky.rain > 0.3) return;
     const th = AI.Art && AI.Art.theme(AI.Env.biome());
     if (th !== 'forest' && th !== 'jungle') return;
+    // at night, under a bright moon and a clear sky, the faintest pale shafts of moonlight
+    const moonlit = e < 0.04 && Sky.darkness() > 0.75 && Sky.moonLight() > 0.45 && Sky.cloud < 0.45 && Sky.rain < 0.05;
+    if (!moonlit && (e < 0.04 || Sky.cloud > 0.8 || Sky.rain > 0.3)) return;
     const mist = Sky.fog;
-    const strength = (0.035 + (Sky.hour() < 9 || Sky.hour() > 16 ? 0.04 : 0) + Math.min(0.08, mist * 0.25)) * (1 - Sky.cloud) * Math.min(1, e * 3);
-    if (strength < 0.01) return;
+    const strength = moonlit
+      ? (0.012 + Math.min(0.02, mist * 0.06)) * Sky.moonLight() * (1 - Sky.cloud)
+      : (0.035 + (Sky.hour() < 9 || Sky.hour() > 16 ? 0.04 : 0) + Math.min(0.08, mist * 0.25)) * (1 - Sky.cloud) * Math.min(1, e * 3);
+    if (strength < (moonlit ? 0.004 : 0.01)) return;
+    const tint = moonlit ? '190,205,255' : '255,240,200';
     const [dx] = Sky.shadowDir();
     const slant = -dx * 0.55;
     ctx.save();
@@ -242,8 +489,8 @@
       const bw = (60 + i * 30) * (0.8 + 0.2 * Math.sin(AI.time * 0.3 + i));
       const a = strength * (0.6 + 0.4 * Math.sin(AI.time * 0.5 + i * 2));
       const g = ctx.createLinearGradient(0, 0, 0, h);
-      g.addColorStop(0, 'rgba(255,240,200,' + a.toFixed(3) + ')');
-      g.addColorStop(1, 'rgba(255,240,200,0)');
+      g.addColorStop(0, 'rgba(' + tint + ',' + a.toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(' + tint + ',0)');
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.moveTo(x, 0); ctx.lineTo(x + bw, 0); ctx.lineTo(x + bw + slant * h, h); ctx.lineTo(x + slant * h, h);
@@ -370,6 +617,7 @@
     const R = AI.R;
     const Sky = AI.Sky;
     const cam = R.Camera;
+    try { drawLantern(ctx); } catch (e) { AI.warn('lantern', e); }
     if (Sky.indoor()) { leaves.length = 0; return; }
     const autumn = Sky.season() === 'autumn';
     const wind = Sky.windNow();
@@ -461,6 +709,16 @@
     ctx.fillStyle = '#eaf2ff';
     ctx.textBaseline = 'middle';
     ctx.fillText(label, x + 25, cy + 1);
+    // the lantern's oil, once it's dark enough to matter (or while it burns)
+    const lit = lanternOn();
+    if (AI.cfg.lantern !== 'off' && (lit || S.darkness() > 0.35)) {
+      const sec = Math.ceil(lamp.oil), txt = '🏮 ' + Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0') + (lit ? '' : '  (L)');
+      const w2 = ctx.measureText(txt).width + 18, y2 = y + bh + 4;
+      ctx.fillStyle = 'rgba(10,14,28,0.55)';
+      ctx.beginPath(); ctx.moveTo(x + 9, y2); ctx.arcTo(x + w2, y2, x + w2, y2 + 18, 9); ctx.arcTo(x + w2, y2 + 18, x, y2 + 18, 9); ctx.arcTo(x, y2 + 18, x, y2, 9); ctx.arcTo(x, y2, x + w2, y2, 9); ctx.fill();
+      ctx.fillStyle = lit ? '#ffd27a' : lamp.oil > 0 ? '#9aa6c0' : '#6a7080';
+      ctx.fillText(txt, x + 9, y2 + 9.5);
+    }
     ctx.restore();
   }
 
@@ -481,5 +739,9 @@
     Object.defineProperty(W, 'vignette', { configurable: true, enumerable: true, get() { const v = d.get.call(W); return on() && AI.Sky.weatherKind() === 'fog' ? 0 : v; } });
   }
 
-  AI.define('Light', { draw, drawAir, drawClock, wrapWeatherDraw, patchVignette, gather, lanternOn, lights: L });
+  AI.define('Light', {
+    draw, drawAir, drawClock, wrapWeatherDraw, patchVignette, gather, lanternOn, lights: L, tick,
+    BODY, MOVE_LIGHT, bodyOf, carriesLight, moveLight, flash, flashes: FL, lamp, toggleLantern, addOil,
+    reset() { FL.length = 0; lamp.lit = false; lamp.oil = 240; },
+  });
 })();

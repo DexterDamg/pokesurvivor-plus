@@ -15,13 +15,15 @@
     out.length = 0;
     if (R.Game.player) out.push(R.Game.player);
     if (R.Coop && R.Coop.active && R.Coop.puppets) for (const p of R.Coop.puppets()) out.push(p);
+    // the Pseudo Players are part of the party too (83-party.js)
+    if (AI.Companions) for (const c of AI.Companions.list()) if (!c.dead && !c.pp.leaving) out.push(c);
   };
   AI.isPlayer = (ent) => !!ent && AI.players.includes(ent);
   AI.keyOf = (ent) => (!ent ? null : AI.isPlayer(ent) ? 'P' : ent.psx || ent instanceof AI.R.Enemy ? ent.id : null);
-  AI.nearestPlayer = function (x, y) {
+  AI.nearestPlayer = function (x, y, except) {
     let best = null, bd = Infinity;
     for (const p of AI.players) {
-      if (p.dead) continue;
+      if (p.dead || p === except) continue;
       const d = U.dist2(x, y, p.x, p.y);
       if (d < bd) { bd = d; best = p; }
     }
@@ -82,7 +84,8 @@
     if (c.near.length > 10) c.near.length = 10;
     s.alone = c.near.length === 0;
 
-    const p = AI.nearestPlayer(e.x, e.y);
+    // (a companion's "player" is the one it travels with)
+    const p = e.psxCompanion ? AI.R.Game.player : AI.nearestPlayer(e.x, e.y, e);
     c.player = p;
     c.pd = p ? Math.hypot(p.x - e.x, p.y - e.y) : Infinity;
     let seen = false;
@@ -91,8 +94,8 @@
         // a light sleeper may notice someone right next to it
         seen = c.pd < 55 && Math.random() < s.pers.tr.alertness * 0.25;
       } else {
-        // a lit lantern is easy to spot in the dark
-        const lit = AI.Light && AI.Sky && AI.Sky.darkness() > 0.4 && AI.Light.lanternOn() ? 1.35 : 1;
+        // a lit lantern or a flame is easy to spot in the dark
+        const lit = AI.Light && AI.Sky && AI.Sky.darkness() > 0.4 && AI.Light.carriesLight(p) ? 1.35 : 1;
         const range = (sightRange(s) + (p.walking ? 60 : 0)) * lit;
         if (c.pd < 85 * s.p.hearing) seen = true;
         else if (c.pd < range) {
@@ -162,6 +165,7 @@
   }
 
   AI.playerPower = function (p) {
+    if (!p) return 300;
     const d = AI.R.DEX_BY[p.dex];
     const bst = (d && d.bst) || 400;
     return bst * (1 + Math.min(2.5, (p.level || 1) / 28)) * (0.5 + 0.5 * p.hp / Math.max(1, p.maxHp)) * (d && d.leg ? 1.4 : 1);

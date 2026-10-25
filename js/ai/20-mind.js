@@ -43,6 +43,7 @@
       else if (key === 'embarrassment') k = s.pers.quirks.has('proud') ? 1.5 : 1;
       else if (key === 'surprise') k = 0.6 + tr.alertness * 0.6;
       k *= AI.Legend ? AI.Legend.emotionAmp(s, key) : 1;
+      k *= AI.Natures ? AI.Natures.feelK(s, key) : 1;
     }
     const v = U.clamp(m.emo[key] + amt * k, 0, 1);
     m.emo[key] = v;
@@ -59,6 +60,7 @@
       if (k === 'fear') r *= 0.55 + tr.bravery * 0.9;
       else if (k === 'anger') r *= 0.4 + tr.forgiveness * 1.1 - tr.grudge * 0.2;
       else if (k === 'sadness') r *= 0.6 + tr.sociability * 0.5;
+      if (AI.Natures) r *= AI.Natures.decayK(s, k);
       const b = BASE[k] || 0;
       const v = m.emo[k];
       m.emo[k] = v > b ? Math.max(b, v - r * dt) : Math.min(b, v + r * dt * 0.5);

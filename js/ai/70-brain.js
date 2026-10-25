@@ -19,7 +19,7 @@
   function init(e) {
     const S = AI.Species;
     const parent = e.psxParent && e.psxParent.psx ? e.psxParent : null;
-    const memo = !parent && !e.psxHorde ? AI.Memory.recall(e.dex) : null;
+    const memo = !parent && !e.psxHorde && !e.psxCompanion ? AI.Memory.recall(e.dex) : null;
     const seed = memo ? memo.seed : (Math.random() * 4294967296) >>> 0;
     let forceTemp = memo ? memo.temp : null;
     if (parent) forceTemp = parent.psx.pers.temp;
@@ -55,7 +55,8 @@
     AI.Combat.init(e, s);
     switchTo(e, s, AI.Behaviors.BY.idle);
     if (s.returning) AI.Mind.say(s, rp.a > 0.3 ? 'love' : rp.g > 0.3 ? 'anger' : 'surprise', 2.2, 2);
-    if (AI.EnvBeh) try { AI.EnvBeh.onInit(e, s); } catch (err) { AI.warn('env-init', err); }
+    if (AI.EnvBeh && !e.psxCompanion) try { AI.EnvBeh.onInit(e, s); } catch (err) { AI.warn('env-init', err); }
+    if (AI.Wildlife && !e.psxCompanion) try { AI.Wildlife.onInit(e, s); } catch (err) { AI.warn('wildlife-init', err); }
     return s;
   }
 
@@ -75,13 +76,19 @@
     AI.Perception.sense(e, s);
     AI.Perception.process(e, s);
     AI.Rel.tick(s, dt);
-    if (s.territory) territoryTick(e, s, dt);
-    mercy(e, s, dt);
-    updateStance(e, s);
-    selectFightTarget(e, s);
-    if (AI.Social) AI.Social.think(e, s);
-    if (AI.Legend) AI.Legend.think(e, s);
-    if (AI.Evolution) AI.Evolution.think(e, s, dt);
+    if (s.companion) {
+      // a Pseudo Player: on the party's side, picking its own fights (83-party.js)
+      AI.Companions.think(e, s, dt);
+      if (AI.Legend) AI.Legend.think(e, s);
+    } else {
+      if (s.territory) territoryTick(e, s, dt);
+      mercy(e, s, dt);
+      updateStance(e, s);
+      selectFightTarget(e, s);
+      if (AI.Social) AI.Social.think(e, s);
+      if (AI.Legend) AI.Legend.think(e, s);
+      if (AI.Evolution) AI.Evolution.think(e, s, dt);
+    }
     choose(e, s);
     const ms = performance.now() - t0;
     AI.stats.thinkMs[s.lod] += ms;
@@ -117,6 +124,8 @@
       s.stanceAt = AI.time;
       if (st === 'hostile' && prev === 'friendly') AI.Mind.say(s, 'anger', 1.8, 2);
       if (st === 'friendly' && prev === 'hostile') AI.Mind.say(s, 'love', 2, 2);
+      // won over (not born friendly): a new friend
+      if (st === 'friendly' && AI.time - s.born > 10 && c.player && c.pd < 400) AI.Bus.emit({ type: 'befriend', key: e.id, x: e.x, y: e.y, loud: 0, e });
     }
     s.stance = st;
   }
@@ -133,7 +142,7 @@
     if (s.lastPlayerHitAt != null && since > 6 && hpf < 0.5 && (rp.g > 0.05 || rp.a < 0) && c.pd < 600) {
       const k = dt * (0.03 + tr.forgiveness * 0.05) * (AI.time - AI.playerNoise.t > 2 ? 1.6 : 1);
       AI.Rel.adjust(s, 'P', { a: k, g: -k * 0.8, f: -k * 0.3 });
-      if (!s.mercyShown && rp.a > -0.1 && rp.g < 0.2) { s.mercyShown = true; AI.Mind.say(s, 'question', 1.8, 2); }
+      if (!s.mercyShown && rp.a > -0.1 && rp.g < 0.2) { s.mercyShown = true; AI.Mind.say(s, 'question', 1.8, 2); AI.Bus.emit({ type: 'mercy', x: e.x, y: e.y, loud: 0, e }); }
     } else if (since > 20 && c.pd < 300 && s.stance !== 'hostile' && rp.a < 0.15) {
       AI.Rel.adjust(s, 'P', { a: dt * 0.004 * tr.forgiveness, f: -dt * 0.005 });
     }
@@ -214,6 +223,8 @@
     // a sleeping Pokémon only stirs for survival (being hurt, real danger) until something wakes it
     const sleeping = cur && cur.id === 'sleep' && s.bs.down && !(s.wokeAt >= s.bs.t0);
     for (const b of B.LIST) {
+      if (b.party && !s.companion) continue;
+      if (s.companion && !AI.Companions.okFor(s, b)) continue;
       if (sleeping && b !== cur && b.tier > 3) continue;
       if (s.lod === 2 && b.tier >= 7 && b.id !== 'wander' && b.id !== 'idle') continue; // far away: simplified life
       if (b !== cur && s.cd[b.id] > AI.time) continue;

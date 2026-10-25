@@ -54,7 +54,7 @@
   }
   function makePlan(seed) {
     const h = (i, j) => U.hash(seed, i, 7700 + (j || 0));
-    const M = AI.Decor ? AI.Decor.mansionGeom(seed) : null;
+    const M = null; // (the mansion is placed later, by the journey, away from all of this)
     const feats = []; // [x, y, r] areas others must keep away from
     const nearPath = (x, y, r) => M && M.dense.some((q) => Math.abs(q[0] - x) < r && Math.abs(q[1] - y) < r && Math.hypot(q[0] - x, q[1] - y) < r);
     const inMansion = (x, y, r) => M && x > M.D[0] - M.SW - 200 - r && x < M.D[0] + M.SW + 200 + r && y > M.D[1] - 400 - r && y < M.G[1] + 160 + r;
@@ -225,17 +225,18 @@
   // ---------------------------------------------------------------- generation hooks
   // what the game's terrain is at a tile: water where the plan has it, never its own ponds
   function terr(biome, tx, ty) {
-    if (biome !== 0 || !AI.enabled || AI.cfg.forestWorld === false || !AI.Decor) return -1;
+    if (biome !== 0 || !AI.enabled) return -1;
+    if (AI.Journey) AI.Journey.noteGen(tx, ty);
+    if (AI.cfg.forestWorld === false || !AI.Decor) return -1;
     return depthClass((tx + 0.5) * TS, (ty + 0.5) * TS) > 0 ? 2 : 0;
   }
   // trees on a jittered grid: even, natural spacing; density by region; none in water, on paths or in sites
   function trees(biome, grove, tx, ty) {
     if (biome !== 0 || !AI.enabled || AI.cfg.forestWorld === false || !AI.Decor) return null;
-    const x = (tx + 0.5) * TS, y = (ty + 0.5) * TS;
+    const x = (tx + 0.5) * TS, y = (ty + 0.5) * TS, by = (ty + 1) * TS - 4; // (the game stands the trunk at the tile's foot)
     const p = plan();
-    const w = water(x, y);
-    if (w.e > -26) return -1;
-    if (pathDist(x, y) < 18) return -1;
+    if (water(x, y).e > -26 || water(x, by).e > -26) return -1;
+    if (pathDist(x, y) < 18 || pathDist(x, by) < 18) return -1;
     const r = region(x, y);
     if (r.siteK > 0.2 || r.clear > 0.35) return -1;
     // one grid for the whole forest (so neighbouring regions never crowd each other); the region
@@ -257,6 +258,8 @@
     const bare = soilAt(x, y);
     return bare < 0.45 && U.hash(tx, ty, plan().seed + 91) < 0.55 + r.grove * 0.25 - r.clear * 0.3;
   }
+  // how quiet a stretch of forest is (0 lively … 1 empty): roaming Pokémon rarely turn up there
+  function quietAt(x, y) { return sm(0.42, 0.28, vn(x / 900, y / 900, plan().seed + 111)); }
   function soilAt(x, y) { const s = plan().seed; return sm(0.58, 0.72, fbm(x / 260, y / 260, s + 31, 3)) * (1 - region(x, y).wet * 0.5); }
 
   // ---------------------------------------------------------------- the ground: palettes
@@ -281,6 +284,7 @@
     jungle: ['#16301a', '#1c3a1e', '#224422', '#2a4e28'].map(rgb),
     scorch: ['#2a1e16', '#33241a', '#3c2a1c', '#46301e'].map(rgb),
     violet: ['#1e1a26', '#24202e', '#2c2636', '#342c40'].map(rgb),
+    haunt: ['#171d19', '#1c231e', '#222923', '#283028'].map(rgb),
   };
   const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
@@ -297,6 +301,8 @@
     const x0 = cx * CH, y0 = cy * CH;
     const F = (n) => new Float32Array(GN * GN);
     const f = { e: F(), dk: F(), grove: F(), dp: F(), wet: F(), cl: F(), soil: F(), moss: F(), mud: F(), path: F(), sk: F(), tone: F(), site: new Array(GN * GN) };
+    const J = AI.Journey;
+    if (J && J.placed && J.fresh(x0 + CH / 2, y0 + CH / 2) && J.nearK(x0 + CH / 2, y0 + CH / 2) > 0.05) f.jk = F();
     for (let j = 0; j < GN; j++) for (let i = 0; i < GN; i++) {
       const x = x0 + i * G, y = y0 + j * G, k = j * GN + i;
       const w = water(x, y);
@@ -308,10 +314,11 @@
       f.mud[k] = sm(0.6, 0.74, fbm(x / 120, y / 120, s + 43, 2)) * sm(0.55, 0.85, r.wet);
       f.path[k] = U.clamp(1 - pathDist(x, y) / 10, 0, 1);
       f.tone[k] = fbm(x / 110, y / 110, s + 51, 3);
+      if (f.jk) f.jk[k] = J.nearK(x, y);
     }
     // trees in and around the chunk shade the ground beneath them and drop their leaves
     const trunks = [];
-    try { for (const pr of AI.R.World.propsInCircle(x0 + CH / 2, y0 + CH / 2, CH * 0.8)) if (pr.type === 'tree') trunks.push(pr); } catch (e) { /* ignore */ }
+    try { for (const pr of AI.Env.treesIn(x0 + CH / 2, y0 + CH / 2, CH * 0.8)) trunks.push(pr); } catch (e) { /* ignore */ }
     const cv = document.createElement('canvas');
     cv.width = N; cv.height = N;
     const g = cv.getContext('2d');
@@ -360,6 +367,7 @@
       const wet = bil(f.wet, gx, gy);
       pick(PAL.wet, wet * 0.9);
       pick(PAL.clear, bil(f.cl, gx, gy));
+      if (f.jk) pick(PAL.haunt, bil(f.jk, gx, gy) * 0.9);
       const sk = bil(f.sk, gx, gy);
       if (sk > 0.05) { const sp = SITE[f.site[Math.round(gy) * GN + Math.round(gx)]]; if (sp) pick(sp, sk * 1.1); }
       // grass: soft shading with short vertical blades
@@ -454,6 +462,76 @@
     }
     if (vis.some((v) => v[2].water)) drawWater(ctx, vis, x0, y0, x1, y1);
   }
+  /* The moon's reflection. It sits on whichever water is in view nearest to where the moon's image
+   * would fall (up and to the left of the middle of the view), gliding with the camera like a real
+   * reflection does, and shows tonight's phase: a thin crescent, a half moon, gibbous, full; a new
+   * moon shows nothing but a faint grey disc. */
+  const moonRef = { x: 0, y: 0, t: -9, ok: false };
+  function moonSpot(cam) {
+    if (AI.time - moonRef.t < 0.4 && moonRef.ok) return moonRef;
+    moonRef.t = AI.time;
+    const ax = cam.x - cam.w * 0.16, ay = cam.y - cam.h * 0.14;
+    let best = null, bd = Infinity;
+    for (let y = cam.top() + 24; y < cam.top() + cam.h; y += 40)
+      for (let x = cam.left() + 24; x < cam.left() + cam.w; x += 40) {
+        if (water(x, y).e < 26) continue; // well away from the shore, so the whole disc lies on the water
+        const d = (x - ax) * (x - ax) + (y - ay) * (y - ay);
+        if (d < bd) { bd = d; best = [x, y]; }
+      }
+    if (!best) { moonRef.ok = false; return moonRef; }
+    if (!moonRef.ok || Math.hypot(best[0] - moonRef.x, best[1] - moonRef.y) > 160) { moonRef.x = best[0]; moonRef.y = best[1]; }
+    else { moonRef.x += (best[0] - moonRef.x) * 0.25; moonRef.y += (best[1] - moonRef.y) * 0.25; }
+    moonRef.ok = true;
+    return moonRef;
+  }
+  function moonShape(g, x, y, R, ph) {
+    // the lit part: the outer edge on the lit side, back along the terminator
+    const waxing = ph < 0.5, s = waxing ? 1 : -1, k = Math.cos(ph * Math.PI * 2);
+    g.beginPath();
+    for (let i = 0; i <= 16; i++) { const a = -Math.PI / 2 + (i / 16) * Math.PI; g.lineTo(x + s * R * Math.cos(a), y + R * Math.sin(a)); }
+    for (let i = 16; i >= 0; i--) { const a = -Math.PI / 2 + (i / 16) * Math.PI; g.lineTo(x + s * k * R * Math.cos(a), y + R * Math.sin(a)); }
+    g.closePath();
+  }
+  // how visible the moon's reflection is right now (night, and a clear enough sky)
+  function moonVis() {
+    const Sky = AI.Sky;
+    if (!on() || !Sky || (AI.Mansion && AI.Mansion.inside)) return 0;
+    return U.clamp((Sky.darkness() - 0.5) * 3, 0, 1) * U.clamp(1 - Sky.cloud / 0.6, 0, 1) * (1 - Sky.fog * 0.8) * (1 - Sky.rain);
+  }
+  // drawn after the night has darkened everything, so it shines on the dark water like the real thing:
+  // the disc broken into wavering strips by the ripples
+  let moonCv = null, moonG = null;
+  function drawMoonReflection(ctx, sx, sy, scale) {
+    const vis = moonVis();
+    if (vis <= 0.02) return;
+    const cam = AI.R.Camera;
+    const m = moonSpot(cam);
+    if (!m.ok) return;
+    const Sky = AI.Sky, ph = Sky.moonPhase(), lit = Sky.moonLight();
+    const R = 9, S = 32;
+    if (!moonCv) { moonCv = document.createElement('canvas'); moonCv.width = moonCv.height = S; moonG = moonCv.getContext('2d'); }
+    const g = moonG;
+    g.clearRect(0, 0, S, S);
+    g.fillStyle = 'rgba(120,130,170,0.35)'; // the unlit part, barely there (earthshine)
+    g.beginPath(); g.arc(S / 2, S / 2, R, 0, Math.PI * 2); g.fill();
+    if (lit > 0.02) { g.fillStyle = 'rgb(236,242,255)'; moonShape(g, S / 2, S / 2, R, ph); g.fill(); }
+    const x = sx(m.x), y = sy(m.y), k = scale;
+    const rough = 0.6 + Sky.windNow() * 2 + Sky.rain * 3;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.imageSmoothingEnabled = false;
+    // a faint glow on the water around it, as bright as the moon is full
+    const gr = ctx.createRadialGradient(x, y, 0, x, y, 44 * k);
+    gr.addColorStop(0, 'rgba(150,165,210,' + (0.22 * lit * vis).toFixed(3) + ')'); gr.addColorStop(1, 'rgba(150,165,210,0)');
+    ctx.fillStyle = gr; ctx.fillRect(x - 44 * k, y - 44 * k, 88 * k, 88 * k);
+    ctx.globalAlpha = 0.75 * vis;
+    for (let yy = 0; yy < S; yy += 2) {
+      const off = Math.sin(yy * 0.5 + AI.time * 2.4) * rough * 0.9;
+      ctx.drawImage(moonCv, 0, yy, S, 2, x + (off - S / 2) * k, y + (yy - S / 2) * k, S * k, 2 * k);
+    }
+    ctx.restore();
+  }
+
   // the living water: reflections, a shimmer, moonlight, mist
   function drawWater(ctx, vis, x0, y0, x1, y1) {
     const R = AI.R;
@@ -486,14 +564,6 @@
       g.save(); g.translate(e.x, e.y + 2); g.scale(1, -0.85);
       try { e.anim.draw(g, 0, 0, { alpha: 1 }); } catch (err) { /* ignore */ }
       g.restore();
-    }
-    // the moon, when the sky is clear
-    if (Sky && Sky.darkness() > 0.5 && Sky.cloud < 0.6) {
-      const mx = cam.x + cam.w * 0.18, my = cam.y - cam.h * 0.05;
-      const k = Sky.moonLight();
-      const gr = g.createRadialGradient(mx, my, 0, mx, my, 60);
-      gr.addColorStop(0, 'rgba(230,236,255,' + (0.7 * k).toFixed(2) + ')'); gr.addColorStop(1, 'rgba(230,236,255,0)');
-      g.fillStyle = gr; g.fillRect(mx - 60, my - 60, 120, 120);
     }
     // keep only what falls on water (the chunks' masks are combined first: 'destination-in' clears
     // everything outside the image drawn, so it must be applied once)
@@ -574,9 +644,10 @@
     let v = shadeCache.get(k);
     if (v != null) return v;
     let n = 0;
-    try { for (const pr of AI.R.World.propsInCircle(x, y, 120)) if (pr.type === 'tree') n++; } catch (e) { /* ignore */ }
+    try { n = AI.Env.treesIn(x, y, 120).length; } catch (e) { /* ignore */ }
     const r = region(x, y);
     v = U.clamp(0.15 + n * 0.08 + r.grove * 0.25 + r.deep * 0.35 - r.clear * 0.6 - (water(x, y).e > 0 ? 0.4 : 0), 0, 0.85);
+    if (AI.Journey) v = Math.min(0.9, v + AI.Journey.nearK(x, y) * 0.3);
     if (r.site === 'celebi') v *= 1 - r.siteK; // the sanctuary: open to the sky
     if (r.site === 'darkrai') v = Math.max(v, 0.6 + 0.35 * r.siteK);
     if (r.site === 'spectrier') v = Math.max(v, 0.45 + 0.4 * r.siteK);
@@ -590,7 +661,11 @@
   function shadeLightMap(lg, sx, sy, k, scale) {
     if (!on()) return false;
     const cam = AI.R.Camera;
-    const day = AI.Sky ? 1 - AI.Sky.darkness() * 0.6 : 1;
+    // by day the canopy shades the floor; by night it's the moon's light the leaves hold back, so under
+    // a bright clear moon the clearings stand out and under a new moon everything is equally dark
+    const Sky = AI.Sky;
+    const dk = Sky ? Sky.darkness() : 0;
+    const day = Sky ? U.lerp(1, 0.35 + 0.6 * Sky.moonLight() * (1 - Sky.cloud), dk) : 1;
     const step = 64;
     const gx0 = Math.floor(cam.left() / step) - 1, gy0 = Math.floor(cam.top() / step) - 1;
     const cols = Math.ceil(cam.w / step) + 3, rows = Math.ceil(cam.h / step) + 3;
@@ -641,6 +716,9 @@
   }
   function lights(out) {
     for (const f of flies) { const a = flyGlow(f); if (a > 0.1) out.push({ x: f.x, y: f.y - 18, r: 16, c: [200, 255, 120], i: a * 0.7 }); }
+    // moonlight on the water where the moon is reflected
+    const mv = moonVis();
+    if (mv > 0.02 && moonRef.ok && AI.time - moonRef.t < 1) out.push({ x: moonRef.x, y: moonRef.y, r: 70, c: [170, 185, 230], i: 0.45 * AI.Sky.moonLight() * mv });
   }
 
   // ---------------------------------------------------------------- water and Pokémon: who can go where
@@ -731,6 +809,7 @@
     wet: ['puff_a', 'puff_b', 'puff_c', 'puff_d', 'ball_a', 'flat_a', 'flat_b', 'tree_round_01', 'tree_round_02', 'tree_tall_01', 'tree_tall_02', 'spiky_a', 'spiky_b'],
     young: ['sapling_01', 'sapling_02', 'sapling2_01', 'pine_s1', 'pine_s2', 'cypress_a', 'cypress_b', 'cone_e'],
     giant: ['giant_a', 'giant_b', 'giant_vine_a', 'giant_vine_b'],
+    twisted: ['gnarl_a', 'gnarl_b', 'rootoak', 'gnarl_a', 'gnarl_b', 'rootoak', 'oak_d', 'haunt_tree_a'],
   };
   function treeFor(prop, dmin, sizes) {
     const A = AI.Art;
@@ -739,8 +818,15 @@
     const h = U.hash(prop.tx, prop.ty, 4242);
     const pickL = (list, salt) => list[(U.hash(prop.tx, prop.ty, salt) * list.length) | 0];
     const hOf = (n) => (A.IDX[n] ? A.IDX[n][3] : 50);
-    const list = r.deep > 0.55 ? KIND.deep : r.grove > 0.55 ? KIND.grove : r.wet > 0.6 ? KIND.wet : KIND.outer;
+    let list = r.deep > 0.55 ? KIND.deep : r.grove > 0.55 ? KIND.grove : r.wet > 0.6 ? KIND.wet : KIND.outer;
     const d = dmin == null ? 999 : dmin;
+    // the last stretch before the haunted mansion: older, taller, twisted trees (ground first seen
+    // after the mansion was placed only, so nothing you've already walked past changes)
+    const jk = AI.Journey ? AI.Journey.nearK(x, y) : 0;
+    if (jk > 0.25 && AI.Journey.fresh(x, y) && U.hash(prop.tx, prop.ty, 4249) < jk) {
+      list = KIND.twisted;
+      if (sizes && d > 80 && U.hash(prop.tx, prop.ty, 4250) < jk * 0.7) return { n: pickL(KIND.twisted, 4251), s: 1.5, stage: 'large' };
+    }
     // ancient landmark trees: mostly in the old groves, very rarely anywhere else
     if (sizes && d > 175 && (r.grove > 0.6 ? h < 0.07 : h < 0.012)) return { n: pickL(KIND.giant, 4244), s: 1.5, stage: 'ancient' };
     if (sizes && h < 0.2 && d > 110) { const big = list.filter((n) => hOf(n) >= 48); return { n: pickL(big.length ? big : list, 4245), s: 1.5, stage: 'large' }; }
@@ -783,6 +869,22 @@
       if (pathDist(x, y) < 10) { if (r1 < 0.25) push({ k: 'litter', n: r2 < 0.5 ? 'w_litter_a' : 'w_litter_b', x, y, s: 0.8, f, flat: true }); continue; }
       const r = Object.assign({}, region(x, y));
       if (r.siteK > 0.3) continue; // the mysteries' sites dress themselves
+      // toward the haunted mansion: things people left behind, dead saplings, pale fungi
+      const jk = AI.Journey ? AI.Journey.nearK(x, y) : 0;
+      if (jk > 0.25 && AI.Journey.fresh(x, y)) {
+        if (r1 < jk * 0.45 && ok(x, y, 8)) {
+          const q = R();
+          if (q < 0.3) push({ k: 'plant', n: q < 0.15 ? 'deadsapling_a' : 'deadsapling_b', x, y, f, r: 8 });
+          else if (q < 0.45) push({ k: 'mush', n: 'ghostshroom_s', x, y, s: 0.8, f, hab: 'mush', r: 8, light: { r: 36, c: [150, 200, 255], kind: 'glow' } });
+          else if (q < 0.6) push({ k: 'grave', n: 'g_fence', x, y, s: 0.5, f, r: 0 });
+          else if (q < 0.72) push({ k: 'litter', n: q < 0.66 ? 'stonepath' : 'steppingstone', x, y, f, flat: true });
+          else if (q < 0.8) push({ k: 'stone', n: 'x_marker', x, y, f, r: 6 });
+          else if (q < 0.88) push({ k: 'litter', n: 'w_litter_b', x, y, f, flat: true });
+          else push({ k: 'grave', n: U.hash(x, y, 3) < 0.5 ? 'g_skull_a' : 'g_grave_pale', x, y, s: 0.5, f, r: 0 });
+          continue;
+        }
+        if (r.clear > 0.4 && R() < jk) continue; // no flowers out here
+      }
       const shore = -w.e;
       if (shore < 46) {
         if (!ok(x, y, 6)) continue;
@@ -849,9 +951,14 @@
     }
   }
   function reset() { P = null; chunks.clear(); shadeCache.clear(); flies.length = 0; chunkSeed = null; }
+  // forget the painted ground in an area (it is painted again, e.g. around a newly placed mansion)
+  function invalidate(x0, y0, x1, y1) {
+    for (let cy = Math.floor(y0 / CH); cy <= Math.floor(y1 / CH); cy++) for (let cx = Math.floor(x0 / CH); cx <= Math.floor(x1 / CH); cx++) chunks.delete(chunkKey(cx, cy));
+    shadeCache.clear();
+  }
 
   AI.define('Forest', {
-    on, plan, water, depthClass, region, soilAt, pathDist, terr, trees, grass, drawGround, drawMist, drawFlies, lights, shadeAt, shadeLightMap,
-    locomotion, canDeep, collideWater, spawnOk, waterPointNear, tick, reset, chunks, vn, fbm, treeFor, underFor, decor, KIND,
+    on, plan, water, depthClass, region, soilAt, pathDist, terr, trees, grass, drawGround, drawMist, drawFlies, lights, shadeAt, shadeLightMap, drawMoonReflection, moonVis,
+    locomotion, canDeep, collideWater, spawnOk, waterPointNear, tick, reset, invalidate, quietAt, chunks, vn, fbm, treeFor, underFor, decor, KIND,
   });
 })();
