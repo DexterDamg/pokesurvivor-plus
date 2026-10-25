@@ -718,11 +718,7 @@
     const wrapT = (o) => function (s) { if (AI.cfg.tropicalOcean !== false && typeof s === 'string' && SWAP[s]) s = SWAP[s]; return o.apply(this, [s].concat([].slice.call(arguments, 1))); };
     if (typeof R.T === 'function') R.T = wrapT(R.T);
     if (R.I18n && typeof R.I18n.t === 'function') R.I18n.t = wrapT(R.I18n.t);
-    // the level's banner in the menu shows the harbour
-    try {
-      const swapBanner = () => { const el = document.getElementById('pp-banner'); if (el && /zone-3\.webp/.test(el.style.backgroundImage || '') && AI.cfg.tropicalOcean !== false) el.style.backgroundImage = 'url(assets/ocean/zone.webp)'; };
-      new MutationObserver(swapBanner).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['style'] });
-    } catch (e) { /* ignore */ }
+    // (the level's banner in the menu shows the harbour: 96-menu.js)
   }
 
   // ---------------------------------------------------------------- per frame / new world
