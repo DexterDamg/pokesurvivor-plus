@@ -143,6 +143,9 @@
         if (it.flat) continue;
         const pr = it._prop || (it._prop = { psxDecor: true, item: it, x: it.x, y: it.y, flat: false, type: 'psx', tx: 0, ty: 0, r: 0 });
         pr.x = it.x; pr.y = it.y;
+        // the mansion and its big pieces: kept in view for the game's culling (they're drawn at their
+        // own place); below the screen they still sort after everything on it
+        if (AI.Mansion && AI.Mansion.EXT[it.k]) { pr.x = U.clamp(it.x, cam.left() + 10, cam.left() + cam.w - 10); pr.y = Math.min(it.y, cam.top() + cam.h - 4); }
         list.push(pr);
       }
       if (AI.Mysteries) AI.Mysteries.addProps(list);
@@ -204,6 +207,7 @@
         break;
       }
       case 'cave': drawCave(ctx, it); break;
+      case 'mansion': case 'mgate': case 'fountain': case 'shed': case 'mcandle': if (AI.Mansion) AI.Mansion.drawItem(ctx, it); break; // (87-mansion.js)
       default:
         if (it.n) AI.Art.draw(ctx, it.n, it.x, it.y, { flip: it.f, scale: it.s });
     }

@@ -168,15 +168,19 @@
   /* The haunted mansion is the end of the Shady Forest. It doesn't exist when a run starts: once
    * the party has spent long enough in the forest, the journey (84-journey.js) chooses where it
    * stands, ahead of the party and out of sight, and hands its geometry here. A shady dirt path,
-   * lined with neat pairs of old lamp posts, runs from S to the iron gates; behind the gates: a
-   * courtyard with a small family plot, gargoyles by the door, and the house itself (door at D,
-   * always facing south). If the path starts behind the house it swings around the grounds' side. */
+   * lined with small candles, runs from S to the tall iron gates under their arch; behind the gates:
+   * a long courtyard with a fountain that stopped working long ago, an abandoned shed on the far left,
+   * gargoyles by the door, the three-storey house itself (door at D, always facing south) and,
+   * behind it, a walled backyard. If the path starts behind the house it swings around the side. */
   function mansionGeom(S, D) {
     D = [Math.round(D[0]), Math.round(D[1])];
     S = [S[0], S[1]];
-    const G = [D[0], D[1] + 330];
+    const G = [D[0], D[1] + 640]; // the gates
     const C = [G[0], G[1] + 420];
-    const SW = 290; // the grounds' half width
+    const SW = 600; // the grounds' half width
+    const HW = 466, HH = 340; // the house's half width and height
+    const BY = 520; // the backyard's depth, behind the house
+    const top = D[1] - HH - BY;
     const way = [S];
     if (S[1] < G[1] + 260) { const sd = S[0] < D[0] ? -1 : 1; way.push([D[0] + sd * (SW + 430), G[1] + 160]); }
     way.push(C, G);
@@ -202,12 +206,12 @@
       return out;
     };
     const a = Math.atan2(D[1] - S[1], D[0] - S[0]);
-    return { a, S, D, G, C, SW, pts: even(110), dense: even(16), interior: [D[0], D[1] + 60000] };
+    return { a, S, D, G, C, SW, HW, HH, BY, top, GO: 160, F: [D[0], D[1] + 330], shed: [D[0] - 470, D[1] + 250], pts: even(110), dense: even(16), interior: [D[0], D[1] + 60000] };
   }
   // the area the mansion and its path take up (for clearing, choosing a site and regenerating)
   function mansionBox(g) {
     const xs = g.dense.map((q) => q[0]), ys = g.dense.map((q) => q[1]);
-    return [Math.min(...xs, g.D[0] - g.SW) - 120, Math.min(...ys, g.D[1] - 340) - 120, Math.max(...xs, g.D[0] + g.SW) + 120, Math.max(...ys, g.G[1]) + 120];
+    return [Math.min(...xs, g.D[0] - g.SW) - 120, Math.min(...ys, g.top) - 120, Math.max(...xs, g.D[0] + g.SW) + 120, Math.max(...ys, g.G[1]) + 120];
   }
   // the journey hands over the mansion once it has chosen where it stands
   function setTrail(g) { trail = null; if (g) buildTrail(g); }
@@ -234,19 +238,22 @@
       }
     };
     dirtAlong(dense, 0);
-    // into the courtyard, up to the door
+    // into the courtyard: up to the fountain, around it, and on to the door
+    const { F, GO, HW, HH, top } = g;
     const court = [];
-    for (let y = G[1]; y >= D[1] + 6; y -= 16) court.push([D[0], y]);
+    for (let y = G[1]; y >= F[1] + 110; y -= 16) court.push([D[0], y]);
     dirtAlong(court, 0);
-    // neat pairs of lamp posts, every third stretch
-    for (let k = 1; k < pts.length - 1; k += 3) {
+    const ring = [];
+    for (let k = 0; k <= 40; k++) { const t = k / 40 * Math.PI * 2; ring.push([F[0] + Math.cos(t) * 150, F[1] + Math.sin(t) * 100]); }
+    dirtAlong(ring, 0);
+    const up = [];
+    for (let y = F[1] - 110; y >= D[1] + 6; y -= 16) up.push([D[0], y]);
+    dirtAlong(up, 0);
+    // small candles along the path, in pairs (now and then one burns purple for a moment)
+    for (let k = 1; k < pts.length - 1; k += 2) {
       const p = pts[k], q = pts[k + 1];
-      if (Math.hypot(p[0] - G[0], p[1] - G[1]) < 170) continue; // the gate has its own lanterns
-      for (const sd of [-1, 1]) {
-        const o = side(p, q, sd * 58);
-        const left = o[0] < p[0];
-        items.push(item({ k: 'lamp', n: left ? 'lamppost' : 'lamppost_r', x: o[0], y: o[1], r: 8, light: { r: 150, c: [255, 196, 120], kind: 'lamp' }, lit: true, protected: true }));
-      }
+      if (Math.hypot(p[0] - G[0], p[1] - G[1]) < 170) continue;
+      for (const sd of [-1, 1]) { const o = side(p, q, sd * 46); items.push(item({ k: 'mcandle', x: o[0], y: o[1], r: 0, light: { r: 60, c: [255, 190, 110], kind: 'candle' }, lit: true, protected: true, ghost: true })); }
     }
     // the old sign and the hanging lantern where the path leaves the woods
     const sgn = side(pts[0], pts[1], 70);
@@ -260,27 +267,47 @@
       items.push(item({ k: 'plant', n: k % 2 ? 'deadsapling_a' : 'deadsapling_b', x: d[0], y: d[1], r: 8 }));
     }
     for (const sd of [-1, 1]) items.push(item({ k: 'wraith', x: G[0] + sd * (SW + 110), y: G[1] + 70, r: 16, frame: sd > 0 ? 3 : 0 }));
-    // the gates: iron fence between stone pillars, lanterns on the gate posts
+    // the gates: tall pillars under a wrought-iron arch, the gate leaves standing open; an iron fence
+    // all the way around the grounds, backyard included
+    items.push(item({ k: 'mgate', x: G[0], y: G[1] + 10, r: 0, w: GO }));
     for (const sd of [-1, 1]) {
-      for (let x = 56 + 40; x < SW - 20; x += 78) items.push(item({ k: 'fence_h', n: 'g_fence', x: G[0] + sd * Math.min(SW - 40, x), y: G[1] + 4, r: 0, s: 0.5 }));
-      items.push(item({ k: 'gpillar', n: 'g_pillar_lamp', x: G[0] + sd * 56, y: G[1] + 8, r: 10, s: 0.6, light: { r: 140, c: [255, 190, 110], kind: 'lamp' }, lit: true, protected: true }));
-      items.push(item({ k: 'gpillar', n: 'g_pillar_lamp', x: G[0] + sd * SW, y: G[1] + 8, r: 10, s: 0.6, light: { r: 120, c: [255, 190, 110], kind: 'lamp' }, lit: true, protected: true }));
-      for (let y = G[1] - 34; y > D[1] - 20; y -= 60) items.push(item({ k: 'fence_v', n: 'g_fence_v', x: G[0] + sd * SW, y, r: 0, s: 0.5 }));
-      items.push(item({ k: 'gargoyle', n: 'g_gargoyle', x: D[0] + sd * 64, y: D[1] + 14, r: 10, s: 0.5 }));
-      items.push(item({ k: 'gargoyle', n: 'g_pillar', x: D[0] + sd * (SW - 10), y: D[1] - 2, r: 10, s: 0.6 }));
+      items.push(item({ k: 'gpillar', n: 'g_pillar_lamp', x: G[0] + sd * GO, y: G[1] + 8, r: 16, s: 1.3, light: { r: 90, c: [255, 190, 110], kind: 'lamp' }, lit: true, protected: true, ghost: true }));
+      for (let x = GO + 80; x < SW - 50; x += 120) items.push(item({ k: 'fence_h', n: 'g_fence', x: G[0] + sd * x, y: G[1] + 4, r: 0, s: 0.8 }));
+      items.push(item({ k: 'gpillar', n: 'g_pillar', x: G[0] + sd * SW, y: G[1] + 8, r: 12, s: 0.9 }));
+      items.push(item({ k: 'gpillar', n: 'g_pillar', x: G[0] + sd * SW, y: top + 6, r: 12, s: 0.9 }));
+      for (let y = G[1] - 60; y > top + 30; y -= 96) items.push(item({ k: 'fence_v', n: 'g_fence_v', x: G[0] + sd * SW, y, r: 0, s: 0.8 }));
+      for (let x = 80; x < SW - 50; x += 120) items.push(item({ k: 'fence_h', n: 'g_fence', x: G[0] + sd * x, y: top + 4, r: 0, s: 0.8 }));
+      items.push(item({ k: 'gargoyle', n: 'g_gargoyle', x: D[0] + sd * 78, y: D[1] + 16, r: 10, s: 0.6 }));
+      // dead hedges and statues lining the courtyard
+      for (let y = D[1] + 90; y < G[1] - 80; y += 130) items.push(item({ k: 'plant', n: (y / 130 | 0) % 2 ? 'deadsapling_a' : 'deadsapling_b', x: D[0] + sd * 210, y, r: 8 }));
     }
-    // a small family plot in the courtyard, and a statue no one remembers
-    const plot = [['g_grave_tall', -200, -120], ['g_grave_cross', -150, -140], ['g_grave_emb', -230, -60], ['g_grave_a', -170, -40], ['g_grave_pale', -120, -90]];
-    for (const [n, dx, dy] of plot) items.push(item({ k: 'grave', n, x: D[0] + dx, y: G[1] + dy, r: 8, s: 0.5 }));
-    items.push(item({ k: 'candle', n: 'candles', x: D[0] - 186, y: G[1] - 104, r: 6, light: { r: 70, c: [255, 190, 110], kind: 'candle' }, lit: true }));
-    items.push(item({ k: 'grave', n: 'g_skull_b', x: D[0] - 140, y: G[1] - 66, r: 0, s: 0.5 }));
-    items.push(item({ k: 'grave', n: 'g_statue', x: D[0] + 190, y: G[1] - 110, r: 12, s: 0.6 }));
-    items.push(item({ k: 'hanglamp', n: 'g_gallows2', x: D[0] + 140, y: G[1] - 30, r: 8, s: 0.6, light: { r: 110, c: [255, 186, 110], kind: 'lantern' }, lit: true, haunt: true }));
-    items.push(item({ k: 'plant', n: 'deadsapling_a', x: D[0] + 230, y: G[1] - 40, r: 8 }));
-    // the house: dark windows, a few glowing violet, one warm candle up in the gable
-    items.push(item({ k: 'mansion', n: 'mansion_front', x: D[0], y: D[1], r: 0 }));
-    for (const [dx, dy, c] of [[-68, 96, [190, 120, 255]], [112, 32, [190, 120, 255]], [190, 94, [190, 120, 255]], [52, 96, [255, 200, 120]], [0, 200, [255, 200, 120]]])
-      items.push(item({ k: 'mwin', x: D[0] + dx, y: D[1] - dy + 12, r: 0, flat: true, light: { r: 70, c, kind: 'glow' } }));
+    // the fountain, long dry, in the middle of the courtyard
+    items.push(item({ k: 'fountain', x: F[0], y: F[1], r: 0 }));
+    // the shed on the far left, its doors banging in a wind that isn't there
+    items.push(item({ k: 'shed', x: g.shed[0], y: g.shed[1], r: 0 }));
+    items.push(item({ k: 'grave', n: 'g_statue', x: D[0] + 420, y: D[1] + 300, r: 12, s: 0.7 }));
+    items.push(item({ k: 'grave', n: 'g_skull_b', x: D[0] + 380, y: D[1] + 420, r: 0, s: 0.5 }));
+    items.push(item({ k: 'plant', n: 'deadsapling_a', x: D[0] + 500, y: D[1] + 140, r: 8 }));
+    // the backyard: the family plot, a dead garden, the old gallows lamp, a few candles
+    const by = top + 80;
+    const plot = [['g_grave_tall', -260, 60], ['g_grave_cross', -200, 30], ['g_grave_emb', -320, 120], ['g_grave_a', -230, 150], ['g_grave_pale', -150, 100], ['g_grave_tall', 180, 70], ['g_grave_a', 250, 40], ['g_grave_cross', 300, 130], ['haunt_grave_a', 220, 170]];
+    for (const [n, dx, dy] of plot) items.push(item({ k: 'grave', n, x: D[0] + dx, y: by + dy, r: 8, s: 0.5 }));
+    for (const [dx, dy] of [[-205, 100], [255, 110], [-40, 230]]) items.push(item({ k: 'mcandle', x: D[0] + dx, y: by + dy, r: 0, light: { r: 55, c: [255, 190, 110], kind: 'candle' }, lit: true, protected: true, ghost: true }));
+    items.push(item({ k: 'grave', n: 'g_statue', x: D[0], y: by + 120, r: 12, s: 0.7 }));
+    items.push(item({ k: 'hanglamp', n: 'g_gallows2', x: D[0] + 470, y: by + 260, r: 8, s: 0.6, light: { r: 80, c: [255, 186, 110], kind: 'lantern' }, lit: true, haunt: true, ghost: true }));
+    for (const [n, dx, dy] of [['deadsapling_a', -480, 40], ['deadsapling_b', -420, 250], ['haunt_tree_b', 470, 60], ['haunt_tree_a', -520, 330], ['deadsapling_b', 100, 300]]) items.push(item({ k: 'plant', n, x: D[0] + dx, y: by + dy, r: 8 }));
+    for (const [dx, dy] of [[-120, 290], [60, 40], [380, 280]]) items.push(item({ k: 'grave', n: 'g_skull_a', x: D[0] + dx, y: by + dy, r: 0, s: 0.45 }));
+    // what was once a garden: rows of dead shrubs, a crumbled wall, weeds, a broken fence inside
+    for (let k = 0; k < 6; k++) for (const sd of [-1, 1]) items.push(item({ k: 'plant', n: k % 2 ? 'haunt_weed_a' : 'haunt_weed_b', x: D[0] + sd * (90 + k * 34), y: by + 330 + (k % 2) * 12, r: 0, flat: k % 2 === 0 }));
+    for (const [dx, dy] of [[-400, 160], [400, 200]]) items.push(item({ k: 'grave', n: 'g_wall_grey', x: D[0] + dx, y: by + dy, r: 0, s: 0.6 }));
+    for (const [dx, dy, ang] of [[-110, 210, 0.2], [130, 250, -0.3]]) items.push(item({ k: 'fence', x: D[0] + dx, y: by + dy, r: 0, ang, broken: 0.7 }));
+    for (const [dx, dy] of [[-330, 280], [330, 330], [-60, 120], [140, 180]]) items.push(item({ k: 'grave', n: 'm_rubble', x: D[0] + dx, y: by + dy, r: 0, s: 0.8 }));
+    for (const [n, dx, dy] of [['haunt_grave_b', -360, 60], ['g_grave_pale', 360, 50], ['haunt_reed', -470, 180], ['haunt_reed', 460, 150]]) items.push(item({ k: 'grave', n, x: D[0] + dx, y: by + dy, r: n.startsWith('haunt_reed') ? 0 : 8, s: 0.6 }));
+    // the house: dark windows, a few glowing violet, some warm
+    items.push(item({ k: 'mansion', x: D[0], y: D[1], r: 0 }));
+    const art = window.PSXAI_MANSION_ART;
+    if (art) for (const [dx, dy, c] of art.mansion.wins) items.push(item({ k: 'mwin', x: D[0] + dx, y: D[1] - dy + 12, r: 0, flat: true, light: { r: 60, c: c === 'w' ? [255, 200, 120] : [190, 120, 255], kind: 'glow' } }));
+    void HW; void HH;
     trail = { pts, items, start: pts[0], end: G.slice(), dir: -Math.PI / 2, mansion: g };
   }
   // a cave sealed by boulders, for later
@@ -314,7 +341,13 @@
         const fx = fixed.get(cx + ',' + cy);
         if (fx) for (const it of fx) if (it.x >= x0 && it.x <= x1 && it.y >= y0 && it.y <= y1) out.push(it);
       }
-    if (trail) for (const it of trail.items) if (it.x >= x0 && it.x <= x1 && it.y >= y0 && it.y <= y1) out.push(it);
+    if (trail) {
+      const EXT = AI.Mansion ? AI.Mansion.EXT : {};
+      for (const it of trail.items) {
+        const e = EXT[it.k];
+        if (e ? it.x + e[2] >= x0 && it.x + e[0] <= x1 && it.y + e[3] >= y0 && it.y + e[1] <= y1 : it.x >= x0 && it.x <= x1 && it.y >= y0 && it.y <= y1) out.push(it);
+      }
+    }
     if (cave && cave.x >= x0 && cave.x <= x1 && cave.y >= y0 && cave.y <= y1) out.push(cave);
     for (const it of dyn) if (it.x >= x0 && it.x <= x1 && it.y >= y0 && it.y <= y1) out.push(it);
     return out;
@@ -508,6 +541,14 @@
     return U.clamp(f, 0, 1);
   }
 
+  // the mansion's candles and lamps: now and then one burns purple for a moment, then orange again
+  function ghostly(it) {
+    if (!it.ghost) return false;
+    const P = 14 + U.hash(it.id, 5, 31) * 14, ph = (AI.time + it.id * 7.3) % P;
+    return ph < 1.1 && Math.sin(AI.time * 40) > -0.6;
+  }
+  function flameColor(it) { return ghostly(it) ? [175, 95, 255] : it.light.c; }
+
   // hidden berry patches: the first visit shakes loose something useful
   function checkPatch(p) {
     const it = near(p.x, p.y, 34, (o) => o.hab === 'berry' && o.berries > 0);
@@ -539,6 +580,6 @@
   AI.define('Decor', {
     reset, ensure, tick, chunk, inRect, near, lights, trailZone, footprint, mudAt, trample, puddleAmt, puddlesIn, puddleAt,
     ripple, ripples, prints, printAt, rustle, shakeOf, shakeProp, nibble, isNibbled, addDyn, addFixed, removeDyn, flame, checkPatch,
-    mansionGeom, mansionBox, setTrail, hasChunk, invalidate, solidOf, solidsIn, collide, blocked, get trail() { return trail; }, get cave() { return cave; }, get seed() { return seed; },
+    ghostly, flameColor, mansionGeom, mansionBox, setTrail, hasChunk, invalidate, solidOf, solidsIn, collide, blocked, get trail() { return trail; }, get cave() { return cave; }, get seed() { return seed; },
   });
 })();

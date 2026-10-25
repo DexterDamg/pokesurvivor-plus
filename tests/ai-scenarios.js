@@ -1304,7 +1304,7 @@ async function sample(h, ms, every, fn, arg) {
     await h.wait(5000);
     const r = await h.R(() => ({ warned: PSXAI.Lore.says.some((s) => s.e === PSXAI.Lore.st.hoot) || PSXAI.Lore.st.hoot && PSXAI.Lore.st.hoot.psx.mind.emo.fear > 0.4, fear: PSXAI.Lore.st.hoot ? +PSXAI.Lore.st.hoot.psx.mind.emo.fear.toFixed(2) : null }));
     await h.R(() => { PSXAI.Lore.st.allowHoot = false; const p = __PSX_REG__.Game.player; p.x = 0; p.y = 0; });
-    const need = ['sign', 'gallows', 'dirt', 'lamp', 'wraith', 'fence_h', 'mansion'];
+    const need = ['sign', 'gallows', 'dirt', 'mcandle', 'wraith', 'fence_h', 'mgate', 'fountain', 'shed', 'mansion'];
     return { pass: need.every((k) => info.kinds.includes(k)) && info.minFlame < 0.3 && spawned && r.warned, detail: { ...info, hoothoot: spawned, ...r } };
   });
 
@@ -1359,14 +1359,15 @@ async function sample(h, ms, every, fn, arg) {
   });
 
   // =========================================================== overhaul: world, encounters, storms, sizes
-  await scenario(h, 'lamps stand only along the old path to the mansion, nowhere at random', async () => {
+  await scenario(h, 'path lights (small candles) stand only along the old path to the mansion and on its grounds, nowhere at random', async () => {
     const r = await h.R(() => {
       const D = PSXAI.Decor;
       D.ensure();
       PSXAI.Journey.establishNow();
       const g = D.trail.mansion, cx = (g.S[0] + g.D[0]) / 2, cy = (g.S[1] + g.D[1]) / 2;
       const items = D.inRect(cx - 3500, cy - 3500, cx + 3500, cy + 3500, []);
-      const lamps = items.filter((it) => it.k === 'lamp');
+      const grounds = (it) => Math.abs(it.x - g.D[0]) < g.SW && it.y > g.top && it.y < g.G[1];
+      const lamps = items.filter((it) => (it.k === 'lamp' || it.k === 'mcandle') && !grounds(it));
       const path = D.trail ? D.trail.mansion.dense : [];
       const fromPath = lamps.map((l) => Math.round(Math.min(...path.map((q) => Math.hypot(l.x - q[0], l.y - q[1])))));
       return { lamps: lamps.length, inTrail: lamps.filter((l) => D.trail.items.includes(l)).length, fromPath };
@@ -1672,12 +1673,12 @@ async function sample(h, ms, every, fn, arg) {
     return h.R(() => PSXAI.Mansion.inside);
   }
 
-  await scenario(h, 'a shady, lantern-lit dirt path leads from the woods to the gates of the mansion', async () => {
+  await scenario(h, 'a shady, candle-lit dirt path leads from the woods to the gates of the mansion', async () => {
     const r = await h.R(() => {
       const D = PSXAI.Decor, g = PSXAI.Mansion.geom(), W = __PSX_REG__.World;
       const items = D.trail.items;
-      const lamps = items.filter((i) => i.k === 'lamp'), dirt = items.filter((i) => i.k === 'dirt'), posts = items.filter((i) => i.k === 'gpillar');
-      // lamps come in pairs, one either side of the path, evenly spaced
+      const lamps = items.filter((i) => i.k === 'mcandle' && !(Math.abs(i.x - g.D[0]) < g.SW && i.y > g.top && i.y < g.G[1])), dirt = items.filter((i) => i.k === 'dirt'), posts = items.filter((i) => i.k === 'gpillar');
+      // candles come in pairs, one either side of the path, evenly spaced
       const pairs = [];
       for (let i = 0; i < lamps.length; i += 2) pairs.push(Math.round(Math.hypot((lamps[i].x + lamps[i + 1].x) / 2 - g.S[0], (lamps[i].y + lamps[i + 1].y) / 2 - g.S[1])));
       const gaps = pairs.slice(1).map((d, i) => d - pairs[i]);
@@ -1692,14 +1693,14 @@ async function sample(h, ms, every, fn, arg) {
       return { lamps: lamps.length, pairs: pairs.length, gaps, dirt: dirt.length, gatePosts: posts.length, litPosts: posts.filter((p) => p.lit).length, endsAtGate: Math.round(Math.hypot(end[0] - g.G[0], end[1] - g.G[1])), blocked, wet, n };
     });
     const even = r.gaps.length > 0 && Math.max(...r.gaps) - Math.min(...r.gaps) < 60;
-    return { pass: r.pairs >= 2 && r.lamps === r.pairs * 2 && even && r.dirt > 100 && r.gatePosts === 4 && r.litPosts === 4 && r.endsAtGate < 5 && r.blocked === 0 && r.wet === 0, detail: r };
+    return { pass: r.pairs >= 2 && r.lamps === r.pairs * 2 && even && r.dirt > 100 && r.gatePosts === 6 && r.litPosts === 2 && r.endsAtGate < 5 && r.blocked === 0 && r.wet === 0, detail: r };
   });
 
   await scenario(h, 'the house, its fence and its gates are solid; the front door is the way in', async () => {
     const r = await h.R(() => {
       const g = PSXAI.Mansion.geom(), W = __PSX_REG__.World;
       const probe = (x, y) => { const e = { x, y, r: 14 }; W.collide(e); return Math.round(Math.hypot(e.x - x, e.y - y)); };
-      return { wall: probe(g.D[0] + 120, g.D[1] - 60), fence: probe(g.D[0] - g.SW, g.G[1] - 100), gateFence: probe(g.D[0] + 150, g.G[1]), gateOpening: probe(g.D[0], g.G[1]), courtyard: probe(g.D[0] - 100, g.D[1] + 120), freeAtWall: W.isFree(g.D[0], g.D[1] - 100, 12) };
+      return { wall: probe(g.D[0] + 120, g.D[1] - 60), fence: probe(g.D[0] - g.SW, g.G[1] - 100), gateFence: probe(g.D[0] + 260, g.G[1]), gateOpening: probe(g.D[0], g.G[1]), courtyard: probe(g.D[0] - 100, g.D[1] + 120), freeAtWall: W.isFree(g.D[0], g.D[1] - 100, 12) };
     });
     const entered = await enterMansion();
     const inside = await h.R(() => ({ inside: PSXAI.Mansion.inside, room: PSXAI.Mansion.roomAt(__PSX_REG__.Game.player.x, __PSX_REG__.Game.player.y) }));

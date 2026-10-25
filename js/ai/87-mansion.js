@@ -41,8 +41,8 @@
     const ix = g.interior[0] - COLS * TS / 2, iy = g.interior[1];
     if (x > ix - 600 && x < ix + COLS * TS + 600 && y > iy - 600 && y < iy + ROWS * TS + 600) return true;
     if (x < bx[0] || y < bx[1] || x > bx[2] || y > bx[3]) return false;
-    const [dx, dy] = g.D;
-    if (x > dx - g.SW - 90 && x < dx + g.SW + 90 && y > dy - 330 && y < g.G[1] + 70) return true;
+    const [dx] = g.D;
+    if (x > dx - g.SW - 90 && x < dx + g.SW + 90 && y > g.top - 90 && y < g.G[1] + 70) return true;
     for (const p of g.dense) if (Math.abs(p[0] - x) < 70 && Math.abs(p[1] - y) < 70 && Math.hypot(p[0] - x, p[1] - y) < 70) return true;
     return false;
   }
@@ -52,16 +52,168 @@
     const g = geom();
     if (!g) return null;
     if (g._rects) return g._rects;
-    const [dx, dy] = g.D, gy = g.G[1], SW = g.SW;
+    const [dx, dy] = g.D, gy = g.G[1], SW = g.SW, GO = g.GO, top = g.top;
     const r = [];
-    r.push([dx - SW - 4, dy - 270, dx + SW + 4, dy - 6]); // the house (and the wall pieces to the fence)
+    r.push([dx - g.HW, dy - g.HH + 14, dx + g.HW, dy - 6]); // the house
+    r.push([dx - SW - 6, top - 8, dx + SW + 6, top + 8]); // the back fence
     for (const sd of [-1, 1]) {
-      r.push(sd < 0 ? [dx - SW - 6, gy - 8, dx - 48, gy + 8] : [dx + 48, gy - 8, dx + SW + 6, gy + 8]); // gate fence
-      r.push(sd < 0 ? [dx - SW - 8, dy - 6, dx - SW + 8, gy + 8] : [dx + SW - 8, dy - 6, dx + SW + 8, gy + 8]); // side fences
-      r.push([dx + sd * 64 - 10, dy + 4, dx + sd * 64 + 10, dy + 16]); // gargoyles
+      r.push(sd < 0 ? [dx - SW - 6, gy - 8, dx - GO + 16, gy + 8] : [dx + GO - 16, gy - 8, dx + SW + 6, gy + 8]); // the fence either side of the gate
+      r.push(sd < 0 ? [dx - SW - 8, top - 8, dx - SW + 8, gy + 8] : [dx + SW - 8, top - 8, dx + SW + 8, gy + 8]); // side fences
+      r.push([dx + sd * 78 - 11, dy + 6, dx + sd * 78 + 11, dy + 18]); // gargoyles
     }
+    r.push([g.F[0] - 90, g.F[1] - 54, g.F[0] + 90, g.F[1] + 30]); // the fountain
+    r.push([g.shed[0] - 98, g.shed[1] - 74, g.shed[0] + 98, g.shed[1] - 2]); // the shed
     g._rects = r;
     return r;
+  }
+  // the grounds and a wide band around them are silent: no wild Pokémon appear there at all
+  function silentAt(x, y) {
+    if (!on() || st.inside) return false;
+    const g = geom();
+    if (!g) return false;
+    return x > g.D[0] - g.SW - 520 && x < g.D[0] + g.SW + 520 && y > g.top - 520 && y < g.G[1] + 420;
+  }
+
+  // ---------------------------------------------------------------- exterior: drawing the house and its grounds
+  const ART = window.PSXAI_MANSION_ART || { mansion: { w: 466, h: 170, wins: [] }, shed: { w: 61, h: 60 } };
+  const img = (src) => { const i = new Image(); i.src = src; return i; };
+  const IMG = { house: img('assets/env/mansion_big.png'), shed: img('assets/env/shed.png') };
+  const ok = (i) => i.complete && i.naturalWidth > 0;
+  // how far each big piece reaches from its anchor, so it isn't culled while any of it is on screen
+  const EXT = { mansion: [-470, -350, 470, 0], mgate: [-240, -330, 240, 10], fountain: [-110, -150, 110, 40], shed: [-110, -200, 110, 6] };
+  function drawItem(ctx, it) {
+    switch (it.k) {
+      case 'mansion': {
+        const A = ART.mansion;
+        if (ok(IMG.house)) ctx.drawImage(IMG.house, Math.round(it.x - A.w), Math.round(it.y - A.h * 2), A.w * 2, A.h * 2);
+        // worn stone steps up to the door
+        ctx.fillStyle = '#4a4450'; ctx.fillRect(Math.round(it.x - 46), Math.round(it.y - 4), 92, 8);
+        ctx.fillStyle = '#5c5662'; ctx.fillRect(Math.round(it.x - 40), Math.round(it.y + 4), 80, 6);
+        break;
+      }
+      case 'mgate': drawGate(ctx, it); break;
+      case 'fountain': drawFountain(ctx, it); break;
+      case 'shed': drawShed(ctx, it); break;
+      case 'mcandle': drawCandle(ctx, it); break;
+    }
+  }
+  // tall gate leaves standing open under a wrought-iron arch
+  function drawGate(ctx, it) {
+    const x = Math.round(it.x), y = Math.round(it.y) - 10, w = it.w;
+    const H = 156; // the pillars' height
+    ctx.save();
+    ctx.strokeStyle = '#1e1a22'; ctx.fillStyle = '#1e1a22';
+    // the open leaves, swung back against the inside of the fence
+    for (const sd of [-1, 1]) {
+      const x0 = x + sd * (w - 18), x1 = x + sd * (w - 84);
+      for (let k = 0; k <= 7; k++) {
+        const t = k / 7, bx = x0 + (x1 - x0) * t, by = y - 6 - t * 34;
+        ctx.fillRect(Math.round(bx) - 1, Math.round(by - 104), 3, 104);
+        ctx.fillRect(Math.round(bx) - 2, Math.round(by - 112), 5, 6); // spear tips
+      }
+      ctx.lineWidth = 3;
+      for (const hy of [92, 54, 14]) { ctx.beginPath(); ctx.moveTo(x0, y - 6 - hy); ctx.lineTo(x1, y - 40 - hy); ctx.stroke(); }
+    }
+    // the arch: two bands of iron between the pillar tops, scrollwork and spikes along the top
+    ctx.lineWidth = 4;
+    for (const off of [0, 16]) {
+      ctx.beginPath(); ctx.moveTo(x - w, y - H + 4 + off);
+      ctx.quadraticCurveTo(x, y - H - 120 + off, x + w, y - H + 4 + off); ctx.stroke();
+    }
+    ctx.lineWidth = 2;
+    for (let k = -5; k <= 5; k++) {
+      const t = (k + 5) / 10, ax = x - w + 2 * w * t, ay = (1 - t) * (1 - t) * (y - H + 4) + 2 * (1 - t) * t * (y - H - 120) + t * t * (y - H + 4);
+      ctx.beginPath(); ctx.moveTo(ax, ay + 4); ctx.lineTo(ax, ay + 12); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax, ay - 10); ctx.stroke();
+      ctx.beginPath(); ctx.arc(ax, ay + 8, 3, 0, 6.283); ctx.stroke();
+    }
+    // a crest in the middle, its letters long rusted away
+    ctx.fillStyle = '#2c2630'; ctx.beginPath(); ctx.arc(x, y - H - 54, 15, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = '#5a4c5e'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#7a3e8a'; ctx.fillRect(x - 3, y - H - 60, 6, 10);
+    ctx.restore();
+  }
+  // a fountain that stopped working long ago: a dry basin, cracked tiers, moss and dead leaves
+  function drawFountain(ctx, it) {
+    ctx.save();
+    ctx.translate(Math.round(it.x), Math.round(it.y)); ctx.scale(1.4, 1.4);
+    const x = 0, y = 0;
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(x, y + 10, 72, 26, 0, 0, 6.283); ctx.fill();
+    // the basin
+    ctx.fillStyle = '#5d5862'; ctx.beginPath(); ctx.ellipse(x, y - 6, 66, 30, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = '#4a4550'; ctx.fillRect(x - 66, y - 6, 132, 14); ctx.beginPath(); ctx.ellipse(x, y + 8, 66, 30, 0, 0, Math.PI); ctx.fill();
+    ctx.fillStyle = '#2a2530'; ctx.beginPath(); ctx.ellipse(x, y - 8, 56, 22, 0, 0, 6.283); ctx.fill(); // dry, dark inside
+    ctx.fillStyle = '#3a4a2c'; for (const [mx, my, mw] of [[-38, -10, 14], [20, -2, 10], [-6, -18, 8], [30, -14, 12]]) ctx.fillRect(x + mx, y + my, mw, 3); // moss
+    ctx.fillStyle = '#6b4a2a'; for (const [lx, ly] of [[-24, -4], [12, -14], [34, -6], [-44, -14], [4, 0]]) ctx.fillRect(x + lx, y + ly, 4, 2); // dead leaves
+    ctx.strokeStyle = '#1c1820'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + 46, y - 18); ctx.lineTo(x + 38, y - 4); ctx.lineTo(x + 44, y + 10); ctx.stroke(); // a crack in the rim
+    // the pedestal and its tiers
+    ctx.fillStyle = '#6a6470'; ctx.fillRect(x - 9, y - 58, 18, 52);
+    ctx.fillStyle = '#7a7480'; ctx.fillRect(x - 9, y - 58, 4, 52);
+    ctx.fillStyle = '#5d5862'; ctx.beginPath(); ctx.ellipse(x, y - 58, 32, 10, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = '#2a2530'; ctx.beginPath(); ctx.ellipse(x, y - 60, 24, 6, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = '#6a6470'; ctx.fillRect(x - 5, y - 86, 10, 26);
+    ctx.fillStyle = '#5d5862'; ctx.beginPath(); ctx.ellipse(x, y - 86, 16, 6, 0, 0, 6.283); ctx.fill();
+    // what's left of the figure on top: a broken stump
+    ctx.fillStyle = '#7a7480'; ctx.fillRect(x - 4, y - 100, 8, 14); ctx.fillStyle = '#4a4550'; ctx.fillRect(x - 4, y - 102, 3, 4); ctx.fillRect(x + 1, y - 100, 3, 2);
+    // a stain where the water used to run
+    ctx.fillStyle = 'rgba(30,50,40,0.5)'; ctx.fillRect(x - 3, y - 56, 2, 50); ctx.fillRect(x + 4, y - 84, 2, 24);
+    ctx.restore();
+  }
+  // the shed: its double doors bang open and shut on their own (shedDoor in tick)
+  function drawShed(ctx, it) {
+    ctx.save();
+    ctx.translate(Math.round(it.x), Math.round(it.y)); ctx.scale(1.6, 1.6);
+    const A = ART.shed, x = 0, y = 0;
+    if (ok(IMG.shed)) ctx.drawImage(IMG.shed, x - A.w, y - A.h * 2, A.w * 2, A.h * 2);
+    const open = st.shedOpen || 0;
+    ctx.fillStyle = '#0a070c'; ctx.fillRect(x - 22, y - 50, 44, 48); // the dark inside
+    for (const sd of [-1, 1]) {
+      const k = sd < 0 ? open : open * 0.6;
+      const w = Math.max(3, Math.round(22 * (1 - k)));
+      const dx = sd < 0 ? x - 22 : x + 22 - w;
+      ctx.fillStyle = '#4a3428'; ctx.fillRect(dx, y - 50, w, 48);
+      ctx.fillStyle = '#2e2018'; ctx.fillRect(dx + (sd < 0 ? w - 2 : 0), y - 50, 2, 48);
+      if (w > 10) { ctx.fillStyle = '#6a5040'; ctx.fillRect(dx + 2, y - 40, w - 4, 2); ctx.fillRect(dx + 2, y - 16, w - 4, 2); }
+    }
+    ctx.restore();
+  }
+  // a small candle; now and then its flame turns purple for a moment
+  function drawCandle(ctx, it) {
+    const x = Math.round(it.x), y = Math.round(it.y);
+    ctx.fillStyle = '#2a2228'; ctx.fillRect(x - 4, y - 2, 8, 3);
+    ctx.fillStyle = '#e8dcc4'; ctx.fillRect(x - 2, y - 11, 4, 9);
+    ctx.fillStyle = '#c8b898'; ctx.fillRect(x + 1, y - 11, 1, 9);
+    if (!it.lit) return;
+    const purple = AI.Decor.ghostly(it);
+    const fl = Math.sin(AI.time * 13 + it.id) > 0 ? 1 : 0;
+    ctx.fillStyle = purple ? '#b070ff' : '#ffb040'; ctx.fillRect(x - 1, y - 16 - fl, 3, 5);
+    ctx.fillStyle = purple ? '#e8d0ff' : '#fff0b0'; ctx.fillRect(x, y - 14 - fl, 1, 2);
+  }
+  // the shed's doors bang now and then while you're anywhere near
+  function shedDoor(dt) {
+    const g = geom(), p = AI.R.Game.player;
+    if (!g || !p) return;
+    const d = Math.hypot(p.x - g.shed[0], p.y - g.shed[1]);
+    if (st.shedT == null) st.shedT = 3;
+    st.shedT -= dt;
+    if (st.shedPh > 0) {
+      st.shedPh -= dt;
+      st.shedOpen = Math.sin(Math.min(1, 1 - st.shedPh / 0.5) * Math.PI) * 0.9;
+      if (st.shedPh <= 0) { st.shedOpen = 0; if (d < 900) sfx('slam', g.shed[0], g.shed[1]); }
+    } else if (st.shedT <= 0 && d < 1100) {
+      st.shedT = U.rand(4, 11);
+      st.shedPh = 0.5;
+      if (Math.random() < 0.35) st.shedT = 0.8; // and sometimes twice in a row
+    }
+  }
+  // any wild Pokémon still on or around the grounds slips away: the place is dead silent
+  function hush() {
+    const R = AI.R;
+    if (R.Coop && R.Coop.active && !R.Coop.isHost) return;
+    for (const e of R.EnemyMgr.all()) {
+      if (e.dead || e.psxStory || e.boss || e.legend || e.judge || e.remote || !silentAt(e.x, e.y)) continue;
+      try { if (AI.EnvBeh) AI.EnvBeh.removeNpc(e); else e.dead = true; } catch (err) { e.dead = true; }
+    }
   }
   function pushOut(ent, rects) {
     const rr = ent.r || 12;
@@ -86,7 +238,7 @@
     if (!on() || !ent) return false;
     const g = geom();
     if (!g) return false;
-    if (Math.abs(ent.x - g.D[0]) > g.SW + 80 || ent.y < g.D[1] - 340 || ent.y > g.G[1] + 60) return false;
+    if (Math.abs(ent.x - g.D[0]) > g.SW + 80 || ent.y < g.top - 40 || ent.y > g.G[1] + 60) return false;
     return pushOut(ent, exteriorRects());
   }
   function blockedExterior(x, y, r) {
@@ -581,6 +733,9 @@
     const g = geom();
     if (!g) return;
     if (!st.inside) {
+      shedDoor(dt);
+      st.hushT = (st.hushT || 0) - dt;
+      if (st.hushT <= 0) { st.hushT = 0.5; hush(); }
       // the front door
       const [dx, dy] = g.D;
       const ay = (R.Input && R.Input._rawAxis) ? (R.Input._rawAxis() || [0, 0])[1] : -1;
@@ -620,7 +775,7 @@
   }
 
   AI.define('Mansion', {
-    st, TS, COLS, ROWS, ROOMS, geom, on, clearAt, collideExterior, blockedExterior, exteriorRects,
+    st, TS, COLS, ROWS, ROOMS, EXT, geom, on, clearAt, silentAt, drawItem, collideExterior, blockedExterior, exteriorRects,
     interior: I, inInterior, tileAt, roomAt, solidsNear, collide, freeAt, openDoor, closeDoor, propRect,
     drawInterior, visibleProps, drawProp, drawAir, lights, ambient, enter, exit, fadeTo, tick, drawScreen, reset, sfx, snapCamera,
     get inside() { return st.inside; },

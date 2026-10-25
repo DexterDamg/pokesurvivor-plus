@@ -66,7 +66,7 @@
     const set = new Map();
     const add = (x, y) => { const cx = Math.floor(x / CH), cy = Math.floor(y / CH); set.set(cx + ',' + cy, [cx, cy]); };
     for (const p of g.dense) { add(p[0] - 80, p[1] - 80); add(p[0] + 80, p[1] + 80); add(p[0] - 80, p[1] + 80); add(p[0] + 80, p[1] - 80); }
-    for (const c of boxChunks([g.D[0] - g.SW - 120, g.D[1] - 360, g.D[0] + g.SW + 120, g.G[1] + 120], [])) set.set(c.join(','), c);
+    for (const c of boxChunks([g.D[0] - g.SW - 120, g.top - 120, g.D[0] + g.SW + 120, g.G[1] + 120], [])) set.set(c.join(','), c);
     return [...set.values()];
   }
   // is this a good place for the mansion? (unseen ground, dry, no mystery site, nobody nearby)
@@ -79,7 +79,7 @@
     }
     if (Math.hypot(g.S[0], g.S[1]) < 900) return false; // not on top of where the run started
     if (F) {
-      const pts = g.dense.filter((q, i) => i % 3 === 0).concat([[g.D[0], g.D[1] - 150], [g.D[0] - g.SW, g.D[1]], [g.D[0] + g.SW, g.D[1]], [g.D[0] - g.SW, g.G[1]], [g.D[0] + g.SW, g.G[1]], g.G]);
+      const pts = g.dense.filter((q, i) => i % 3 === 0).concat([[g.D[0], g.D[1] - 150], [g.D[0] - g.SW, g.D[1]], [g.D[0] + g.SW, g.D[1]], [g.D[0] - g.SW, g.G[1]], [g.D[0] + g.SW, g.G[1]], g.G, [g.D[0], g.top], [g.D[0] - g.SW, g.top], [g.D[0] + g.SW, g.top], g.F]);
       for (const q of pts) {
         if (F.water(q[0], q[1]).e > -90) return false;
         if (F.region(q[0], q[1]).siteK > 0.02) return false;
@@ -138,7 +138,7 @@
       // the game's own terrain cache: World.setArena clears the chunks around a point (rift arenas use it)
       const W = R.World;
       if (W.setArena && !(R.Rift && R.Rift.inArena) && !W.arena) {
-        const pts = g.dense.filter((q, i) => i % 6 === 0).concat([g.D, [g.D[0] - g.SW, g.D[1]], [g.D[0] + g.SW, g.D[1]], g.G, [g.D[0], g.D[1] - 300]]);
+        const pts = g.dense.filter((q, i) => i % 6 === 0).concat([g.D, [g.D[0] - g.SW, g.D[1]], [g.D[0] + g.SW, g.D[1]], g.G, g.F, [g.D[0], g.D[1] - 300], [g.D[0], g.top + 200], [g.D[0] - g.SW, g.top + 200], [g.D[0] + g.SW, g.top + 200]]);
         for (const q of pts) W.setArena({ tx: Math.round(q[0] / TS), ty: Math.round(q[1] / TS), r: 1, type: 'normal' });
         W.setArena(null);
       }
@@ -186,11 +186,11 @@
     if (st.geo) approach(dt, p, inside);
     // progress
     if (st.geo && !st.found) {
-      const g = st.geo;
-      if (Math.hypot(p.x - g.D[0], p.y - (g.D[1] + 330)) < 420 || (R.Camera.sees && R.Camera.sees(g.D[0], g.D[1] + 330, 0))) {
+      const G = (AI.Mansion && AI.Mansion.geom() || AI.Decor.mansionGeom(st.geo.S, st.geo.D)).G; // (at the gates)
+      if (Math.hypot(p.x - G[0], p.y - G[1]) < 420 || (R.Camera.sees && R.Camera.sees(G[0], G[1], 0))) {
         st.found = true;
         if (st.phase === 'route') st.phase = 'found';
-        AI.Bus.emit({ type: 'journey', what: 'found', x: g.D[0], y: g.D[1] + 330, loud: 0 });
+        AI.Bus.emit({ type: 'journey', what: 'found', x: G[0], y: G[1], loud: 0 });
         save(); sync(true);
       }
     }
