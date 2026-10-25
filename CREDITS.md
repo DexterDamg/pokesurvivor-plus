@@ -203,7 +203,7 @@ bosque encantado del "entorno vivo" (`assets/env/atlas.png`) salen de estas hoja
   (`js/ai/34-forest.js`).
   *(Falta indicar aquí el autor original de cada una de estas hojas.)*
 
-Iconos de objetos de `assets/items` (Piedra Espíritu, Ala Plateada, Ala Arcoíris, esferas, cristales y fragmentos):
+Iconos de objetos de `assets/items` (Piedra Espíritu, Orbes, Piedras Oscura y Clara, Trozo Estrella, Célula de Zygarde, amuletos de Mesprit y Azelf, Alas…):
 material aportado por DexterDamg para PokéSurvivor+.
 
 Los sonidos de ambiente (pájaros, grillos, lluvia, viento, truenos, caja de
