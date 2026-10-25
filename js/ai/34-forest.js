@@ -233,11 +233,10 @@
   // trees on a jittered grid: even, natural spacing; density by region; none in water, on paths or in sites
   function trees(biome, grove, tx, ty) {
     if (biome !== 0 || !AI.enabled || AI.cfg.forestWorld === false || !AI.Decor) return null;
-    const x = (tx + 0.5) * TS, y = (ty + 0.5) * TS;
+    const x = (tx + 0.5) * TS, y = (ty + 0.5) * TS, by = (ty + 1) * TS - 4; // (the game stands the trunk at the tile's foot)
     const p = plan();
-    const w = water(x, y);
-    if (w.e > -26) return -1;
-    if (pathDist(x, y) < 18) return -1;
+    if (water(x, y).e > -26 || water(x, by).e > -26) return -1;
+    if (pathDist(x, y) < 18 || pathDist(x, by) < 18) return -1;
     const r = region(x, y);
     if (r.siteK > 0.2 || r.clear > 0.35) return -1;
     // one grid for the whole forest (so neighbouring regions never crowd each other); the region

@@ -906,11 +906,12 @@ async function sample(h, ms, every, fn, arg) {
     const r = await h.R(async () => {
       const C = PSXAI.Companions, R = __PSX_REG__, p = R.Game.player;
       const wait = (ms) => new Promise((res) => setTimeout(res, ms));
-      PSXAI.cfg.pseudoPlayers = true; C.st.humansOverride = 3; // one place: we fill it by hand
+      PSXAI.cfg.pseudoPlayers = true; C.st.humansOverride = 2; // two places (Charmander's and Froakie's): we fill them by hand
       for (const c of C.list().slice()) C.dismiss(c, true);
       await wait(300);
       const timid = C.spawn(4, { nature: 'timid', x: p.x + 60, y: p.y });
       const brave = C.spawn(656, { nature: 'brave', x: p.x - 60, y: p.y });
+      C.st.allocT = 30; // (and nobody reshuffles the party mid-test)
       PSXAI.Sky.set({ hour: 0.5, day: 0 });
       PSXAI.Light.reset();
       timid.psx.pers.tr.bravery = 0.15; brave.psx.pers.tr.bravery = 0.85;
