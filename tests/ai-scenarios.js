@@ -1458,7 +1458,7 @@ async function sample(h, ms, every, fn, arg) {
       for (let i = 0; i < 80 && T.busy(); i++) { await wait(200); if (R.Input.axis()[0] === 0) locked = true; if (S.st.strikes.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < 200)) strike = true; }
       const b = T.st.battle;
       const out = { dayStorm, lightRain, seen, scene, locked, strike, battle: !!b, dex: b && b.e.dex, boss: b && !!b.e.boss };
-      if (b) b.e.hurt(b.e.maxHp * 10, '#fff', 0, 0, 0);
+      if (b) { b.e.hurt(b.e.maxHp * 10, '#fff', 0, 0, 0); R.Pickups.clear(); } // (its EXP would level you up, and the level-up cards pause the game)
       await wait(600);
       out.owned = !!(R.DB.save.owned || {})[243]; out.legend = !!(R.DB.save.legends || {})[243];
       return out;
@@ -1486,7 +1486,7 @@ async function sample(h, ms, every, fn, arg) {
       for (let i = 0; i < 100 && T.busy(); i++) await wait(200);
       const b = T.st.battle;
       const out = { night, thin, seen, scene, parting, walking, battle: !!b, dex: b && b.e.dex };
-      if (b) b.e.hurt(b.e.maxHp * 10, '#fff', 0, 0, 0);
+      if (b) { b.e.hurt(b.e.maxHp * 10, '#fff', 0, 0, 0); R.Pickups.clear(); } // (its EXP would level you up, and the level-up cards pause the game)
       await wait(600);
       out.owned = !!(R.DB.save.owned || {})[245]; out.fogBack = !(S.st.forced && S.st.forced.fog != null);
       return out;
@@ -1510,7 +1510,7 @@ async function sample(h, ms, every, fn, arg) {
       for (let i = 0; i < 100 && T.busy(); i++) await wait(200);
       const b = T.st.battle;
       const out = { before, rain, scene, battle: !!b, dex: b && b.e.dex };
-      if (b) b.e.hurt(b.e.maxHp * 10, '#fff', 0, 0, 0);
+      if (b) { b.e.hurt(b.e.maxHp * 10, '#fff', 0, 0, 0); R.Pickups.clear(); } // (its EXP would level you up, and the level-up cards pause the game)
       await wait(600);
       out.owned = !!(R.DB.save.owned || {})[244];
       PSXAI.cfg.enteiChance = null;
