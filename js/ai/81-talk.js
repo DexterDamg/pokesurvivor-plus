@@ -1,8 +1,8 @@
 /* PokéSurvivor+ — Living World AI · who's talking: Mystery Dungeon dialogue boxes
  * Every Pokémon that matters speaks in a proper box with its PMD portrait (SpriteCollab), its name
  * and its words, typed out with a voice:
- *  - left:  the important Pokémon of the party — you, the other players, the pseudo players. At most
- *           two boxes at a time; a third speaker takes the place of the oldest.
+ *  - left:  the important Pokémon of the party — you and the other players. At most two boxes at a
+ *           time; a third speaker takes the place of the oldest.
  *  - right: important NPCs — Gengar, Dusknoir, the mansion's residents. At most two as well.
  *  - the legendary box: one large box, only ever used when a Legendary or Mythical Pokémon appears
  *           or speaks during its battle. Nobody else can use it. Until you know what it is, its name
@@ -73,7 +73,7 @@
     try { if (!AI.R.DEX_BY[dex]) return MYTHIC.has(dex); return AI.Legend ? AI.Legend.isLegendDex(dex) || MYTHIC.has(dex) : MYTHIC.has(dex); } catch (e) { return false; }
   }
   function nameOf(dex) { const d = AI.R.DEX_BY[dex]; return d ? d.name : dex === 893 ? 'Zarude' : '???'; }
-  // who: 'player' | an entity (player, puppet, companion, enemy) | {dex, name, col, voice, kind, key}
+  // who: 'player' | an entity (player, puppet, enemy) | {dex, name, col, voice, kind, key}
   function speaker(who, kind) {
     const R = AI.R;
     if (who === 'player') who = R.Game.player;

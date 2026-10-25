@@ -65,7 +65,7 @@ too.
   down, and **the Totem** itself rises at the heart of the maze (Totem Mimikyu for Ghost, Lurantis
   for Grass, Vikavolt for Electric…).
 - **Defeat it for its Z-Crystal.** You're brought back to where you stood.
-- No outside Pokémon, bosses or rifts reach you in the maze. Your companions come along.
+- No outside Pokémon, bosses or rifts reach you in the maze.
 
 ## Dynamax
 

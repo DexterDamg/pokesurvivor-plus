@@ -111,8 +111,6 @@ shows the tide while you're at sea.
   shore, and keep pushing toward it.
   - You step onto land, never into open water.
   - The boat stays exactly where you left it, so a way back is always there.
-- **Companions:** ones who can't swim (Charmander, Sprigatito…) ride with you. Froakie swims
-  alongside.
 - **Co-op:** each player's game sails its own boats. A player seen out on deep water is drawn
   in a boat.
 
@@ -266,9 +264,7 @@ Deoxys, which islands you've set foot on, which inscriptions you've read, and th
 - **Leaping Magikarp:** a school of them jumps out of the water near you.
 - **Fish schools:** small fish move through the clear shallows and scatter from you.
 - **At night:** the shrine and the unread stones glow.
-- **Discoveries:** each island's name appears the first time you set foot on it. The party
-  reacts to the boats, islands, wrecks, the ghost ship, the storms, the fog, the lighthouse and
-  the great shadow.
+- **Discoveries:** each island's name appears the first time you set foot on it.
 
 ## The lighthouse
 

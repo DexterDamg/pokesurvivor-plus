@@ -143,8 +143,7 @@ The Haunted Mansion is the Shady Forest's end stage and the only way to complete
 
 Some runs (about three in five), an old stone well stands somewhere in the forest: mossy stones, a
 rotten little roof, a rope that ends in nothing, a bucket on its side in the weeds. It's placed out
-of sight and never announced; finding it is worth a little EXP, and the party has something to
-say about it.
+of sight and never announced; finding it is worth a little EXP.
 
 - Up close the air goes still and a cold mist breathes out of the shaft. At night something drips
   far, far down, now and then something whispers, and once in a while two red points look up.
@@ -185,11 +184,11 @@ the same thing twice in a row, most of them once a run), something happens:
 
 | | |
 |---|---|
-| **A lost Pokémon** | crying under a tree. Stay with it until it calms and its parent comes running to thank you (with something for your journey). Walk on, and the party remembers |
+| **A lost Pokémon** | crying under a tree. Stay with it until it calms and its parent comes running to thank you (with something for your journey). Or walk on |
 | **Strange tracks** | a trail of large prints that leads somewhere and stops at something buried |
 | **Lights between the trees** | at night: Volbeat, or candle flames that giggle and go out |
-| **A sudden silence** | the forest's sounds really stop; the party grows uneasy; something passes, or doesn't |
-| **A fallen tree** | it crashes down across the way. Go around, or a Fire-type burns it clear (a Fire companion offers) |
+| **A sudden silence** | the forest's sounds really stop; something passes, or doesn't |
+| **A fallen tree** | it crashes down across the way. Go around, or a Fire-type player burns it clear |
 | **Distant voices** | a call for help from nowhere, from the direction of the old house; walk toward it and it stops |
 | **A campsite** | other explorers were here: a smouldering fire, a barrel, a note, supplies (lantern oil, a berry, coins) |
 
@@ -200,8 +199,8 @@ child, the clock, the mirror and the tall one, and some only make sense once you
 
 ## EXP for more than fighting (`91-exp.js`)
 
-Battles still pay as before; now discovery, kindness and teamwork level you up too. Rewards are
-measured in *a common wild Pokémon's worth at your level*, so they stay in proportion as you grow.
+Battles still pay as before; now discovery and kindness level you up too. Rewards are measured in
+*a common wild Pokémon's worth at your level*, so they stay in proportion as you grow.
 
 - **Exploring:** new ground reached on foot (never twice; standing still, walking in circles or
   being teleported earns nothing), distance milestones, each kind of place the first time (a
@@ -210,8 +209,6 @@ measured in *a common wild Pokémon's worth at your level*, so they stay in prop
 - **Treasure:** chests by rarity (a big chest more than a small one), half again for a chest
   hidden off the beaten path; each chest pays once. (The chests' own EXP drop is unchanged.)
 - **Pokémon:** befriending a wild Pokémon, sparing a beaten one, watching wildlife.
-- **Teamwork:** helping a fallen companion up, saving a hurt one, the companions' own rescues and
-  berries.
 - **The world:** journal clues, sightings, confirmed mysteries, the old lanterns and fences on the
   way, forest events, the forest's history.
 - **No farming:** past a rolling limit (about 40 battles' worth in 5 minutes) every reward shrinks
@@ -294,7 +291,7 @@ pauses while you read. In co-op it can't pause the world for everyone, so it sta
 | `forestTraps` | off | the game's hidden floor traps in the Shady Forest |
 | `mansionAfter` | 1200 s | active forest time before the mansion is placed |
 | `forestEvents` | on | the forest's events and its history |
-| `exploreExp` | on | EXP for exploring, treasure, kindness and teamwork |
+| `exploreExp` | on | EXP for exploring, treasure and kindness |
 | `maxNpcs` / `maxResidents` | 24 / 10 | roaming Pokémon / tree residents at once |
 | `treeDensity` | 1 | how many trees grow |
 | `legendTrio` | on | Raikou, Suicune and Entei can be earned |

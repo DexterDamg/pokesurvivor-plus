@@ -106,7 +106,7 @@ flash setting.
 Pokémon speak in proper dialogue, Mystery Dungeon style, never by repeating their names. Each
 speaker gets a box with their PMD portrait, their name and a text that types out with a
 per-character voice: you and your party on the left, the residents on the right, at most two a
-side (see [PARTY.md](PARTY.md#dialogue-boxes-81-talkjs)). The narration keeps the box at the
+side (see [NATURES_AND_DIALOGUE.md](NATURES_AND_DIALOGUE.md#dialogue-boxes-81-talkjs)). The narration keeps the box at the
 bottom.
 Advance with **Space**, **Enter**, **E**, **Z** or a click or tap. You can't move while a scene
 plays.

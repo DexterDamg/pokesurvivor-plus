@@ -170,11 +170,9 @@
       return before - victim.hp;
     }
     if (!AI.cfg.friendlyFire && accidental) return 0;
-    if (victim.pp) return 0; // (Pseudo Players are hit through the party's own path)
     const dmg = npcVsNpc(e, m, victim) * mult;
     const d = m.def;
-    if (e.psxCompanion && AI.Companions) AI.Companions.hurtFoe(victim, dmg, e, R.U.TYPE_COLOR[m.type] || '#fff', kx, ky, knock || d.knock || 30);
-    else AI.hurtNpc(victim, dmg, e, R.U.TYPE_COLOR[m.type] || '#fff', kx, ky, knock || d.knock || 30, accidental);
+    AI.hurtNpc(victim, dmg, e, R.U.TYPE_COLOR[m.type] || '#fff', kx, ky, knock || d.knock || 30, accidental);
     if (!victim.dead) {
       if (d.slow) victim.applySlow(Math.min(0.6, d.slow), 1.4);
       if (d.burn && Math.random() < 0.4) victim.applyBurn(1);
@@ -194,7 +192,7 @@
   function begin(e, s, m, target, aimX, aimY) {
     const c = s.combat;
     c.cast = { m, t: 0, target, ax: aimX, ay: aimY, ang: Math.atan2(aimY - e.y, aimX - e.x), fired: false };
-    m.cdLeft = m.cd * (1 + (Math.random() - 0.5) * 0.2) * ((e.pp && e.pp.cdMul) || 1); // (a companion's held item or power crystal)
+    m.cdLeft = m.cd * (1 + (Math.random() - 0.5) * 0.2);
     m.uses++;
     const anim = { shot: 'Shoot', beam: 'Charge', zap: 'Charge', rain: 'Charge', melee: 'Attack', dash: 'Charge', pulse: 'Charge', buff: 'Charge', leap: 'Charge', splash: 'Hurt' }[m.cls] || 'Charge';
     e.anim.play(anim, { speed: anim === 'Attack' ? 1.6 : 1.2 });

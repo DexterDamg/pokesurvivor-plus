@@ -29,12 +29,8 @@ function installHelpers() {
     AI.Sky.set({ hour: 12, day: 0, fog: 0, rain: 0, storm: 0, wind: 0.1, cloud: 0.1, snow: 0, wet: 0, snowCover: 0, season: 'spring', freeze: true });
     AI.Lore.reset();
     AI.Light.reset();
-    // (no Pseudo Players unless a scenario is about them)
-    AI.cfg.pseudoPlayers = false;
     AI.cfg.forestEvents = false; AI.Events.reset();
     AI.cfg.exploreExp = false;
-    for (const c of AI.Companions.list().slice()) AI.Companions.dismiss(c, true);
-    AI.Companions.st.humansOverride = 0;
     AI.Talk.reset();
     AI.Totem.reset();
     // (no legendary shadows or old well unless a scenario is about them)
@@ -744,14 +740,14 @@ async function sample(h, ms, every, fn, arg) {
       T.reset();
       for (let i = 0; i < 40 && !T.manifest; i++) await wait(50);
       T.say('player', 'Did anyone else hear that?');
-      T.party({ dex: 656, name: 'Froakie', key: 'f' }, 'Hear what? Haha!');
+      T.party({ dex: 7, name: 'Squirtle', key: 'f' }, 'Hear what? Haha!');
       T.npc({ dex: 94, name: 'Gengar', key: 'g', col: '#a77be0' }, 'Kekeke!');
       T.npc({ dex: 477, name: 'Dusknoir', key: 'd' }, '…Enough.');
-      T.party({ dex: 906, name: 'Sprigatito', key: 's' }, 'Mrrow.');
+      T.party({ dex: 1, name: 'Bulbasaur', key: 's' }, 'Bulba.');
       T.npc({ dex: 92, name: 'Gastly', key: 'ga' }, 'Boo!');
       await wait(900);
       const left = T.boxes.left.map((b) => b.who.name), right = T.boxes.right.map((b) => b.who.name);
-      const portraits = [656, 906, 477, 92].map((d) => !!T.portrait(d, 'Normal'));
+      const portraits = [7, 1, 477, 92].map((d) => !!T.portrait(d, 'Normal'));
       const emo = [T.emoFor('Kekeke! Got you!'), T.emoFor('…I don\'t like this.'), T.emoFor('What?! No way!?')];
       // words are typed out, then the box fades on its own
       const b = T.say('player', 'Short.', { life: 0.3 });
@@ -760,7 +756,7 @@ async function sample(h, ms, every, fn, arg) {
       T.reset();
       return { left, right, portraits, emo, faded, local: Object.keys(T.manifest || {}).length };
     });
-    const ok = r.left.length === 2 && r.left.includes('Sprigatito') && !r.left.includes('Pikachu') && r.right.length === 2 && r.right.includes('Gastly') && !r.right.includes('Gengar') && r.portraits.every(Boolean) && r.emo[0] === 'Joyous' && r.emo[1] === 'Worried' && r.emo[2] === 'Surprised' && r.faded && r.local > 30;
+    const ok = r.left.length === 2 && r.left.includes('Bulbasaur') && !r.left.includes('Pikachu') && r.right.length === 2 && r.right.includes('Gastly') && !r.right.includes('Gengar') && r.portraits.every(Boolean) && r.emo[0] === 'Joyous' && r.emo[1] === 'Worried' && r.emo[2] === 'Surprised' && r.faded && r.local > 30;
     return { pass: ok, detail: r };
   });
 
@@ -790,151 +786,8 @@ async function sample(h, ms, every, fn, arg) {
     return { pass: ok, detail: r };
   });
 
-  // ------------------------------------------------------------------ Pseudo Players
-  const party = (fn, arg) => h.R(async (a) => {
-    const C = PSXAI.Companions, R = __PSX_REG__, p = R.Game.player;
-    PSXAI.cfg.pseudoPlayers = true;
-    C.st.allocT = 0;
-    for (let i = 0; i < 30 && C.alive().length < (a.want != null ? a.want : 3); i++) await new Promise((res) => setTimeout(res, 100));
-    return true;
-  }, arg || {}).then(() => h.R(fn, arg));
-
-  await scenario(h, 'Pseudo Players fill the party: alone you travel with Charmander, Froakie and Sprigatito, each with its own Nature, marked as AI', async () => {
-    const r = await party(async () => {
-      const C = PSXAI.Companions, p = __PSX_REG__.Game.player;
-      await new Promise((res) => setTimeout(res, 600));
-      const L = C.list();
-      return {
-        dex: L.map((c) => c.dex).sort((a, b) => a - b), natures: L.map((c) => c.pp.nature), players: PSXAI.players.length,
-        sameLevel: L.every((c) => c.level === p.level), hp: L.map((c) => c.maxHp), playerHp: p.maxHp,
-        inDraw: L.every((c) => __PSX_REG__.EnemyMgr.drawables({ sees: () => true }).includes(c)), notWild: L.every((c) => !__PSX_REG__.EnemyMgr.all().includes(c)),
-      };
-    });
-    const ok = r.dex.join() === '4,656,906' && new Set(r.natures).size === 3 && r.players === 4 && r.sameLevel && r.hp.every((v) => v > r.playerHp * 0.7 && v <= r.playerHp) && r.inDraw && r.notWild;
-    return { pass: ok, detail: r };
-  });
-
-  await scenario(h, 'party places: 4 − humans companions, chosen to round out the party; one says goodbye when a human joins and one returns when they leave', async () => {
-    const r = await party(async () => {
-      const C = PSXAI.Companions;
-      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
-      const names = () => C.alive().map((c) => c.dex).sort((a, b) => a - b).join();
-      const solo = names();
-      C.st.humansOverride = 2; C.allocate(); await wait(3200);
-      const two = names(), leaving = C.list().length;
-      C.st.humansOverride = 3; C.allocate(); await wait(3200);
-      const three = names();
-      C.st.humansOverride = 4; C.allocate(); await wait(3200);
-      const four = names();
-      C.st.humansOverride = 1; C.allocate(); await wait(600);
-      const back = names();
-      // the picks for two places keep a light when the humans have none (Pikachu has no flame)
-      const pick2 = C.choose(2);
-      C.st.humansOverride = 0;
-      return { solo, two, three, four, back, pick2 };
-    });
-    const ok = r.solo === '4,656,906' && r.two.split(',').length === 2 && r.three.split(',').length === 1 && r.four === '' && r.back === '4,656,906' && r.pick2.includes(4);
-    return { pass: ok, detail: r };
-  });
-
-  await scenario(h, 'companions fight what threatens the party, leave peaceful Pokémon alone, and never hit you', async () => {
-    const r = await party(async () => {
-      const C = PSXAI.Companions, R = __PSX_REG__, p = R.Game.player;
-      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
-      PSXAI.Debug.freeze(false);
-      for (const c of C.list()) c.psx.pers.nx.impulsive = 0.3; // (no Rash surprises in this one)
-      const calm = PSXAI.Debug.spawn(16, { temp: 'neutral', dx: 120, dy: 60 });
-      await wait(3000);
-      const calmTargeted = C.list().some((c) => c.psx.combat && c.psx.combat.target === calm);
-      const foe = PSXAI.Debug.spawn(19, { temp: 'aggressive', dx: -150, hp: 160 });
-      const hurts0 = T.hurts.length;
-      let fought = 0;
-      const hp0 = foe.hp, foeBehs = new Set();
-      for (let i = 0; i < 50 && !foe.dead; i++) { await wait(400); fought = Math.max(fought, C.list().filter((c) => c.psx.combat && c.psx.combat.target === foe).length); if (foe.psx && foe.psx.beh) foeBehs.add(foe.psx.beh.id); }
-      PSXAI.Debug.freeze(true);
-      // (whatever hurt you came from the wild one: the companions' own shots are harmless to you)
-      const companionShotsAtYou = R.Projectiles.all().filter((q) => q.psxOwner && q.psxOwner.pp && !q.psxSafe).length;
-      return { calmTargeted, calmAlive: !calm.dead, fought, foeDown: foe.dead, foeLost: Math.round((1 - Math.max(0, foe.hp) / hp0) * 100), fled: foeBehs.has('flee') || foeBehs.has('retreat'), kills: p.kills, companionShotsAtYou };
-    });
-    // (beaten, or hurt and driven off: a wild Pokémon that's losing runs for it)
-    return { pass: !r.calmTargeted && r.calmAlive && r.fought >= 2 && (r.foeDown || r.foeLost > 60 || (r.fled && r.foeLost > 30)) && r.companionShotsAtYou === 0, detail: r };
-  });
-
-  await scenario(h, 'a fallen companion is helped up by its teammates (or gets up later), and remembers who helped', async () => {
-    const r = await party(async () => {
-      const C = PSXAI.Companions;
-      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
-      const c = C.list().find((q) => q.dex === 656);
-      const p = __PSX_REG__.Game.player;
-      c.x = p.x + 220; c.y = p.y; // (away from you: it's the others who come)
-      const t0 = C.rel(c.pp.key, 'char').trust + C.rel(c.pp.key, 'spri').trust;
-      c.hurt(9999, 'normal', false, 'phys');
-      const down = !!c.pp.downed;
-      await wait(400);
-      const going = C.list().filter((o) => o !== c && o.psx.beh.id === 'party-revive').length;
-      for (let i = 0; i < 20 && c.pp.downed; i++) await wait(400);
-      const t1 = C.rel(c.pp.key, 'char').trust + C.rel(c.pp.key, 'spri').trust;
-      return { down, going, up: !c.pp.downed, hp: Math.round(c.hp / c.maxHp * 100), trustUp: +(t1 - t0).toFixed(2) };
-    });
-    return { pass: r.down && r.going >= 1 && r.up && r.hp >= 30 && r.trustUp > 0.1, detail: r };
-  });
-
-  await scenario(h, 'they keep up without marching in a line: spread around you, never stacked, never left behind', async () => {
-    const r = await party(async () => {
-      const C = PSXAI.Companions, R = __PSX_REG__, p = R.Game.player;
-      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
-      let maxD = 0, minPair = 1e9;
-      const pos = [];
-      for (let i = 0; i < 40; i++) {
-        p.x += 18; p._vx = 120; await wait(100);
-        const L = C.alive();
-        for (const c of L) maxD = Math.max(maxD, Math.hypot(c.x - p.x, c.y - p.y));
-        for (let a = 0; a < L.length; a++) for (let b = a + 1; b < L.length; b++) minPair = Math.min(minPair, Math.hypot(L[a].x - L[b].x, L[a].y - L[b].y));
-      }
-      p._vx = 0;
-      await wait(2500);
-      const L = C.alive();
-      // the smallest arc around you that holds them all
-      const ang = L.map((c) => Math.atan2(c.y - p.y, c.x - p.x)).sort((a, b) => a - b);
-      let gap = 0;
-      for (let i = 0; i < ang.length; i++) gap = Math.max(gap, (i + 1 < ang.length ? ang[i + 1] : ang[0] + Math.PI * 2) - ang[i]);
-      const spread = Math.PI * 2 - gap;
-      const dist = L.map((c) => Math.round(Math.hypot(c.x - p.x, c.y - p.y)));
-      return { maxD: Math.round(maxD), minPair: Math.round(minPair), spread: +spread.toFixed(2), dist, behs: L.map((c) => c.psx.beh.id) };
-    });
-    return { pass: r.maxD < 650 && r.minPair > 10 && r.spread > 0.4 && r.dist.every((d) => d < 450), detail: r };
-  });
-
-  await scenario(h, 'Natures matter: a Timid companion hesitates in the dark and shelters behind a friend; a Brave one presses on', async () => {
-    const r = await h.R(async () => {
-      const C = PSXAI.Companions, R = __PSX_REG__, p = R.Game.player;
-      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
-      PSXAI.cfg.pseudoPlayers = true; C.st.humansOverride = 2; // two places (Charmander's and Froakie's): we fill them by hand
-      for (const c of C.list().slice()) C.dismiss(c, true);
-      await wait(300);
-      const timid = C.spawn(4, { nature: 'timid', x: p.x + 60, y: p.y });
-      const brave = C.spawn(656, { nature: 'brave', x: p.x - 60, y: p.y });
-      C.st.allocT = 30; // (and nobody reshuffles the party mid-test)
-      PSXAI.Sky.set({ hour: 0.5, day: 0 });
-      PSXAI.Light.reset();
-      timid.psx.pers.tr.bravery = 0.15; brave.psx.pers.tr.bravery = 0.85;
-      const seen = { timid: new Set(), brave: new Set() };
-      // a ghost turns up
-      PSXAI.Debug.freeze(false);
-      const g = PSXAI.Debug.spawn(92, { temp: 'aggressive', dx: 200, hp: 400 });
-      let fearT = 0, fearB = 0;
-      for (let i = 0; i < 30; i++) { await wait(300); seen.timid.add(timid.psx.beh.id); seen.brave.add(brave.psx.beh.id); fearT = Math.max(fearT, timid.psx.mind.emo.fear); fearB = Math.max(fearB, brave.psx.mind.emo.fear); }
-      PSXAI.Debug.freeze(true);
-      g.dead = true;
-      C.st.humansOverride = 0;
-      return { timid: [...seen.timid], brave: [...seen.brave], fearT: +fearT.toFixed(2), fearB: +fearB.toFixed(2), natures: [timid.pp.nature, brave.pp.nature] };
-    });
-    const cautious = r.timid.some((b) => b === 'party-hesitate' || b === 'party-shelter' || b === 'retreat');
-    const ok = r.fearT > r.fearB + 0.15 && cautious && r.brave.includes('fight') && !r.brave.includes('party-shelter');
-    return { pass: ok, detail: r };
-  });
-
-  await scenario(h, 'Natures shape wild Pokémon too: fear comes faster to a Timid one than a Brave one, anger to a Rash one', async () => {
+  // ------------------------------------------------------------------ Natures
+  await scenario(h, 'Natures shape wild Pokémon: fear comes faster to a Timid one than a Brave one, anger to a Rash one', async () => {
     const r = await h.R(() => {
       const D = PSXAI.Debug, M = PSXAI.Mind;
       const t = D.spawn(19, { temp: 'neutral', nature: 'timid', dx: 200 }), b = D.spawn(19, { temp: 'neutral', nature: 'brave', dx: -200 });
@@ -949,30 +802,7 @@ async function sample(h, ms, every, fn, arg) {
     return { pass: r.timid > r.brave * 1.8 && r.rash > r.calm * 1.8 && r.natures.join() === 'timid,brave,rash,calm' && r.all25 === 25, detail: r };
   });
 
-  await scenario(h, 'party talk follows what happens: who notices first speaks first, others may answer, and it never chatters', async () => {
-    const r = await party(async () => {
-      const C = PSXAI.Companions, T2 = PSXAI.Talk;
-      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
-      PSXAI.cfg.partyTalk = true;
-      T2.reset(); C.st.lastConvo = 0; C.st.convoAt = {};
-      for (const c of C.list()) c.psx.pers.nx.talk = 0.9;
-      // (a remark is sometimes left unanswered; here someone does answer)
-      const mr = Math.random; Math.random = () => 0.3;
-      try { C.convo('crumb_fence'); } finally { Math.random = mr; }
-      for (let i = 0; i < 30 && !T2.boxes.left.length; i++) await wait(100);
-      const first = T2.boxes.left.map((b) => b.who.name);
-      const seen = new Map();
-      for (let i = 0; i < 26; i++) { await wait(300); for (const b of T2.boxes.left) seen.set(b.who.name, b.text); }
-      const lines = [...seen].map(([n, t]) => n + ': ' + t);
-      // right after, another remark is held back
-      C.convo('sound');
-      await wait(700);
-      const held = !T2.boxes.left.some((b) => /\b(hear|Quiet|ears|came from)\b/.test(b.text));
-      return { first, lines, held };
-    });
-    return { pass: r.first[0] === 'Sprigatito' && r.lines.length >= 2 && r.held, detail: r };
-  });
-
+  // ------------------------------------------------------------------ EXP for more than fighting
   await scenario(h, 'EXP for exploring: new ground on foot pays, standing still or walking in circles does not, a chest pays once', async () => {
     const r = await h.R(async () => {
       const X = PSXAI.Exp, R = __PSX_REG__, p = R.Game.player;
@@ -1006,7 +836,7 @@ async function sample(h, ms, every, fn, arg) {
     return { pass: r.still === 0 && r.circle <= r.unit && r.walk > r.unit && r.tele <= r.unit * 0.5 && r.chest > 0 && r.again === 0 && r.big > r.chest * 2, detail: r };
   });
 
-  await scenario(h, 'EXP for kindness, curiosity and teamwork, with a limit so none of it can be farmed', async () => {
+  await scenario(h, 'EXP for kindness and curiosity, with a limit so none of it can be farmed', async () => {
     const r = await h.R(() => {
       const X = PSXAI.Exp, B = PSXAI.Bus;
       PSXAI.cfg.exploreExp = true;
@@ -1014,22 +844,21 @@ async function sample(h, ms, every, fn, arg) {
       const t = () => X.st.total;
       B.emit({ type: 'befriend', key: 77, loud: 0 }); const friend = t();
       B.emit({ type: 'befriend', key: 77, loud: 0 }); const sameFriend = t() - friend;
-      const a = t(); B.emit({ type: 'party-support', byYou: true, loud: 0 }); const revive = t() - a;
       const b = t(); B.emit({ type: 'myst', what: 'clue', id: 'darkrai', i: 0, loud: 0 }); const clue = t() - b;
       // a flood of the same small thing: capped, then a trickle
       const c = t();
       for (let i = 0; i < 40; i++) X.give(3, 'test');
       const flood = t() - c;
       const fullRate = Math.round(X.unit() * 3) * 40;
-      return { friend, sameFriend, revive, clue, flood, fullRate };
+      return { friend, sameFriend, clue, flood, fullRate };
     });
-    return { pass: r.friend > 0 && r.sameFriend === 0 && r.revive > r.friend && r.clue > 0 && r.flood < r.fullRate * 0.5, detail: r };
+    return { pass: r.friend > 0 && r.sameFriend === 0 && r.clue > 0 && r.flood < r.fullRate * 0.5, detail: r };
   });
 
   // ------------------------------------------------------------------ forest events & storytelling
-  await scenario(h, 'forest event: a lost Pokémon calms when you stay with it, its parent comes, and you are thanked (and remembered)', async () => {
-    const r = await party(async () => {
-      const E = PSXAI.Events, C = PSXAI.Companions, R = __PSX_REG__, p = R.Game.player;
+  await scenario(h, 'forest event: a lost Pokémon calms when you stay with it, its parent comes, and you are thanked', async () => {
+    const r = await h.R(async () => {
+      const E = PSXAI.Events, R = __PSX_REG__, p = R.Game.player;
       const wait = (ms) => new Promise((res) => setTimeout(res, ms));
       PSXAI.cfg.forestEvents = true; PSXAI.cfg.exploreExp = true;
       PSXAI.Sky.set({ hour: 14 });
@@ -1038,14 +867,12 @@ async function sample(h, ms, every, fn, arg) {
       if (!ev) return { started: false };
       const kidDex = ev.kid.dex;
       await wait(1200);
-      const trust0 = C.alive().reduce((a, c) => a + C.rel(c.pp.key, 'P').trust, 0);
       p.x = ev.kid.x + 30; p.y = ev.kid.y + 10; PSXAI.Mansion.snapCamera(p);
       const phases = [];
       for (let i = 0; i < 30 && E.st.cur === ev; i++) { await wait(400); phases.push(ev.phase + (ev.reunited ? '+' : '')); }
-      const trust1 = C.alive().reduce((a, c) => a + C.rel(c.pp.key, 'P').trust, 0);
-      return { started: true, kidDex, parentDex: ev.parent && ev.parent.dex, phases: [...new Set(phases)], reunited: !!ev.reunited, helped: C.mem.helped, trustUp: +(trust1 - trust0).toFixed(2), xp: PSXAI.Exp.st.log.some((l) => l.why === 'forest event') };
+      return { started: true, kidDex, parentDex: ev.parent && ev.parent.dex, phases: [...new Set(phases)], reunited: !!ev.reunited, xp: PSXAI.Exp.st.log.some((l) => l.why === 'forest event') };
     });
-    return { pass: r.started && r.reunited && r.parentDex && r.helped >= 1 && r.trustUp > 0 && r.xp, detail: r };
+    return { pass: r.started && r.reunited && r.parentDex && r.xp, detail: r };
   });
 
   await scenario(h, 'forest events: strange tracks lead to something buried; a fallen tree blocks the way until a Fire-type burns it clear', async () => {
@@ -1068,13 +895,11 @@ async function sample(h, ms, every, fn, arg) {
       await wait(2000);
       const stillThere = E.st.cur === fl && fl.burn === 0; // (Pikachu can't burn it)
       const ch = PSXAI.Debug.spawn(4, { temp: 'friendly', x: fl.x + 40, y: fl.y + 40 });
-      // a wild Charmander doesn't count: only the party; put a companion there instead
+      // a wild Charmander doesn't count: only a player does (here, for a moment, you play a Fire-type)
       ch.dead = true;
-      PSXAI.cfg.pseudoPlayers = true; PSXAI.Companions.st.allocT = 0;
-      for (let i = 0; i < 20 && !PSXAI.Companions.alive().some((c) => c.dex === 4); i++) await wait(150);
-      const char = PSXAI.Companions.alive().find((c) => c.dex === 4);
-      if (char) { char.x = fl.x + 30; char.y = fl.y + 30; }
-      for (let i = 0; i < 20 && E.st.cur === fl; i++) await wait(300);
+      const dex0 = p.dex;
+      p.dex = 4;
+      try { for (let i = 0; i < 20 && E.st.cur === fl; i++) await wait(300); } finally { p.dex = dex0; }
       return { prints, dug, solid, stillThere, burned: E.st.cur !== fl, freeAfter: R.World.isFree(fl.x, fl.y - 4, 10) };
     });
     return { pass: r.prints >= 20 && r.dug && r.solid && r.stillThere && r.burned && r.freeAfter, detail: r };
@@ -1273,121 +1098,6 @@ async function sample(h, ms, every, fn, arg) {
     return { pass: r.dark && r.waves >= 2 && r.allGhost && r.wildInside === 0 && !!r.totem && r.crystal && r.back < 5 && r.done, detail: r };
   });
 
-  // ------------------------------------------------------------------ companions that play like players
-  await scenario(h, 'companions pick up EXP for the whole party and keep the items they find, but never race you for loot and leave TMs and Mega Stones', async () => {
-    const r = await party(async () => {
-      const C = PSXAI.Companions, P = PSXAI.PartyPlus, R = __PSX_REG__, p = R.Game.player;
-      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
-      PSXAI.Debug.freeze(true);
-      R.Pickups.clear(); // (nothing left lying from earlier scenarios: collecting it could level you up mid-test)
-      const c = C.list().find((q) => q.pp.key === 'froa');
-      c.pp.item = null; c.pp.bag = { berries: [], items: [] };
-      c.x = p.x + 320; c.y = p.y; c.psx.px = c.x; c.psx.py = c.y;
-      p.xp = 0; // (well short of a level: a level-up would pause the game on its card choice)
-      const xp0 = p.xp, lv0 = p.level;
-      R.Pickups.drop('xp', c.x + 50, c.y + 10, 3);
-      R.Pickups.drop('item', c.x + 70, c.y - 20, 'leftovers'); R.Pickups.all().slice(-1)[0].psxFor = c.pp.key;
-      R.Pickups.drop('tm', c.x + 40, c.y + 30, 'thunderbolt');
-      R.Pickups.drop('item', c.x + 30, c.y - 40, 'mstone_448_mega'); R.Pickups.all().slice(-1)[0].psxFor = c.pp.key;
-      // and one lying right by you: yours
-      R.Pickups.drop('item', p.x + 70, p.y, 'quickclaw'); const mine = R.Pickups.all().slice(-1)[0]; mine.psxSeen = -99;
-      const wantsMine = C.list().some((q) => P.wants(q, mine));
-      for (let i = 0; i < 90 && (!c.pp.item || R.Pickups.all().some((q) => q.kind === 'xp')); i++) await wait(150); // (it may finish another errand first)
-      const left = R.Pickups.all().map((q) => q.kind + ':' + q.value);
-      const out = { item: c.pp.item, xpUp: p.xp > xp0 && p.level === lv0, got: P.st.got, wantsMine, leftTm: left.includes('tm:thunderbolt'), leftStone: left.includes('item:mstone_448_mega') };
-      for (const q of R.Pickups.all().slice()) if (q === mine || q.kind === 'tm' || /mstone/.test(q.value)) R.Pickups.all().splice(R.Pickups.all().indexOf(q), 1);
-      return out;
-    });
-    return { pass: r.item === 'leftovers' && r.xpUp && r.got >= 2 && !r.wantsMine && r.leftTm && r.leftStone, detail: r };
-  });
-
-  await scenario(h, 'companions open chests themselves and touch power crystals: a white one starts its event, the others empower that companion', async () => {
-    const r = await party(async () => {
-      const C = PSXAI.Companions, P = PSXAI.PartyPlus, R = __PSX_REG__, p = R.Game.player;
-      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
-      const all = R.World.visibleProps({ _x: p.x - 4000, _y: p.y - 4000, w: 8000, h: 8000, left() { return this._x; }, top() { return this._y; }, sees() { return true; } });
-      const chest = all.find((q) => q.type === 'chest' && !(q.hp <= 0));
-      const c = C.list().find((q) => q.pp.key === 'spri');
-      const out = { chest: !!chest };
-      if (chest) {
-        p.x = chest.x - 360; p.y = chest.y; PSXAI.Mansion.snapCamera(p);
-        c.x = chest.x + 90; c.y = chest.y + 20; c.psx.px = c.x; c.psx.py = c.y;
-        const n0 = P.st.chests;
-        const seen = new Set();
-        PSXAI.cfg.companionCrystals = false; // (no detour to a real crystal nearby)
-        for (let i = 0; i < 80 && P.st.chests === n0; i++) { await wait(150); seen.add(c.psx.beh.id + '/' + (c.pp.goal ? c.pp.goal.kind : '-')); }
-        PSXAI.cfg.companionCrystals = true;
-        out.opened = P.st.chests > n0;
-        out.behs = [...seen].slice(0, 6);
-        out.drops = R.Pickups.all().filter((q) => q.psxFor).length;
-      }
-      // a power crystal (Fury): that companion hits twice as hard for a while
-      const alt = { type: 'altar', kind: 0, x: c.x + 10, y: c.y, tx: 0, ty: 0, used: false };
-      const base = P.outgoing(c, { hurt() {} }, 10);
-      P.touchAltar(c, alt);
-      out.power = P.power(c) && P.power(c).id;
-      out.dmgK = +(P.outgoing(c, { hurt() {} }, 10) / base).toFixed(2);
-      out.used = alt.used;
-      c.pp.power = null;
-      // a white one: its event begins
-      const oT = R.Crystal.trigger; let fired = false;
-      R.Crystal.trigger = function () { fired = true; };
-      P.touchAltar(c, { type: 'altar', kind: 4, x: c.x, y: c.y, tx: 0, ty: 0, used: false });
-      R.Crystal.trigger = oT;
-      out.white = fired;
-      return out;
-    });
-    return { pass: r.chest && r.opened && r.power === 'dmg' && r.dmgK >= 1.9 && r.used && r.white, detail: r };
-  });
-
-  await scenario(h, 'companions dodge shots aimed at the party even outside a fight, and get sharper as they grow', async () => {
-    const r = await party(async () => {
-      const C = PSXAI.Companions, P = PSXAI.PartyPlus, R = __PSX_REG__, p = R.Game.player;
-      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
-      PSXAI.Debug.freeze(true);
-      const c = C.list().find((q) => q.pp.key === 'froa');
-      c.psx.pers.tr.agility = 0.9; c.psx.pers.tr.alertness = 0.9;
-      const d0 = P.st.dodges;
-      let hits = 0;
-      for (let i = 0; i < 16; i++) {
-        const hp = c.hp;
-        const sx = c.x + 260, sy = c.y;
-        R.Projectiles.spawn({ x: sx, y: sy, vx: -300, vy: 0, dmg: 4, r: 7, life: 2, friendly: false, pierce: 0, color: '#f66', hits: new Set(), phits: new Set(), owner: null, mid: 'ember', vis: R.VFX.forType('fire'), mtype: 'fire' });
-        await wait(1100);
-        if (c.hp < hp) hits++;
-        c.hp = c.maxHp;
-      }
-      // the party's own shots aren't threats
-      const own = { x: c.x + 200, y: c.y, vx: -300, vy: 0, friendly: true, r: 6 };
-      const skill0 = P.stageOf(4), skill2 = P.stageOf(6);
-      return { dodges: P.st.dodges - d0, hits, inCombat: c.psx.inCombat, stages: [skill0, skill2], skill: +c.pp.skill.toFixed(2) };
-    });
-    return { pass: r.dodges >= 3 && r.hits < 16 && r.stages[0] === 0 && r.stages[1] === 2, detail: r };
-  });
-
-  await scenario(h, 'companions evolve at the level their species does: Charmander at 16, Charmeleon at 36, Rowlet at 17…', async () => {
-    const r = await party(async () => {
-      const C = PSXAI.Companions, P = PSXAI.PartyPlus, R = __PSX_REG__;
-      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
-      const c = C.list().find((q) => q.pp.key === 'char');
-      const lv = (dex, level) => P.nextEvo({ dex, level });
-      const table = { char15: lv(4, 15), char16: lv(4, 16), meleon35: lv(5, 35), meleon36: lv(5, 36), froakie16: lv(656, 16), sprig16: lv(906, 16), rowlet16: lv(722, 16), rowlet17: lv(722, 17), chimchar14: lv(390, 14), dartrix34: lv(723, 34) };
-      // for real: it glows, transforms, keeps its place in the party
-      C.st.statT = 999;
-      c.level = 16;
-      for (let i = 0; i < 30 && c.dex === 4; i++) await wait(200);
-      const out = { table, dex: c.dex, name: c.talkName, key: c.pp.key, stage: c.pp.stage, stillIn: C.list().includes(c) };
-      // the reshuffle doesn't send it away for having changed
-      C.allocate(); await wait(300);
-      out.kept = C.list().includes(c) && !c.pp.leaving;
-      C.st.statT = 0;
-      return out;
-    });
-    const t = r.table;
-    const ok = t.char15 === null && t.char16 === 5 && t.meleon35 === null && t.meleon36 === 6 && t.froakie16 === 657 && t.sprig16 === 907 && t.rowlet16 === null && t.rowlet17 === 723 && t.chimchar14 === 391 && t.dartrix34 === 724 && r.dex === 5 && r.name === 'Charmeleon' && r.stage === 1 && r.kept;
-    return { pass: ok, detail: r };
-  });
-
   // ------------------------------------------------------------------ weather and nights
   await scenario(h, 'the weather moves on about every minute, and every change blends in smoothly', async () => {
     const r = await h.R(() => {
@@ -1428,7 +1138,7 @@ async function sample(h, ms, every, fn, arg) {
   const trio = (fn, arg) => h.R(async (a) => {
     const R = __PSX_REG__, s = R.DB.save;
     window.__OWN = { 243: !!(s.owned || {})[243], 244: !!(s.owned || {})[244], 245: !!(s.owned || {})[245], legends: Object.assign({}, s.legends || {}) };
-    PSXAI.cfg.legendTrio = true; PSXAI.Trio.forget(); PSXAI.Trio.reset(); PSXAI.cfg.pseudoPlayers = false; PSXAI.Debug.freeze(true);
+    PSXAI.cfg.legendTrio = true; PSXAI.Trio.forget(); PSXAI.Trio.reset(); PSXAI.Debug.freeze(true);
     for (const d of [243, 244, 245]) if (s.owned) delete s.owned[d];
     return true;
   }, arg || {}).then(() => h.R(fn, arg)).finally(() => h.R(() => {
@@ -1526,7 +1236,7 @@ async function sample(h, ms, every, fn, arg) {
     const r = await h.R(async () => {
       const W = PSXAI.Well, R = __PSX_REG__, p = R.Game.player;
       const wait = (ms) => new Promise((res) => setTimeout(res, ms));
-      PSXAI.cfg.oldWell = true; W.reset(); PSXAI.Debug.freeze(true); PSXAI.cfg.pseudoPlayers = false;
+      PSXAI.cfg.oldWell = true; W.reset(); PSXAI.Debug.freeze(true);
       R.Game.debugTime(200); await wait(300);
       W.st.rolled = true; W.st.wanted = true;
       for (let i = 0; i < 20 && !W.st.well; i++) { W.place(); await wait(100); }
