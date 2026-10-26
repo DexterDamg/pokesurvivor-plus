@@ -3315,7 +3315,7 @@ async function sample(h, ms, every, fn, arg) {
         p.x = c.x; p.y = c.y + 100;
         await wait(300);
         const scene = G.busy();
-        await wait(6000);
+        for (let i = 0; i < 60 && !G.st.battle; i++) await wait(250); // (the golem's wake-up scene takes about 6 s)
         const b = G.st.battle;
         if (!b) return { far, scene, battle: false };
         const boss = { dex: b.e.dex, hp: Math.round(b.e.maxHp) };
@@ -3342,7 +3342,7 @@ async function sample(h, ms, every, fn, arg) {
         const G = PSXAI.Regi, R = __PSX_REG__, p = R.Game.player;
         const c = G.caveOf(486);
         const r = { ok: G.gigasOk(), here: G.cavesHere(), temple: !!c };
-        if (c) { p.x = c.x; p.y = c.y + 100; await new Promise((res) => setTimeout(res, 7000)); r.boss = G.st.battle && G.st.battle.e.dex; }
+        if (c) { p.x = c.x; p.y = c.y + 100; for (let i = 0; i < 60 && !G.st.battle; i++) await new Promise((res) => setTimeout(res, 250)); r.boss = G.st.battle && G.st.battle.e.dex; }
         return r;
       });
     }
