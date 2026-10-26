@@ -332,7 +332,7 @@
       if (AI.enabled) try { AI.Mysteries.drawScreen(ctx, w, h); } catch (e) { AI.warn('myst-hud', e); }
       if (AI.enabled) try { AI.Haunt.drawScreen(ctx, w, h); AI.Mansion.drawScreen(ctx, w, h); AI.Story.drawScreen(ctx, w, h); } catch (e) { AI.warn('mansion-hud', e); }
       if (AI.enabled) try { AI.OceanDraw.drawScreen(ctx, w, h); if (AI.Boats) AI.Boats.drawScreen(ctx, w, h); AI.Guardians.drawScreen(ctx, w, h); AI.Birth.drawScreen(ctx, w, h); AI.Sea.drawScreen(ctx, w, h); } catch (e) { AI.warn('ocean-hud', e); }
-      if (AI.enabled) try { AI.Events.drawScreen(ctx, w, h); AI.Totem.drawScreen(ctx, w, h); if (AI.Trio) AI.Trio.drawScreen(ctx, w, h); if (AI.Well) AI.Well.drawScreen(ctx, w, h); if (AI.Spiritomb) AI.Spiritomb.drawScreen(ctx, w, h); if (AI.Team) AI.Team.drawScreen(ctx, w, h); } catch (e) { AI.warn('events-hud', e); }
+      if (AI.enabled) try { AI.Events.drawScreen(ctx, w, h); AI.Totem.drawScreen(ctx, w, h); if (AI.Trio) AI.Trio.drawScreen(ctx, w, h); if (AI.Well) AI.Well.drawScreen(ctx, w, h); if (AI.Spiritomb) AI.Spiritomb.drawScreen(ctx, w, h); if (AI.Apparitions) AI.Apparitions.drawScreen(ctx, w, h); if (AI.Team) AI.Team.drawScreen(ctx, w, h); } catch (e) { AI.warn('events-hud', e); }
       if (AI.enabled) try { AI.Talk.draw(ctx, w, h); } catch (e) { AI.warn('talk', e); }
       return r;
     };
@@ -344,7 +344,7 @@
       if (AI.enabled) try { AI.OceanDraw.drawAir(ctx); AI.Sea.drawAir(ctx); AI.Guardians.drawAir(ctx); AI.Birth.drawAir(ctx); } catch (e) { AI.warn('ocean-air', e); }
       if (AI.enabled) try { AI.Light.drawAir(ctx); } catch (e) { AI.warn('env-air', e); }
       if (AI.enabled) try { AI.Mansion.drawAir(ctx); } catch (e) { AI.warn('mansion-air', e); }
-      if (AI.enabled) try { AI.Events.drawAir(ctx); AI.Power.drawAir(ctx); AI.Totem.drawAir(ctx); AI.Render.drawAir(ctx); if (AI.Trio) AI.Trio.drawAir(ctx); if (AI.Spiritomb) AI.Spiritomb.drawAir(ctx); } catch (e) { AI.warn('air', e); }
+      if (AI.enabled) try { AI.Events.drawAir(ctx); AI.Power.drawAir(ctx); AI.Totem.drawAir(ctx); AI.Render.drawAir(ctx); if (AI.Trio) AI.Trio.drawAir(ctx); if (AI.Spiritomb) AI.Spiritomb.drawAir(ctx); if (AI.Apparitions) AI.Apparitions.drawAir(ctx); } catch (e) { AI.warn('air', e); }
       if (AI.enabled) try { AI.Lore.drawSpeech(ctx); } catch (e) { AI.warn('speech', e); }
       return r;
     };
@@ -456,6 +456,7 @@
         if (AI.Breakables) AI.Breakables.tick(dt);
         if (AI.Spiritomb) AI.Spiritomb.tick(dt);
         if (AI.Team) AI.Team.tick(dt);
+        if (AI.Apparitions) AI.Apparitions.tick(dt);
         AI.Player.frame();
         AI.Legend.tick(dt);
         AI.Social.tick(dt);
@@ -486,7 +487,7 @@
     // ------------------------------------------------------------ new run → fresh world
     const oWR = R.World.reset;
     R.World.reset = function (seed) {
-      try { resetWorld(); AI.Decor.reset(seed); AI.Journey.reset(AI.Decor.seed); AI.Wildlife.reset(); AI.Light.reset(); AI.Talk.reset(); AI.Exp.reset(); AI.Events.reset(); AI.Power.reset(); AI.Totem.reset(); if (AI.Trio) AI.Trio.reset(); if (AI.Well) AI.Well.reset(); if (AI.Breakables) AI.Breakables.reset(); if (AI.Spiritomb) AI.Spiritomb.reset(); AI.Forest.reset(); AI.Ocean.reset(); AI.OceanDraw.reset(); if (AI.Boats) AI.Boats.reset(); AI.Sea.reset(); AI.Guardians.reset(); AI.Birth.reset(); AI.Mysteries.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); } catch (e) { AI.warn('reset', e); }
+      try { resetWorld(); AI.Decor.reset(seed); AI.Journey.reset(AI.Decor.seed); AI.Wildlife.reset(); AI.Light.reset(); AI.Talk.reset(); AI.Exp.reset(); AI.Events.reset(); AI.Power.reset(); AI.Totem.reset(); if (AI.Trio) AI.Trio.reset(); if (AI.Well) AI.Well.reset(); if (AI.Breakables) AI.Breakables.reset(); if (AI.Spiritomb) AI.Spiritomb.reset(); if (AI.Apparitions) AI.Apparitions.reset(); AI.Forest.reset(); AI.Ocean.reset(); AI.OceanDraw.reset(); if (AI.Boats) AI.Boats.reset(); AI.Sea.reset(); AI.Guardians.reset(); AI.Birth.reset(); AI.Mysteries.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); } catch (e) { AI.warn('reset', e); }
       return oWR.apply(this, arguments);
     };
     function resetWorld() {

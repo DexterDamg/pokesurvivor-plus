@@ -3209,6 +3209,48 @@ async function sample(h, ms, every, fn, arg) {
   });
   await h.close();
 
+  // =========================================================== colossal trees, ghosts out of nowhere
+  h = await boot({});
+  await h.startRun(25);
+  await h.wait(1200);
+
+  await scenario(h, 'forest: a few colossal trees tower over the rest (twice an ancient\'s size), unbreakable, with trunks you walk round', async () => {
+    const r = await h.R(() => {
+      const R = __PSX_REG__, AI = PSXAI; const counts = {}; const col = [];
+      for (let gy = -4; gy <= 4; gy++) for (let gx = -4; gx <= 4; gx++) {
+        const cx = gx * 1200, cy = gy * 1200; const cam = { left() { return cx - 600; }, top() { return cy - 600; }, w: 1200, h: 1200, sees() { return true; } };
+        for (const t of R.World.visibleProps(cam)) { if (t.type !== 'tree') continue; AI.Ground.artFor(t); counts[t._psxStage] = (counts[t._psxStage] || 0) + 1; if (t._psxStage === 'colossal') col.push(t); }
+      }
+      const all = Object.values(counts).reduce((a, b) => a + b, 0);
+      const t = col[0];
+      if (t) { AI.Breakables.markTrees(); }
+      return { counts, share: +(col.length / all).toFixed(4), scale: t ? +t._psxScale.toFixed(2) : 0, r: t ? Math.round(t.r) : 0, r0: t ? t._psxR0 : 0, breakable: t ? !!t._psxB : null };
+    });
+    return { pass: r.counts.colossal >= 2 && r.share < 0.03 && r.scale >= 1.9 && r.r > r.r0 && r.breakable === false, detail: r };
+  });
+
+  await scenario(h, 'ghosts: now and then a ghost Pokémon fades in out of nowhere, lingers, and fades away; come close and it vanishes in a puff', async () => {
+    const r = await h.R(async () => {
+      const A = PSXAI.Apparitions, p = __PSX_REG__.Game.player, wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      A.reset();
+      const a = A.appear(92, [p.x + 160, p.y]);
+      const b = A.appear(200, [p.x - 300, p.y]);
+      b.life = 1.2;
+      await wait(700);
+      const shown = a.fade > 0.4 && !a.gone;
+      p.x += 150; // (walk right up to the first)
+      await wait(300);
+      const puffed = a.gone && a.puff;
+      await wait(1600);
+      const faded = b.gone && !b.puff;
+      // never one inside the mansion, never outside the Shady Forest; and they turn up on their own
+      A.st.nextT = 0; await wait(200);
+      return { shown, puffed, faded, onTheirOwn: A.st.seen >= 3, ghosts: A.GHOSTS.length };
+    });
+    return { pass: r.shown && r.puffed && r.faded && r.onTheirOwn, detail: r };
+  });
+  await h.close();
+
   const pass = results.filter((r) => r.pass).length;
   console.log('\n' + pass + '/' + results.length + ' scenarios passed');
   process.exit(pass === results.length ? 0 : 1);

@@ -54,6 +54,13 @@ in the wetwood, none in clearings). Trees never grow in water, on paths or in my
 Species follow the region; size still follows how much room a tree has, from saplings to the rare
 ancient giant.
 
+**Colossal trees** tower far above everything else: about twice an ancient giant's size, so
+standing at their roots their canopy reaches past the top of the screen. A few grow in the old
+groves and the deep forest, almost none elsewhere (about 1 tree in 200). Their canopies spread over
+their neighbours, ferns and saplings crowd their roots, their trunks are as wide as they look (you
+walk round them, and climbing Pokémon start up the bark further out), and no attack brings them
+down.
+
 ## Undergrowth
 
 Each chunk is sampled at a few dozen jittered points, and what grows there depends on the habitat:
@@ -159,6 +166,20 @@ of sight and never announced; finding it is worth a little EXP.
 - **The Creepy Well:** while you carry the Odd Keystone, the well is in every run, and it's where
   Spiritomb waits. Click it with the keystone and 100 innocent Pokémon defeated (see
   [EARNING_POKEMON.md](EARNING_POKEMON.md)).
+
+## Ghosts out of nowhere (`68-apparitions.js`)
+
+Now and then a ghost Pokémon is simply *there*: Gastly, Haunter, Misdreavus, Shuppet, Duskull,
+Drifloon, Litwick, Phantump, Sableye, and once in a long while Gengar or Dusknoir. It fades in
+where there was nothing a moment ago, often at the edge of your sight or right behind you, watches
+you, whispers or giggles, drifts a little, and fades away again.
+
+- Come too close, or hit it, and it's gone in a puff of purple.
+- They're apparitions, not wild Pokémon: they don't fight and can't be defeated or caught.
+- More at night and in the fog (they glow faintly, pale through the dark), fewer by day; never
+  inside the mansion, which has ghosts of its own.
+- Wild Pokémon that see one get a fright.
+- Setting: `apparitions`.
 
 ## Wildlife that lives by its biology (`63-wildlife.js`)
 

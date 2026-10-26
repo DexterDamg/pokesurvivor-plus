@@ -827,6 +827,10 @@
       list = KIND.twisted;
       if (sizes && d > 80 && U.hash(prop.tx, prop.ty, 4250) < jk * 0.7) return { n: pickL(KIND.twisted, 4251), s: 1.5, stage: 'large' };
     }
+    // colossal trees: towering far over the rest of the forest, in the old groves and the deep
+    // forest now and then, almost never elsewhere (their canopies spread over their neighbours)
+    const hc = U.hash(prop.tx, prop.ty, 4254); // (their own roll: the ancient giants stay as they were)
+    if (sizes && d > 120 && h >= 0.07 && (r.grove > 0.6 ? hc < 0.04 : r.deep > 0.55 ? hc < 0.03 : hc < 0.006)) return { n: pickL(KIND.giant, 4252), s: 1.9 + U.hash(prop.tx, prop.ty, 4253) * 0.25, stage: 'colossal' };
     // ancient landmark trees: mostly in the old groves, very rarely anywhere else
     if (sizes && d > 175 && (r.grove > 0.6 ? h < 0.07 : h < 0.012)) return { n: pickL(KIND.giant, 4244), s: 1.5, stage: 'ancient' };
     if (sizes && h < 0.2 && d > 110) { const big = list.filter((n) => hOf(n) >= 48); return { n: pickL(big.length ? big : list, 4245), s: 1.5, stage: 'large' }; }
