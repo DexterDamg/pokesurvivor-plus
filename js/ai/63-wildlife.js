@@ -130,7 +130,7 @@
       const watcher = s.ctx.pd < 150 && s.ctx.pSeen;
       if (bs.phase === 'approach') {
         const d = Math.hypot(ax - e.x, ay - e.y);
-        if (d > 34) { B().go(it, ax, ay, 0.32); return true; }
+        if (d > Math.max(34, (t.r || 14) + (e.r || 12) + 6)) { B().go(it, ax, ay, 0.32); return true; } // (a colossal trunk is wider: the bark starts further out)
         // the last stretch is onto the bark itself, so the trunk doesn't hold it back
         if (d > 2) {
           s.vis.trunk = true; B().stay(it);

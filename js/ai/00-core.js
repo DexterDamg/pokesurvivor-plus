@@ -53,6 +53,7 @@
     mansionMusic: true, // inside the haunted mansion the game's music gives way to its own theme, Old Chateau (97-music.js)
     forestMusic: true, // the Shady Forest plays Viridian Forest instead of the level's track (bosses, rifts and the Judgment keep theirs; 97-music.js)
     breakables: true, // your attacks can knock down trees (not the ancient giants) and break bushes, dead saplings, logs and stumps (64-breakables.js)
+    apparitions: true, // ghost Pokémon that appear out of nowhere in the Shady Forest, and vanish (68-apparitions.js)
     realTypes: true, // types matter as in the games: ×2, ×½, and immunities do nothing at all (66-types.js); off = the game's softer chart
     team: true, // a team of six, switched in and out with Z / X (67-team.js)
     noGacha: true, // no gacha: Pokémon are earned by playing (each one you defeat may join you; 65-catch.js)

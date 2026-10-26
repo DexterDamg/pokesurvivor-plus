@@ -63,6 +63,8 @@
       const t = AI.Art.treeFor(prop, b, se, roomOf(prop));
       prop._psxArt = t ? t.n : null;
       if (t) { prop._psxScale = t.s; prop._psxStage = t.stage; }
+      // a colossal tree's trunk is as wide as it looks: you walk round it, not through it
+      if (t && t.stage === 'colossal') { prop._psxR0 = prop._psxR0 || prop.r || 14; prop.r = Math.max(prop._psxR0, 13 * t.s); }
     } else prop._psxArt = prop.type === 'grass' ? AI.Art.underFor(prop, b, se) : null;
     return prop._psxArt;
   }
@@ -111,11 +113,11 @@
         AI.Art.draw(ctx, name, prop.x, prop.y + 2, { flip, sway, scale: s, alpha: fade ? 0.5 : null });
         if (prop.flash > 0) { ctx.save(); ctx.globalAlpha = Math.min(1, prop.flash * 5) * 0.45; ctx.globalCompositeOperation = 'lighter'; AI.Art.draw(ctx, name, prop.x, prop.y + 2, { flip, sway, scale: s }); ctx.restore(); }
         // ferns and saplings crowd around the roots of big old trees
-        if (prop._psxStage === 'large' || prop._psxStage === 'ancient') {
-          const n = prop._psxStage === 'ancient' ? 3 : 2;
+        if (prop._psxStage === 'large' || prop._psxStage === 'ancient' || prop._psxStage === 'colossal') {
+          const n = prop._psxStage === 'colossal' ? 6 : prop._psxStage === 'ancient' ? 3 : 2;
           for (let i = 0; i < n; i++) {
             const a = U.hash(prop.tx, prop.ty, 60 + i);
-            const ox = (i - (n - 1) / 2) * w * s * 0.42 + (a - 0.5) * 10;
+            const ox = (i - (n - 1) / 2) * w * s * (prop._psxStage === 'colossal' ? 0.13 : 0.42) + (a - 0.5) * 10;
             AI.Art.draw(ctx, ['fern', 'bushball_01', 'sapling_01', 'bushtiny_10'][(a * 4) | 0], prop.x + ox, prop.y + 6 + a * 6, { flip: a < 0.5, sway: swayAt(prop.x + ox, 0.1) });
           }
         }
