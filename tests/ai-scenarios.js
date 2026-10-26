@@ -3251,6 +3251,105 @@ async function sample(h, ms, every, fn, arg) {
   });
   await h.close();
 
+  // =========================================================== the Sealed Chamber and the Regis
+  h = await boot({});
+  await h.R(() => { const R = __PSX_REG__; R.DB.save.mapWins = { 1: 1, 2: 1 }; for (const d of [25, 369, 321, 7]) R.DB.grant(d, 'test'); PSXAI.Regi.forget(); PSXAI.Team.setTeam([25, 369, 321]); R.Maps.choose(3); });
+  await h.startRun(25);
+  await h.wait(900);
+  await h.R(() => {
+    window.RG = {
+      // walk onto a stone, then step back out (away from the altar, so no other stone is crossed)
+      async step(ch) {
+        const G = PSXAI.Regi, p = __PSX_REG__.Game.player, A = G.st.altar, s = G.st.stones.find((o) => o.ch === ch), wait = (ms) => new Promise((r) => setTimeout(r, ms));
+        p.x = s.x; p.y = s.y; await wait(200);
+        const a = Math.atan2(s.y - A.y, s.x - A.x); p.x = s.x + Math.cos(a) * 70; p.y = s.y + Math.sin(a) * 70; await wait(200);
+        return G.st.seq.join('');
+      },
+      at(x, y) { const p = __PSX_REG__.Game.player; if (p.psxBoat) PSXAI.Boats.leave(p.psxBoat, [x, y]); p.x = x; p.y = y; p._psxOk = [x, y]; PSXAI.Mansion.snapCamera(p); },
+    };
+  });
+
+  await scenario(h, 'regi: the Sealed Chamber in the Tropical Ocean: an altar ringed by six Braille stones; without Relicanth first and Wailord last they stay dark', async () => {
+    const r = await h.R(async () => {
+      const G = PSXAI.Regi, o = PSXAI.Ocean.islandById('sealed');
+      RG.at(o.x, o.y + 200);
+      await new Promise((res) => setTimeout(res, 400));
+      const stones = G.st.stones.map((s) => s.ch).sort().join('');
+      const step = await RG.step('R');
+      return { island: !!o, name: o && o.name, altar: !!G.st.altar, stones, team: G.team(), setup: G.setupOk(), step, solved: G.solved(), hint: G.st.msg && G.st.msg.text };
+    });
+    return { pass: r.island && r.altar && r.stones === 'AEGILR' && !r.setup && r.step === '' && !r.solved && /RELICANTH/.test(r.hint || ''), detail: r };
+  });
+  await h.R(() => { __PSX_REG__.Game.state = 'menu'; PSXAI.Team.setTeam([369, 25, 7, 321]); });
+  await h.startRun(369);
+  await h.wait(900);
+
+  await scenario(h, 'regi: with Relicanth leading and Wailord last, stepping on R-E-G-I in order opens the Regis\' doors (a wrong stone starts over)', async () => {
+    const r = await h.R(async () => {
+      const G = PSXAI.Regi, o = PSXAI.Ocean.islandById('sealed');
+      RG.at(o.x, o.y + 200);
+      await new Promise((res) => setTimeout(res, 400));
+      const out = [];
+      for (const ch of ['R', 'E', 'L', 'R', 'E', 'G']) out.push(await RG.step(ch));
+      const before = G.solved();
+      out.push(await RG.step('I'));
+      return { setup: G.setupOk(), out, before, solved: G.solved(), saved: !!JSON.parse(localStorage.getItem('psx.regi.v1')).puzzle };
+    });
+    return { pass: r.setup && r.out.slice(0, 6).join(',') === 'R,RE,,R,RE,REG' && !r.before && r.solved && r.saved, detail: r };
+  });
+
+  await scenario(h, 'regi: Registeel\'s cave waits in the Shady Forest, Regirock\'s in the Crystal Caves; walk up, it wakes and fights; win and it joins you (repeatable: next time coins and EXP)', async () => {
+    const out = {};
+    for (const [map, dex] of [[1, 379], [2, 377], [1, 379]]) {
+      await h.R((m) => { __PSX_REG__.Game.state = 'menu'; __PSX_REG__.Maps.choose(m); PSXAI.Team.setTeam([25]); }, map);
+      await h.startRun(25);
+      await h.wait(600);
+      await h.R(() => { T.reset(); __PSX_REG__.Game.debugTime(50); });
+      await h.wait(5000);
+      const r = await h.R(async (dex) => {
+        const G = PSXAI.Regi, R = __PSX_REG__, p = R.Game.player, wait = (ms) => new Promise((res) => setTimeout(res, ms));
+        const c = G.caveOf(dex);
+        if (!c) return { here: G.cavesHere(), caves: G.st.caves.length };
+        const far = Math.hypot(c.x - p.x, c.y - p.y) | 0;
+        const owned0 = R.DB.owns(dex);
+        p.x = c.x; p.y = c.y + 100;
+        await wait(300);
+        const scene = G.busy();
+        await wait(6000);
+        const b = G.st.battle;
+        if (!b) return { far, scene, battle: false };
+        const boss = { dex: b.e.dex, hp: Math.round(b.e.maxHp) };
+        b.e._psxLast = p; b.e.hp = 0; b.e.die();
+        await wait(600);
+        return { far, scene, boss, owned0, owned: R.DB.owns(dex), beaten: !!G.st.beatenRun[dex], again: Math.hypot(c.x - p.x, c.y - p.y) < 200 && !G.busy() };
+      }, dex);
+      out[map + ':' + dex + (out[map + ':' + dex] ? 'b' : '')] = r;
+    }
+    const a = out['1:379'], b = out['2:377'], c = out['1:379b'];
+    const ok = (x) => x && x.far > 800 && x.scene && x.boss && x.boss.hp >= 2000 && x.owned && x.beaten;
+    return { pass: ok(a) && a.boss.dex === 379 && !a.owned0 && ok(b) && b.boss.dex === 377 && ok(c) && c.owned0, detail: out };
+  });
+
+  await scenario(h, 'regi: Regigigas wakes only with Regirock, Regice and Registeel all on your team (any slots), in its temple in the Crystal Caves', async () => {
+    const out = {};
+    for (const [k, team] of [['two', [377, 25, 379]], ['three', [25, 379, 7, 378, 377]]]) {
+      await h.R((t) => { const R = __PSX_REG__; R.Game.state = 'menu'; R.Maps.choose(2); for (const d of [377, 378, 379]) R.DB.grant(d, 'test'); PSXAI.Team.setTeam(t); }, team);
+      await h.startRun(team[0]);
+      await h.wait(600);
+      await h.R(() => { T.reset(); __PSX_REG__.Game.debugTime(50); });
+      await h.wait(9000);
+      out[k] = await h.R(async () => {
+        const G = PSXAI.Regi, R = __PSX_REG__, p = R.Game.player;
+        const c = G.caveOf(486);
+        const r = { ok: G.gigasOk(), here: G.cavesHere(), temple: !!c };
+        if (c) { p.x = c.x; p.y = c.y + 100; await new Promise((res) => setTimeout(res, 7000)); r.boss = G.st.battle && G.st.battle.e.dex; }
+        return r;
+      });
+    }
+    return { pass: !out.two.ok && !out.two.temple && out.three.ok && out.three.temple && out.three.boss === 486, detail: out };
+  });
+  await h.close();
+
   const pass = results.filter((r) => r.pass).length;
   console.log('\n' + pass + '/' + results.length + ' scenarios passed');
   process.exit(pass === results.length ? 0 : 1);

@@ -123,6 +123,8 @@
     isl.push(blob('lugia', 'shrine', 450 + J(17, 160), 4350 + J(18, 120), 210, seed, { name: 'Whirl Islet' }));
     isl.push(blob('whirlW', 'crag', 180 + J(19, 40), 3620, 120, seed));
     isl.push(blob('whirlE', 'crag', 760 + J(20, 40), 3640, 120, seed));
+    // the Sealed Chamber: a lone rock with an ancient altar ringed by Braille stones (69-regi.js)
+    isl.push(blob('sealed', 'rocky', 1650 + J(70, 140), 3350 + J(71, 140), 280, seed, { name: 'Sealed Chamber', arenaR: 185 }));
     // the Seel colony's grotto, at the foot of its rocks (dry at low tide)
     const seel = isl.find((o) => o.id === 'seel');
     const grotto = { x: seel.x - seel.R * 0.75, y: seel.y + seel.R * 0.55, r: 70 };

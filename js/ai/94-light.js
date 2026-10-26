@@ -278,6 +278,7 @@
     if (AI.OceanDraw) AI.OceanDraw.lights(L);
     if (AI.Boats) AI.Boats.lights(L);
     if (AI.Apparitions) AI.Apparitions.lights(L);
+    if (AI.Regi) AI.Regi.lights(L);
     if (AI.Sea) { AI.Sea.lights(L); AI.Guardians.lights(L); AI.Birth.lights(L); }
     if (AI.Mysteries) AI.Mysteries.lights(L);
     if (AI.Events) AI.Events.lights(L);
