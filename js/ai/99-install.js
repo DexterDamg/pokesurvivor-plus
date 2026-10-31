@@ -32,6 +32,7 @@
     try { if (AI.Catch) AI.Catch.install(R); } catch (e) { AI.warn('catch-install', e); }
     try { if (AI.Dev) AI.Dev.install(R); } catch (e) { AI.warn('dev-install', e); }
     try { if (AI.Spiritomb) AI.Spiritomb.install(R); } catch (e) { AI.warn('spiritomb-install', e); }
+    try { if (AI.Regi) AI.Regi.install(R); } catch (e) { AI.warn('regi-install', e); }
     const P = R.Enemy.prototype;
 
     // ------------------------------------------------------------ enemies
@@ -292,7 +293,7 @@
     // story scenes hold the player still
     const oAxis = R.Input.axis;
     const seaBusy = () => (AI.Sea && AI.Sea.busy()) || (AI.Guardians && AI.Guardians.busy()) || (AI.Birth && AI.Birth.busy());
-    R.Input.axis = function () { if (AI.enabled && ((AI.Story && AI.Story.lockInput()) || (AI.Trio && AI.Trio.busy()) || (AI.Spiritomb && AI.Spiritomb.busy()) || seaBusy())) return [0, 0]; return oAxis.apply(this, arguments); };
+    R.Input.axis = function () { if (AI.enabled && ((AI.Story && AI.Story.lockInput()) || (AI.Trio && AI.Trio.busy()) || (AI.Spiritomb && AI.Spiritomb.busy()) || (AI.Regi && AI.Regi.busy()) || seaBusy())) return [0, 0]; return oAxis.apply(this, arguments); };
 
     // ------------------------------------------------------------ combat resolution
     const tracked = new Map(); // NPC shot → { move, target } for hit/miss learning
@@ -332,7 +333,7 @@
       if (AI.enabled) try { AI.Mysteries.drawScreen(ctx, w, h); } catch (e) { AI.warn('myst-hud', e); }
       if (AI.enabled) try { AI.Haunt.drawScreen(ctx, w, h); AI.Mansion.drawScreen(ctx, w, h); AI.Story.drawScreen(ctx, w, h); } catch (e) { AI.warn('mansion-hud', e); }
       if (AI.enabled) try { AI.OceanDraw.drawScreen(ctx, w, h); if (AI.Boats) AI.Boats.drawScreen(ctx, w, h); AI.Guardians.drawScreen(ctx, w, h); AI.Birth.drawScreen(ctx, w, h); AI.Sea.drawScreen(ctx, w, h); } catch (e) { AI.warn('ocean-hud', e); }
-      if (AI.enabled) try { AI.Events.drawScreen(ctx, w, h); AI.Totem.drawScreen(ctx, w, h); if (AI.Trio) AI.Trio.drawScreen(ctx, w, h); if (AI.Well) AI.Well.drawScreen(ctx, w, h); if (AI.Spiritomb) AI.Spiritomb.drawScreen(ctx, w, h); if (AI.Apparitions) AI.Apparitions.drawScreen(ctx, w, h); if (AI.Team) AI.Team.drawScreen(ctx, w, h); } catch (e) { AI.warn('events-hud', e); }
+      if (AI.enabled) try { AI.Events.drawScreen(ctx, w, h); AI.Totem.drawScreen(ctx, w, h); if (AI.Trio) AI.Trio.drawScreen(ctx, w, h); if (AI.Well) AI.Well.drawScreen(ctx, w, h); if (AI.Spiritomb) AI.Spiritomb.drawScreen(ctx, w, h); if (AI.Apparitions) AI.Apparitions.drawScreen(ctx, w, h); if (AI.Regi) AI.Regi.drawScreen(ctx, w, h); if (AI.Team) AI.Team.drawScreen(ctx, w, h); } catch (e) { AI.warn('events-hud', e); }
       if (AI.enabled) try { AI.Talk.draw(ctx, w, h); } catch (e) { AI.warn('talk', e); }
       return r;
     };
@@ -457,6 +458,7 @@
         if (AI.Spiritomb) AI.Spiritomb.tick(dt);
         if (AI.Team) AI.Team.tick(dt);
         if (AI.Apparitions) AI.Apparitions.tick(dt);
+        if (AI.Regi) AI.Regi.tick(dt);
         AI.Player.frame();
         AI.Legend.tick(dt);
         AI.Social.tick(dt);
@@ -487,7 +489,7 @@
     // ------------------------------------------------------------ new run → fresh world
     const oWR = R.World.reset;
     R.World.reset = function (seed) {
-      try { resetWorld(); AI.Decor.reset(seed); AI.Journey.reset(AI.Decor.seed); AI.Wildlife.reset(); AI.Light.reset(); AI.Talk.reset(); AI.Exp.reset(); AI.Events.reset(); AI.Power.reset(); AI.Totem.reset(); if (AI.Trio) AI.Trio.reset(); if (AI.Well) AI.Well.reset(); if (AI.Breakables) AI.Breakables.reset(); if (AI.Spiritomb) AI.Spiritomb.reset(); if (AI.Apparitions) AI.Apparitions.reset(); AI.Forest.reset(); AI.Ocean.reset(); AI.OceanDraw.reset(); if (AI.Boats) AI.Boats.reset(); AI.Sea.reset(); AI.Guardians.reset(); AI.Birth.reset(); AI.Mysteries.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); } catch (e) { AI.warn('reset', e); }
+      try { resetWorld(); AI.Decor.reset(seed); AI.Journey.reset(AI.Decor.seed); AI.Wildlife.reset(); AI.Light.reset(); AI.Talk.reset(); AI.Exp.reset(); AI.Events.reset(); AI.Power.reset(); AI.Totem.reset(); if (AI.Trio) AI.Trio.reset(); if (AI.Well) AI.Well.reset(); if (AI.Breakables) AI.Breakables.reset(); if (AI.Spiritomb) AI.Spiritomb.reset(); if (AI.Apparitions) AI.Apparitions.reset(); if (AI.Regi) AI.Regi.reset(); AI.Forest.reset(); AI.Ocean.reset(); AI.OceanDraw.reset(); if (AI.Boats) AI.Boats.reset(); AI.Sea.reset(); AI.Guardians.reset(); AI.Birth.reset(); AI.Mysteries.reset(); AI.Sky.reset(); AI.Areas.reset(); AI.Lore.reset(); AI.Mansion.reset(); AI.Haunt.reset(); AI.Story.reset(); } catch (e) { AI.warn('reset', e); }
       return oWR.apply(this, arguments);
     };
     function resetWorld() {

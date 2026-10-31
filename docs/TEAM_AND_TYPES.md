@@ -27,6 +27,10 @@ to take it out, or **Make lead** to lead with it. Your team is kept on your save
 
 The whole point: switch to the Pokémon the wild ones can't touch.
 
+**Special teams:** some legends answer only to the right team. Relicanth first and Wailord last open
+the Sealed Chamber; Regirock, Regice and Registeel together wake Regigigas. See
+[THE_REGIS.md](THE_REGIS.md).
+
 ---
 
 ## Types matter (`66-types.js`)

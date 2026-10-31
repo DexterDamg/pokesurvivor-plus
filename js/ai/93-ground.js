@@ -164,6 +164,7 @@
     const t = AI.time;
     switch (it.k) {
       case 'well': if (AI.Well) AI.Well.draw(ctx, it); break; // (86-well.js)
+      case 'regi': if (AI.Regi) AI.Regi.drawItem(ctx, it); break; // (69-regi.js)
       case 'ocean': if (AI.OceanDraw) AI.OceanDraw.drawItem(ctx, it); break; // (34-ocean-draw.js)
       case 'bush': case 'plant': case 'mush': {
         const k = D.shakeOf('d' + it.id);

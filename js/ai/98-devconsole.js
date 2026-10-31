@@ -7,6 +7,7 @@
  *   catch <name|dex>                          that Pokémon joins you
  *   spawns on | off                           wild Pokémon keep appearing, or don't
  *   keystone · innocents <n> · spiritomb       the Odd Keystone, the innocent count, Spiritomb's fight now
+ *   regi [solve|reset|team|chamber|steel|rock|gigas]  the Sealed Chamber and the Regis (69-regi.js)
  *   karma [max|clear|<n>|judge]               the hidden KARMA (100-karma.js): see it, max it, clear it, or call the judgment
  *   well · mansion                            the old well next to you · the mansion's route now
  *   god · heal · level <n> · coins <n> · kill time <hour> · weather clear|rain|storm|fog|snow
@@ -129,6 +130,39 @@
     if (/^\d+$/.test(k)) { K.set(+k); return show(); }
     throw new Error('karma | karma max | karma clear | karma <0-' + K.MAX + '> | karma judge');
   }
+  // the Sealed Chamber and the Regis (69-regi.js)
+  function regi(k) {
+    const G = AI.Regi;
+    if (!G) throw new Error('the Regi module isn\'t loaded');
+    const nm = { 377: 'Regirock', 378: 'Regice', 379: 'Registeel', 486: 'Regigigas' };
+    const show = () => 'Sealed Chamber: ' + (G.solved() ? 'solved' : 'sealed') + ' · team: ' + (G.setupOk() ? 'Relicanth first, Wailord last ✓' : 'needs Relicanth first and Wailord last') + ' · beaten: ' + (Object.keys(G.save.won).map((d) => nm[d] || d).join(', ') || 'none') + (G.gigasOk() ? ' · all three Regis on your team' : '');
+    if (!k) return show() + '  (regi solve | reset | team | chamber | steel | rock | gigas)';
+    if (k === 'solve') { G.unlock(); return 'the Sealed Chamber is solved: the caves open in the Shady Forest (Registeel) and the Crystal Caves (Regirock)'; }
+    if (k === 'reset') { G.forget(); return 'the Sealed Chamber is sealed again; no Regi beaten'; }
+    if (k === 'team') {
+      const r = R();
+      for (const d of [369, 321]) if (!r.DB.owns(d)) r.DB.grant(d, 'dev');
+      const t = AI.Team.chosen().filter((d) => d !== 369 && d !== 321).slice(0, 4);
+      AI.Team.setTeam([369].concat(t, [321])); commit(); refreshMenu();
+      return 'your team: Relicanth first, Wailord last' + (inRun() ? ' (from your next run)' : '');
+    }
+    if (k === 'chamber') {
+      const p = need(), o = AI.Ocean && AI.Ocean.on() && AI.Ocean.islandById('sealed');
+      if (!o) throw new Error('the Sealed Chamber is in the Tropical Ocean (Level 3)');
+      if (p.psxBoat) AI.Boats.leave(p.psxBoat, [o.x, o.y + 200]);
+      p.x = o.x; p.y = o.y + 200; p._psxOk = [p.x, p.y];
+      return 'you stand before the Sealed Chamber';
+    }
+    const dex = { steel: 379, registeel: 379, rock: 377, regirock: 377, gigas: 486, regigigas: 486 }[k];
+    if (!dex) throw new Error('regi | regi solve | reset | team | chamber | steel | rock | gigas');
+    const p = need();
+    G.unlock();
+    delete G.st.beatenRun[dex];
+    G.st.scene = null;
+    const c = G.caveOf(dex) && Math.hypot(G.caveOf(dex).x - p.x, G.caveOf(dex).y - p.y) < 600 ? G.caveOf(dex) : G.placeCave(dex, [p.x, p.y - 180]);
+    G.startScene(c);
+    return nm[dex] + '\'s door opens…';
+  }
   function weather(k) {
     const W = { clear: { rain: 0, storm: 0, fog: 0, cloud: 0.1, snow: 0 }, rain: { rain: 0.8, storm: 0, fog: 0.1, cloud: 0.8, snow: 0 }, storm: { rain: 1, storm: 1, fog: 0.1, cloud: 1, snow: 0 }, fog: { rain: 0, storm: 0, fog: 0.95, cloud: 0.5, snow: 0 }, snow: { rain: 0, storm: 0, fog: 0.2, cloud: 0.8, snow: 0.9 }, auto: { release: true } }[k];
     if (!W) throw new Error('weather clear | rain | storm | fog | snow | auto');
@@ -144,6 +178,7 @@
     'unlock stages | pokemon | shiny | all     lock stages',
     'spawn <name|dex> [n] [boss|peaceful]      catch <name|dex>      spawns on|off',
     'keystone      innocents <n>      spiritomb      well      mansion',
+    'regi      regi solve | reset | team | chamber | steel | rock | gigas   (the Sealed Chamber and the Regis)',
     'karma      karma max | clear | <0-25> | judge   (the hidden KARMA: test it maxed or not)',
     'god      heal      level <n>      coins <n>      kill      time <hour>      weather <clear|rain|storm|fog|snow|auto>',
   ];
@@ -172,6 +207,7 @@
       case 'spiritomb': return spiritombNow();
       case 'well': return wellHere();
       case 'karma': return karma((x || '').toLowerCase());
+      case 'regi': return regi((x || '').toLowerCase());
       case 'mansion': need(); if (!AI.Forest || !AI.Forest.on()) throw new Error('the mansion is in the Shady Forest'); AI.Journey.establishNow(); return 'the path to the mansion is open';
       case 'god': { const p = need(); p.god = !p.god; return 'god mode ' + (p.god ? 'on' : 'off'); }
       case 'heal': { const p = need(); p.hp = p.maxHp; return 'healed'; }
@@ -196,6 +232,8 @@
     ['God mode', 'god'], ['Heal', 'heal'], ['+5 levels', 'level 5'], ['+10000 coins', 'coins 10000'],
     ['Spawns off', 'spawns off'], ['Spawns on', 'spawns on'], ['Clear Pokémon', 'kill'], ['Mansion now', 'mansion'],
     ['Odd Keystone', 'keystone'], ['100 innocents', 'innocents 100'], ['Well here', 'well'], ['Fight Spiritomb', 'spiritomb'],
+    ['Regi: status', 'regi'], ['Chamber solved', 'regi solve'], ['Relicanth + Wailord', 'regi team'], ['Go to the Chamber', 'regi chamber'],
+    ['Fight Registeel', 'regi steel'], ['Fight Regirock', 'regi rock'], ['Fight Regigigas', 'regi gigas'], ['Regi: reset', 'regi reset'],
     ['KARMA: show', 'karma'], ['KARMA max', 'karma max'], ['KARMA clear', 'karma clear'], ['KARMA judgment', 'karma judge'],
     ['Noon', 'time 12'], ['Midnight', 'time 0'], ['Clear sky', 'weather clear'], ['Storm', 'weather storm'],
   ];
